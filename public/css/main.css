@@ -1,0 +1,244 @@
+/* ============================================================
+   CSS Custom Properties
+   ============================================================ */
+:root {
+  --primary-color: #0d6efd;
+  --accent-color: #ffc107;
+  --dark-bg: #1a1a2e;
+  --card-bg: #ffffff;
+  --card-border-radius: 0.75rem;
+  --card-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+  --card-shadow-hover: 0 8px 32px rgba(0, 0, 0, 0.15);
+  --transition-speed: 0.25s;
+  --gallery-gap: 1rem;
+  --tag-bg: #e9ecef;
+  --tag-color: #495057;
+  --tag-bg-active: #0d6efd;
+  --tag-color-active: #ffffff;
+  --footer-bg: #f8f9fa;
+  --hero-gradient-start: #0d1b2a;
+  --hero-gradient-end: #1b3a5c;
+}
+
+/* ============================================================
+   Base & Reset
+   ============================================================ */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  background-color: #f4f6f9;
+  color: #212529;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+main {
+  flex: 1;
+}
+
+/* ============================================================
+   Hero Section
+   ============================================================ */
+.hero-section {
+  background: linear-gradient(
+    135deg,
+    var(--hero-gradient-start) 0%,
+    var(--hero-gradient-end) 100%
+  );
+  min-height: 480px;
+  display: flex;
+  align-items: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.hero-section::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(
+    circle at 80% 20%,
+    rgba(255, 193, 7, 0.12) 0%,
+    transparent 60%
+  );
+  pointer-events: none;
+}
+
+.hero-icon {
+  animation: float 3s ease-in-out infinite;
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50%       { transform: translateY(-12px); }
+}
+
+/* ============================================================
+   Features Section
+   ============================================================ */
+.features-section {
+  background-color: #ffffff;
+}
+
+.feature-card {
+  background: var(--card-bg);
+  border-radius: var(--card-border-radius);
+  box-shadow: var(--card-shadow);
+  transition: transform var(--transition-speed) ease,
+              box-shadow var(--transition-speed) ease;
+  cursor: default;
+}
+
+.feature-card:hover {
+  transform: translateY(-6px);
+  box-shadow: var(--card-shadow-hover);
+}
+
+.feature-icon {
+  font-size: 2.5rem;
+  line-height: 1;
+}
+
+/* ============================================================
+   Gallery Grid
+   ============================================================ */
+.gallery-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: var(--gallery-gap);
+}
+
+.gallery-card {
+  background: var(--card-bg);
+  border-radius: var(--card-border-radius);
+  box-shadow: var(--card-shadow);
+  overflow: hidden;
+  transition: transform var(--transition-speed) ease,
+              box-shadow var(--transition-speed) ease;
+}
+
+.gallery-card:hover {
+  transform: translateY(-4px) scale(1.02);
+  box-shadow: var(--card-shadow-hover);
+}
+
+.gallery-card img {
+  width: 100%;
+  height: 200px;
+  object-fit: cover;
+  display: block;
+  transition: transform var(--transition-speed) ease;
+}
+
+.gallery-card:hover img {
+  transform: scale(1.05);
+}
+
+.gallery-card .card-body {
+  padding: 0.75rem 1rem;
+}
+
+.gallery-card .card-title {
+  font-size: 0.9rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ============================================================
+   Tag Badges
+   ============================================================ */
+.tag-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  background-color: var(--tag-bg);
+  color: var(--tag-color);
+  text-decoration: none;
+  transition: background-color var(--transition-speed) ease,
+              color var(--transition-speed) ease,
+              transform 0.15s ease;
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+
+.tag-badge:hover,
+.tag-badge.active {
+  background-color: var(--tag-bg-active);
+  color: var(--tag-color-active);
+  transform: scale(1.05);
+}
+
+.tag-badge .tag-count {
+  background: rgba(255, 255, 255, 0.25);
+  border-radius: 999px;
+  padding: 0 0.35rem;
+  font-size: 0.7rem;
+}
+
+/* ============================================================
+   Footer
+   ============================================================ */
+.footer {
+  background-color: var(--footer-bg);
+  border-top: 1px solid #dee2e6;
+}
+
+/* ============================================================
+   Utilities
+   ============================================================ */
+.cursor-pointer {
+  cursor: pointer;
+}
+
+.object-fit-cover {
+  object-fit: cover;
+}
+
+/* ============================================================
+   Upload Area
+   ============================================================ */
+.upload-dropzone {
+  border: 2px dashed #adb5bd;
+  border-radius: var(--card-border-radius);
+  padding: 3rem 2rem;
+  text-align: center;
+  transition: border-color var(--transition-speed) ease,
+              background-color var(--transition-speed) ease;
+  cursor: pointer;
+}
+
+.upload-dropzone:hover,
+.upload-dropzone.dragover {
+  border-color: var(--primary-color);
+  background-color: rgba(13, 110, 253, 0.04);
+}
+
+/* ============================================================
+   Responsive Adjustments
+   ============================================================ */
+@media (max-width: 576px) {
+  .hero-section {
+    min-height: 360px;
+  }
+
+  .gallery-grid {
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  }
+}
