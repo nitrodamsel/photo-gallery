@@ -1,65 +1,72 @@
-# 📷 PhotoGallery
+# 📷 Photo Gallery App
 
-A self-hosted photo gallery web application built with **Express.js** and **EJS**. Upload your photos, tag them for easy retrieval, and explore rich EXIF metadata — all from a clean, responsive interface.
+A full-featured personal photo gallery built with **Node.js**, **Express**, and **EJS**. Upload photos, add tags, and explore your collection with automatic EXIF data extraction and a responsive grid layout.
 
 ---
 
 ## ✨ Features
 
-| Feature | Description |
-|---------|-------------|
-| **Easy Uploads** | Drag-and-drop or browse to upload JPEG, PNG, WebP, and HEIC images |
-| **Smart Tagging** | Organise photos with custom tags and filter the gallery instantly |
-| **EXIF Extraction** | Auto-capture camera make/model, aperture, shutter speed, ISO, and GPS |
-| **Gallery View** | Responsive masonry-style grid with smooth hover animations |
+- 📤 **Drag-and-drop uploads** — JPEG, PNG, GIF, WebP support
+- 🏷️ **Smart tagging** — Add and filter by custom tags
+- 📍 **EXIF extraction** — Camera settings, GPS, and timestamps
+- 🖼️ **Responsive gallery** — Beautiful masonry-style grid
+- ⚡ **Image processing** — Automatic thumbnail generation via Sharp
+- 🗄️ **SQLite persistence** — Lightweight, zero-configuration database
 
 ---
 
-## 🛠 Prerequisites
+## 🚀 Prerequisites
 
-- **Node.js** >= 18 (check with `node -v`)
-- **npm** >= 9 (check with `npm -v`)
+| Requirement | Version  |
+|-------------|----------|
+| Node.js     | >= 18.x  |
+| npm         | >= 9.x   |
 
 ---
 
-## 🚀 Setup & Running
+## 🛠️ Setup Instructions
+
+### 1. Clone the repository
 
 ```bash
-# 1. Clone the repository
-git clone <repo-url>
+git clone <repository-url>
 cd photo-gallery-app
-
-# 2. Install dependencies
-npm install
-
-# 3. Configure environment variables
-cp .env.example .env
-# Edit .env as needed
-
-# 4. Start the development server (with hot-reload)
-npm run dev
-
-# — or start in production mode —
-npm start
 ```
 
-The app will be available at **http://localhost:3000** (or the `PORT` you set in `.env`).
-
----
-
-## 🔍 Health Check
+### 2. Install dependencies
 
 ```bash
-curl http://localhost:3000/health
+npm install
 ```
 
-```json
-{
-  "status": "ok",
-  "timestamp": "2026-06-19T00:00:00.000Z",
-  "uptime": 42.3,
-  "environment": "development"
-}
+### 3. Configure environment variables
+
+```bash
+cp .env.example .env
+```
+
+Edit `.env` as needed:
+
+```env
+PORT=3000
+NODE_ENV=development
+UPLOAD_DIR=uploads
+MAX_FILE_SIZE_MB=10
+DB_PATH=./database.db
+```
+
+### 4. Start the development server
+
+```bash
+npm run dev
+```
+
+The server will start at **http://localhost:3000** with hot-reloading via nodemon.
+
+### 5. Production start
+
+```bash
+npm start
 ```
 
 ---
@@ -71,66 +78,87 @@ photo-gallery-app/
 ├── app.js                  # Express app factory
 ├── server.js               # Entry point
 ├── config/
-│   └── index.js            # Centralised config with env defaults
+│   └── index.js            # Centralised configuration
 ├── routes/
 │   └── index.js            # Root router (/, /health)
-├── middleware/             # Custom Express middleware (future phases)
+├── middleware/             # Custom middleware (future phases)
 ├── views/
+│   ├── home.ejs            # Landing page
+│   ├── error.ejs           # Error page
 │   ├── layouts/
 │   │   └── base.ejs        # Base HTML shell
-│   ├── partials/
-│   │   └── navbar.ejs      # Top navigation bar
-│   ├── home.ejs            # Landing page
-│   └── error.ejs           # Error page
+│   └── partials/
+│       └── navbar.ejs      # Navigation bar
 ├── public/
 │   ├── css/
-│   │   └── main.css        # Custom styles, gallery grid, tag badges
+│   │   └── main.css        # Custom styles & design tokens
 │   └── js/
 │       └── main.js         # Client-side bootstrapper
 ├── uploads/                # User-uploaded images (gitignored)
 ├── .env                    # Local environment config (gitignored)
-├── .env.example            # Template for environment variables
+├── .env.example            # Environment variable template
 ├── .gitignore
 └── package.json
 ```
 
 ---
 
-## ⚙️ Environment Variables
+## 🔌 API Endpoints
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `PORT` | `3000` | HTTP server port |
-| `NODE_ENV` | `development` | `development` or `production` |
-| `UPLOAD_DIR` | `uploads` | Directory for uploaded images |
-| `MAX_FILE_SIZE_MB` | `10` | Maximum upload size in megabytes |
-| `DB_PATH` | `./data/gallery.db` | Path to the SQLite database file |
+| Method | Path      | Description                    |
+|--------|-----------|--------------------------------|
+| GET    | `/`       | Home page                      |
+| GET    | `/health` | JSON health-check              |
 
----
+### Health Check Response
 
-## 🗺 Phase Roadmap
-
-| Phase | Status | Description |
-|-------|--------|-------------|
-| **1 – Foundation** | ✅ Complete | Express server, EJS templates, static assets, health check |
-| **2 – File Upload** | 🔜 Planned | Multer integration, image validation, Sharp processing |
-| **3 – Database** | 🔜 Planned | Sequelize models, SQLite persistence, photo CRUD |
-| **4 – EXIF & Tags** | 🔜 Planned | exifr metadata extraction, tag management UI |
-| **5 – Gallery UI** | 🔜 Planned | Masonry grid, lightbox viewer, filtering & search |
-| **6 – Polish** | 🔜 Planned | Pagination, error handling, accessibility, deployment |
+```json
+{
+  "status": "ok",
+  "timestamp": "2026-06-19T12:00:00.000Z",
+  "uptime": 42.5,
+  "environment": "development",
+  "version": "1.0.0"
+}
+```
 
 ---
 
-## 📜 Scripts
+## 📜 Available Scripts
 
-| Script | Command | Description |
-|--------|---------|-------------|
-| `dev` | `npm run dev` | Start with nodemon (hot-reload) |
-| `start` | `npm start` | Start in production mode |
-| `test` | `npm test` | Run tests (placeholder) |
+| Script        | Command         | Description                        |
+|---------------|-----------------|------------------------------------|
+| `npm start`   | `node server.js` | Start production server           |
+| `npm run dev` | `nodemon server.js` | Start with hot-reloading      |
+| `npm test`    | —               | Run tests (future phases)          |
+
+---
+
+## 🗺️ Phase Roadmap
+
+| Phase | Description                                    | Status     |
+|-------|------------------------------------------------|------------|
+| 1     | Foundation & Project Scaffold                  | ✅ Complete |
+| 2     | Image Upload & Storage                         | 🔜 Planned  |
+| 3     | Gallery View & Browsing                        | 🔜 Planned  |
+| 4     | Tagging System                                 | 🔜 Planned  |
+| 5     | EXIF Data Extraction & Display                 | 🔜 Planned  |
+| 6     | Search & Filtering                             | 🔜 Planned  |
+| 7     | Image Detail View & Lightbox                   | 🔜 Planned  |
+| 8     | Performance, Polish & Deployment               | 🔜 Planned  |
+
+---
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/my-feature`)
+3. Commit your changes (`git commit -m 'Add my feature'`)
+4. Push to the branch (`git push origin feature/my-feature`)
+5. Open a Pull Request
 
 ---
 
 ## 📄 License
 
-MIT © 2026 PhotoGallery
+MIT

@@ -1,73 +1,112 @@
 /**
- * main.js — Client-side bootstrapper for PhotoGallery
+ * main.js — Client-side bootstrapper for Photo Gallery App
  *
- * This file will grow in later phases as features are added.
- * Currently it sets up global utilities and initialises
- * Bootstrap tooltips / popovers if present.
+ * Phase 1: Minimal setup. Functionality will grow in later phases.
  */
 
 (function () {
   'use strict';
 
-  /* ------------------------------------------------------------------
-   * Bootstrap component initialisation
-   * ------------------------------------------------------------------ */
-  function initBootstrapComponents() {
-    // Tooltips
-    const tooltipEls = document.querySelectorAll('[data-bs-toggle="tooltip"]');
-    if (tooltipEls.length && window.bootstrap?.Tooltip) {
-      tooltipEls.forEach((el) => new bootstrap.Tooltip(el));
-    }
+  // ── Utility: Log helper ──────────────────────────────────────────────────
+  const isDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
 
-    // Popovers
-    const popoverEls = document.querySelectorAll('[data-bs-toggle="popover"]');
-    if (popoverEls.length && window.bootstrap?.Popover) {
-      popoverEls.forEach((el) => new bootstrap.Popover(el));
+  function log(...args) {
+    if (isDev) {
+      console.log('[PhotoGallery]', ...args);
     }
   }
 
-  /* ------------------------------------------------------------------
-   * Navbar: highlight active link based on current path
-   * ------------------------------------------------------------------ */
+  // ── Active nav link highlighting ─────────────────────────────────────────
   function highlightActiveNavLink() {
-    const links = document.querySelectorAll('.navbar-nav .nav-link');
     const currentPath = window.location.pathname;
+    const navLinks = document.querySelectorAll('.navbar .nav-link');
 
-    links.forEach((link) => {
-      const href = link.getAttribute('href');
-      if (href && href !== '/' && currentPath.startsWith(href)) {
+    navLinks.forEach(function (link) {
+      const linkPath = new URL(link.href, window.location.origin).pathname;
+
+      if (linkPath === '/' && currentPath === '/') {
         link.classList.add('active');
         link.setAttribute('aria-current', 'page');
-      } else if (href === '/' && currentPath === '/') {
+      } else if (linkPath !== '/' && currentPath.startsWith(linkPath)) {
         link.classList.add('active');
         link.setAttribute('aria-current', 'page');
       }
     });
   }
 
-  /* ------------------------------------------------------------------
-   * Flash message auto-dismiss
-   * ------------------------------------------------------------------ */
+  // ── Flash messages auto-dismiss ──────────────────────────────────────────
   function initFlashMessages() {
-    const alerts = document.querySelectorAll('.alert-dismissible.auto-dismiss');
-    alerts.forEach((alert) => {
-      const delay = parseInt(alert.dataset.delay, 10) || 4000;
-      setTimeout(() => {
-        const bsAlert = window.bootstrap?.Alert?.getOrCreateInstance(alert);
-        if (bsAlert) bsAlert.close();
-        else alert.remove();
+    const alerts = document.querySelectorAll('.alert-dismissible[data-auto-dismiss]');
+
+    alerts.forEach(function (alert) {
+      const delay = parseInt(alert.dataset.autoDismiss, 10) || 5000;
+
+      setTimeout(function () {
+        const bsAlert = window.bootstrap && window.bootstrap.Alert.getOrCreateInstance(alert);
+        if (bsAlert) {
+          bsAlert.close();
+        }
       }, delay);
     });
   }
 
-  /* ------------------------------------------------------------------
-   * DOMContentLoaded entry point
-   * ------------------------------------------------------------------ */
-  document.addEventListener('DOMContentLoaded', () => {
-    initBootstrapComponents();
+  // ── Lazy loading images ──────────────────────────────────────────────────
+  function initLazyImages() {
+    if ('loading' in HTMLImageElement.prototype) {
+      // Native lazy loading supported
+      const lazyImages = document.querySelectorAll('img[data-src]');
+      lazyImages.forEach(function (img) {
+        img.src = img.dataset.src;
+        img.removeAttribute('data-src');
+      });
+    } else if ('IntersectionObserver' in window) {
+      // Fallback: Intersection Observer
+      const observer = new IntersectionObserver(function (entries, obs) {
+        entries.forEach(function (entry) {
+          if (entry.isIntersecting) {
+            const img = entry.target;
+            img.src = img.dataset.src;
+            img.removeAttribute('data-src');
+            obs.unobserve(img);
+          }
+        });
+      }, { rootMargin: '200px' });
+
+      document.querySelectorAll('img[data-src]').forEach(function (img) {
+        observer.observe(img);
+      });
+    }
+  }
+
+  // ── Smooth scroll for anchor links ──────────────────────────────────────
+  function initSmoothScroll() {
+    document.querySelectorAll('a[href^="#"]').forEach(function (anchor) {
+      anchor.addEventListener('click', function (e) {
+        const target = document.querySelector(this.getAttribute('href'));
+        if (target) {
+          e.preventDefault();
+          target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      });
+    });
+  }
+
+  // ── DOM Ready ────────────────────────────────────────────────────────────
+  function init() {
+    log('Initialising…');
+
     highlightActiveNavLink();
     initFlashMessages();
+    initLazyImages();
+    initSmoothScroll();
 
-    console.log('[PhotoGallery] Client bootstrapper loaded ✓');
-  });
+    log('Ready ✓');
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+
 })();

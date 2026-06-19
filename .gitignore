@@ -1,4 +1,31 @@
+# Dependencies
 node_modules/
+
+# Environment variables
 .env
+
+# User uploads
 uploads/
+
+# Database
 *.db
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# Runtime data
+pids/
+*.pid
+*.seed
+
+# Coverage
+coverage/
+
+# Build output
+dist/

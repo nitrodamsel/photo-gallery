@@ -3,49 +3,56 @@
 const express = require('express');
 const router = express.Router();
 
-// GET / — Landing page
+/**
+ * GET /
+ * Renders the home page with placeholder data.
+ */
 router.get('/', (req, res) => {
   res.render('home', {
     title: 'Photo Gallery',
-    heroHeadline: 'Your Personal Photo Gallery',
-    heroSubtitle:
-      'Upload, organise, and explore your photos with automatic EXIF data extraction and powerful tagging.',
+    heroTitle: 'Your Personal Photo Gallery',
+    heroSubtitle: 'Upload, organise, and explore your photos with automatic EXIF data extraction and smart tagging.',
     features: [
       {
         icon: '📤',
         title: 'Easy Uploads',
-        description:
-          'Drag-and-drop or browse to upload JPEG, PNG, WebP, and HEIC images up to 10 MB each.',
+        description: 'Drag-and-drop or browse to upload JPEG, PNG, GIF, and WebP images up to 10 MB each.',
       },
       {
         icon: '🏷️',
         title: 'Smart Tagging',
-        description:
-          'Tag your photos to keep them organised and find exactly what you need in seconds.',
+        description: 'Add custom tags to your photos and filter your gallery instantly.',
       },
       {
-        icon: '📷',
-        title: 'EXIF Extraction',
-        description:
-          'Automatically capture camera make, model, aperture, shutter speed, ISO, and GPS data.',
+        icon: '📍',
+        title: 'EXIF Data',
+        description: 'Automatically extract camera settings, GPS coordinates, and timestamps from your photos.',
       },
       {
         icon: '🖼️',
-        title: 'Gallery View',
-        description:
-          'Browse your collection in a responsive masonry-style grid with smooth hover effects.',
+        title: 'Responsive Gallery',
+        description: 'A beautiful masonry-style grid that looks great on any device.',
       },
     ],
+    stats: {
+      photos: 0,
+      tags: 0,
+      uploads: 0,
+    },
   });
 });
 
-// GET /health — Health check endpoint
+/**
+ * GET /health
+ * Returns a JSON health-check response.
+ */
 router.get('/health', (req, res) => {
   res.status(200).json({
     status: 'ok',
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
     environment: process.env.NODE_ENV || 'development',
+    version: require('../package.json').version,
   });
 });
 
