@@ -1,7 +1,7 @@
 {
   "name": "photo-gallery-app",
   "version": "1.0.0",
-  "description": "A photo gallery web application with tagging, EXIF data, and image processing",
+  "description": "A photo gallery web application built with Express.js and EJS",
   "main": "server.js",
   "engines": {
     "node": ">=18"

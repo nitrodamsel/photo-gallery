@@ -5,15 +5,10 @@ require('dotenv').config();
 const app = require('./app');
 const config = require('./config');
 
-const PORT = config.server.port;
-const ENV = config.server.nodeEnv;
+const PORT = config.port;
 
 app.listen(PORT, () => {
-  console.log('╔════════════════════════════════════════╗');
-  console.log('║        Photo Gallery App Started       ║');
-  console.log('╚════════════════════════════════════════╝');
-  console.log(`  Environment : ${ENV}`);
-  console.log(`  Server      : http://localhost:${PORT}`);
-  console.log(`  Health      : http://localhost:${PORT}/health`);
-  console.log('────────────────────────────────────────');
+  console.log(`🚀 Server is running on http://localhost:${PORT}`);
+  console.log(`   Environment: ${config.nodeEnv}`);
+  console.log(`   Press Ctrl+C to stop`);
 });

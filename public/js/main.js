@@ -1,112 +1,68 @@
 /**
- * main.js — Client-side bootstrapper for Photo Gallery App
+ * main.js — Client-side bootstrapper for Photo Gallery
  *
- * Phase 1: Minimal setup. Functionality will grow in later phases.
+ * Phase 1: Minimal setup. This file will grow in later phases
+ * to handle file uploads, gallery interactions, tag filtering, etc.
  */
 
 (function () {
   'use strict';
 
-  // ── Utility: Log helper ──────────────────────────────────────────────────
-  const isDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+  /**
+   * App namespace
+   */
+  const PhotoGallery = {
+    version: '1.0.0',
 
-  function log(...args) {
-    if (isDev) {
-      console.log('[PhotoGallery]', ...args);
-    }
-  }
+    /**
+     * Initialise all modules
+     */
+    init() {
+      this.initTooltips();
+      this.initNavHighlight();
+      console.log(`📸 Photo Gallery v${this.version} initialised.`);
+    },
 
-  // ── Active nav link highlighting ─────────────────────────────────────────
-  function highlightActiveNavLink() {
-    const currentPath = window.location.pathname;
-    const navLinks = document.querySelectorAll('.navbar .nav-link');
-
-    navLinks.forEach(function (link) {
-      const linkPath = new URL(link.href, window.location.origin).pathname;
-
-      if (linkPath === '/' && currentPath === '/') {
-        link.classList.add('active');
-        link.setAttribute('aria-current', 'page');
-      } else if (linkPath !== '/' && currentPath.startsWith(linkPath)) {
-        link.classList.add('active');
-        link.setAttribute('aria-current', 'page');
-      }
-    });
-  }
-
-  // ── Flash messages auto-dismiss ──────────────────────────────────────────
-  function initFlashMessages() {
-    const alerts = document.querySelectorAll('.alert-dismissible[data-auto-dismiss]');
-
-    alerts.forEach(function (alert) {
-      const delay = parseInt(alert.dataset.autoDismiss, 10) || 5000;
-
-      setTimeout(function () {
-        const bsAlert = window.bootstrap && window.bootstrap.Alert.getOrCreateInstance(alert);
-        if (bsAlert) {
-          bsAlert.close();
-        }
-      }, delay);
-    });
-  }
-
-  // ── Lazy loading images ──────────────────────────────────────────────────
-  function initLazyImages() {
-    if ('loading' in HTMLImageElement.prototype) {
-      // Native lazy loading supported
-      const lazyImages = document.querySelectorAll('img[data-src]');
-      lazyImages.forEach(function (img) {
-        img.src = img.dataset.src;
-        img.removeAttribute('data-src');
-      });
-    } else if ('IntersectionObserver' in window) {
-      // Fallback: Intersection Observer
-      const observer = new IntersectionObserver(function (entries, obs) {
-        entries.forEach(function (entry) {
-          if (entry.isIntersecting) {
-            const img = entry.target;
-            img.src = img.dataset.src;
-            img.removeAttribute('data-src');
-            obs.unobserve(img);
-          }
-        });
-      }, { rootMargin: '200px' });
-
-      document.querySelectorAll('img[data-src]').forEach(function (img) {
-        observer.observe(img);
-      });
-    }
-  }
-
-  // ── Smooth scroll for anchor links ──────────────────────────────────────
-  function initSmoothScroll() {
-    document.querySelectorAll('a[href^="#"]').forEach(function (anchor) {
-      anchor.addEventListener('click', function (e) {
-        const target = document.querySelector(this.getAttribute('href'));
-        if (target) {
-          e.preventDefault();
-          target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    /**
+     * Bootstrap 5 tooltip initialisation
+     */
+    initTooltips() {
+      const tooltipEls = document.querySelectorAll('[data-bs-toggle="tooltip"]');
+      tooltipEls.forEach(el => {
+        // Bootstrap's Tooltip constructor is available globally via the CDN bundle
+        if (typeof bootstrap !== 'undefined' && bootstrap.Tooltip) {
+          new bootstrap.Tooltip(el);
         }
       });
-    });
-  }
+    },
 
-  // ── DOM Ready ────────────────────────────────────────────────────────────
-  function init() {
-    log('Initialising…');
+    /**
+     * Highlight the active nav link based on current pathname
+     */
+    initNavHighlight() {
+      const path = window.location.pathname;
+      const navLinks = document.querySelectorAll('.navbar-nav .nav-link');
 
-    highlightActiveNavLink();
-    initFlashMessages();
-    initLazyImages();
-    initSmoothScroll();
+      navLinks.forEach(link => {
+        const href = link.getAttribute('href');
+        if (href && href !== '/' && path.startsWith(href)) {
+          link.classList.add('active');
+          link.setAttribute('aria-current', 'page');
+        } else if (href === '/' && path === '/') {
+          link.classList.add('active');
+          link.setAttribute('aria-current', 'page');
+        }
+      });
+    }
+  };
 
-    log('Ready ✓');
-  }
-
+  // Run after the DOM is ready
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init);
+    document.addEventListener('DOMContentLoaded', () => PhotoGallery.init());
   } else {
-    init();
+    PhotoGallery.init();
   }
 
+  // Expose to window for debugging in development
+  window.PhotoGallery = PhotoGallery;
 })();

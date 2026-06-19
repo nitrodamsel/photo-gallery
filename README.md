@@ -1,30 +1,28 @@
-# 📷 Photo Gallery App
+# 📸 Photo Gallery App
 
-A full-featured personal photo gallery built with **Node.js**, **Express**, and **EJS**. Upload photos, add tags, and explore your collection with automatic EXIF data extraction and a responsive grid layout.
+A full-featured photo gallery web application built with **Express.js**, **EJS**, and **SQLite**. Upload, tag, browse, and manage your photos with automatic EXIF data extraction and thumbnail generation.
 
 ---
 
 ## ✨ Features
 
-- 📤 **Drag-and-drop uploads** — JPEG, PNG, GIF, WebP support
-- 🏷️ **Smart tagging** — Add and filter by custom tags
-- 📍 **EXIF extraction** — Camera settings, GPS, and timestamps
-- 🖼️ **Responsive gallery** — Beautiful masonry-style grid
-- ⚡ **Image processing** — Automatic thumbnail generation via Sharp
-- 🗄️ **SQLite persistence** — Lightweight, zero-configuration database
+- 🖼️ **Upload Photos** — Drag-and-drop or click-to-upload with size validation
+- 🏷️ **Tag & Organize** — Add custom tags to photos and browse by category
+- 🔍 **Search & Filter** — Full-text search and tag-based filtering
+- 📊 **EXIF Data** — Automatic extraction of camera metadata
+- 🖼️ **Thumbnails** — Automatic thumbnail generation with Sharp
+- 🗄️ **SQLite Storage** — Lightweight, file-based database via Sequelize
 
 ---
 
-## 🚀 Prerequisites
+## 🛠️ Prerequisites
 
-| Requirement | Version  |
-|-------------|----------|
-| Node.js     | >= 18.x  |
-| npm         | >= 9.x   |
+- **Node.js** >= 18.x ([Download](https://nodejs.org/))
+- **npm** >= 9.x (comes with Node.js)
 
 ---
 
-## 🛠️ Setup Instructions
+## 🚀 Setup Instructions
 
 ### 1. Clone the repository
 
@@ -61,7 +59,7 @@ DB_PATH=./database.db
 npm run dev
 ```
 
-The server will start at **http://localhost:3000** with hot-reloading via nodemon.
+The app will be available at **http://localhost:3000**
 
 ### 5. Production start
 
@@ -75,40 +73,40 @@ npm start
 
 ```
 photo-gallery-app/
-├── app.js                  # Express app factory
-├── server.js               # Entry point
+├── app.js              # Express app factory
+├── server.js           # Entry point — starts the HTTP server
+├── .env                # Local environment config (gitignored)
+├── .env.example        # Template for environment variables
+├── .gitignore
+├── package.json
 ├── config/
-│   └── index.js            # Centralised configuration
+│   └── index.js        # Centralised config with validation
+├── middleware/         # Custom Express middleware
 ├── routes/
-│   └── index.js            # Root router (/, /health)
-├── middleware/             # Custom middleware (future phases)
+│   └── index.js        # Root router (/, /health)
 ├── views/
-│   ├── home.ejs            # Landing page
-│   ├── error.ejs           # Error page
+│   ├── home.ejs        # Landing page
+│   ├── error.ejs       # Error page
 │   ├── layouts/
-│   │   └── base.ejs        # Base HTML shell
+│   │   └── base.ejs    # Base HTML shell
 │   └── partials/
-│       └── navbar.ejs      # Navigation bar
+│       └── navbar.ejs  # Navigation bar
 ├── public/
 │   ├── css/
-│   │   └── main.css        # Custom styles & design tokens
+│   │   └── main.css    # Custom styles, gallery grid, tag badges
 │   └── js/
-│       └── main.js         # Client-side bootstrapper
-├── uploads/                # User-uploaded images (gitignored)
-├── .env                    # Local environment config (gitignored)
-├── .env.example            # Environment variable template
-├── .gitignore
-└── package.json
+│       └── main.js     # Client-side bootstrapper
+└── uploads/            # User-uploaded files (gitignored)
 ```
 
 ---
 
-## 🔌 API Endpoints
+## 🔗 API Endpoints
 
-| Method | Path      | Description                    |
-|--------|-----------|--------------------------------|
-| GET    | `/`       | Home page                      |
-| GET    | `/health` | JSON health-check              |
+| Method | Path      | Description                     |
+|--------|-----------|---------------------------------|
+| GET    | `/`       | Home / landing page             |
+| GET    | `/health` | Health-check — returns JSON     |
 
 ### Health Check Response
 
@@ -117,35 +115,34 @@ photo-gallery-app/
   "status": "ok",
   "timestamp": "2026-06-19T12:00:00.000Z",
   "uptime": 42.5,
-  "environment": "development",
-  "version": "1.0.0"
+  "environment": "development"
 }
 ```
 
 ---
 
-## 📜 Available Scripts
+## 📋 Available Scripts
 
 | Script        | Command         | Description                        |
 |---------------|-----------------|------------------------------------|
-| `npm start`   | `node server.js` | Start production server           |
-| `npm run dev` | `nodemon server.js` | Start with hot-reloading      |
-| `npm test`    | —               | Run tests (future phases)          |
+| `start`       | `npm start`     | Start the server (production)      |
+| `dev`         | `npm run dev`   | Start with nodemon (auto-reload)   |
+| `test`        | `npm test`      | Run tests                          |
 
 ---
 
 ## 🗺️ Phase Roadmap
 
-| Phase | Description                                    | Status     |
-|-------|------------------------------------------------|------------|
-| 1     | Foundation & Project Scaffold                  | ✅ Complete |
-| 2     | Image Upload & Storage                         | 🔜 Planned  |
-| 3     | Gallery View & Browsing                        | 🔜 Planned  |
-| 4     | Tagging System                                 | 🔜 Planned  |
-| 5     | EXIF Data Extraction & Display                 | 🔜 Planned  |
-| 6     | Search & Filtering                             | 🔜 Planned  |
-| 7     | Image Detail View & Lightbox                   | 🔜 Planned  |
-| 8     | Performance, Polish & Deployment               | 🔜 Planned  |
+| Phase | Description                                      | Status      |
+|-------|--------------------------------------------------|-------------|
+| 1     | Foundation & Project Scaffold                    | ✅ Complete |
+| 2     | File Upload with Multer & Sharp Thumbnails       | 🔜 Planned  |
+| 3     | SQLite Database & Sequelize Models               | 🔜 Planned  |
+| 4     | Gallery Browsing & Filtering                     | 🔜 Planned  |
+| 5     | Tag Management System                            | 🔜 Planned  |
+| 6     | EXIF Data Extraction & Display                   | 🔜 Planned  |
+| 7     | Search Functionality                             | 🔜 Planned  |
+| 8     | UI Polish & Performance Optimisation             | 🔜 Planned  |
 
 ---
 
