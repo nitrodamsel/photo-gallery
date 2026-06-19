@@ -1,161 +1,114 @@
-# 📸 Photo Gallery App
+# PhotoGallery
 
-A full-featured photo gallery web application built with **Express.js**, **EJS**, and **SQLite**. Upload, tag, browse, and manage your photos with automatic EXIF data extraction and thumbnail generation.
-
----
-
-## ✨ Features
-
-- 🖼️ **Upload Photos** — Drag-and-drop or click-to-upload with size validation
-- 🏷️ **Tag & Organize** — Add custom tags to photos and browse by category
-- 🔍 **Search & Filter** — Full-text search and tag-based filtering
-- 📊 **EXIF Data** — Automatic extraction of camera metadata
-- 🖼️ **Thumbnails** — Automatic thumbnail generation with Sharp
-- 🗄️ **SQLite Storage** — Lightweight, file-based database via Sequelize
+A full-featured photo gallery web application built with **Node.js**, **Express**, and **EJS**. Upload photos, organise them with custom tags, and explore rich EXIF metadata — all in a clean, responsive UI.
 
 ---
 
-## 🛠️ Prerequisites
+## ✨ Features (Roadmap)
 
-- **Node.js** >= 18.x ([Download](https://nodejs.org/))
-- **npm** >= 9.x (comes with Node.js)
+| Phase | Description | Status |
+|-------|-------------|--------|
+| **1** | Foundation & project scaffold | ✅ Complete |
+| **2** | Image upload & processing (Sharp, Multer) | 🔜 Planned |
+| **3** | Gallery view with masonry grid | 🔜 Planned |
+| **4** | Tagging system & filter UI | 🔜 Planned |
+| **5** | EXIF metadata extraction & display | 🔜 Planned |
+| **6** | Search & advanced filtering | 🔜 Planned |
 
 ---
 
-## 🚀 Setup Instructions
+## 🛠 Prerequisites
 
-### 1. Clone the repository
+- **Node.js** >= 18  
+- **npm** >= 9
+
+---
+
+## 🚀 Setup & Running Locally
 
 ```bash
-git clone <repository-url>
-cd photo-gallery-app
-```
+# 1. Clone the repository
+git clone https://github.com/your-username/photo-gallery.git
+cd photo-gallery
 
-### 2. Install dependencies
-
-```bash
+# 2. Install dependencies
 npm install
-```
 
-### 3. Configure environment variables
-
-```bash
+# 3. Configure environment variables
 cp .env.example .env
-```
+#    Edit .env as needed (defaults work out of the box for local dev)
 
-Edit `.env` as needed:
-
-```env
-PORT=3000
-NODE_ENV=development
-UPLOAD_DIR=uploads
-MAX_FILE_SIZE_MB=10
-DB_PATH=./database.db
-```
-
-### 4. Start the development server
-
-```bash
+# 4. Start the development server (with hot-reload via nodemon)
 npm run dev
 ```
 
-The app will be available at **http://localhost:3000**
-
-### 5. Production start
-
-```bash
-npm start
-```
+The app will be available at **http://localhost:3000**.
 
 ---
 
 ## 📁 Project Structure
 
 ```
-photo-gallery-app/
-├── app.js              # Express app factory
-├── server.js           # Entry point — starts the HTTP server
-├── .env                # Local environment config (gitignored)
-├── .env.example        # Template for environment variables
-├── .gitignore
-├── package.json
+photo-gallery/
+├── app.js                  # Express app factory
+├── server.js               # Entry point — calls app.listen
+├── .env                    # Local environment config (git-ignored)
+├── .env.example            # Environment variable template
 ├── config/
-│   └── index.js        # Centralised config with validation
-├── middleware/         # Custom Express middleware
+│   └── index.js            # Centralised config with validation
 ├── routes/
-│   └── index.js        # Root router (/, /health)
+│   └── index.js            # Root router (GET /, GET /health)
+├── middleware/             # Custom Express middleware (future phases)
 ├── views/
-│   ├── home.ejs        # Landing page
-│   ├── error.ejs       # Error page
+│   ├── home.ejs            # Landing page
+│   ├── error.ejs           # Error page
 │   ├── layouts/
-│   │   └── base.ejs    # Base HTML shell
+│   │   └── base.ejs        # Base HTML shell
 │   └── partials/
-│       └── navbar.ejs  # Navigation bar
+│       └── navbar.ejs      # Navigation bar
 ├── public/
-│   ├── css/
-│   │   └── main.css    # Custom styles, gallery grid, tag badges
-│   └── js/
-│       └── main.js     # Client-side bootstrapper
-└── uploads/            # User-uploaded files (gitignored)
+│   ├── css/main.css        # Custom styles & CSS variables
+│   └── js/main.js          # Client-side JS bootstrapper
+└── uploads/                # Uploaded images (git-ignored)
 ```
 
 ---
 
-## 🔗 API Endpoints
+## 🔌 API Endpoints
 
-| Method | Path      | Description                     |
-|--------|-----------|---------------------------------|
-| GET    | `/`       | Home / landing page             |
-| GET    | `/health` | Health-check — returns JSON     |
-
-### Health Check Response
-
-```json
-{
-  "status": "ok",
-  "timestamp": "2026-06-19T12:00:00.000Z",
-  "uptime": 42.5,
-  "environment": "development"
-}
-```
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/` | Landing / home page |
+| `GET` | `/health` | Health-check — returns JSON status |
 
 ---
 
-## 📋 Available Scripts
+## 🧰 Tech Stack
 
-| Script        | Command         | Description                        |
-|---------------|-----------------|------------------------------------|
-| `start`       | `npm start`     | Start the server (production)      |
-| `dev`         | `npm run dev`   | Start with nodemon (auto-reload)   |
-| `test`        | `npm test`      | Run tests                          |
-
----
-
-## 🗺️ Phase Roadmap
-
-| Phase | Description                                      | Status      |
-|-------|--------------------------------------------------|-------------|
-| 1     | Foundation & Project Scaffold                    | ✅ Complete |
-| 2     | File Upload with Multer & Sharp Thumbnails       | 🔜 Planned  |
-| 3     | SQLite Database & Sequelize Models               | 🔜 Planned  |
-| 4     | Gallery Browsing & Filtering                     | 🔜 Planned  |
-| 5     | Tag Management System                            | 🔜 Planned  |
-| 6     | EXIF Data Extraction & Display                   | 🔜 Planned  |
-| 7     | Search Functionality                             | 🔜 Planned  |
-| 8     | UI Polish & Performance Optimisation             | 🔜 Planned  |
+| Layer | Technology |
+|-------|-----------|
+| Web framework | [Express.js](https://expressjs.com/) |
+| Templating | [EJS](https://ejs.co/) |
+| Styling | [Bootstrap 5](https://getbootstrap.com/) + custom CSS |
+| Image processing | [Sharp](https://sharp.pixelplumbing.com/) *(Phase 2)* |
+| EXIF extraction | [exifr](https://github.com/MikeKovarik/exifr) *(Phase 5)* |
+| ORM / Database | [Sequelize](https://sequelize.org/) + SQLite *(Phase 2)* |
+| File uploads | [Multer](https://github.com/expressjs/multer) *(Phase 2)* |
+| Dev server | [nodemon](https://nodemon.io/) |
+| Config | [dotenv](https://github.com/motdotla/dotenv) |
 
 ---
 
-## 🤝 Contributing
+## 📝 Scripts
 
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/my-feature`)
-3. Commit your changes (`git commit -m 'Add my feature'`)
-4. Push to the branch (`git push origin feature/my-feature`)
-5. Open a Pull Request
+| Script | Command | Description |
+|--------|---------|-------------|
+| `start` | `npm start` | Run in production mode |
+| `dev` | `npm run dev` | Run with nodemon (hot-reload) |
+| `test` | `npm test` | Run test suite *(placeholder)* |
 
 ---
 
 ## 📄 License
 
-MIT
+MIT — see [LICENSE](LICENSE) for details.

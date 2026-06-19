@@ -3,12 +3,11 @@
 require('dotenv').config();
 
 const app = require('./app');
-const config = require('./config');
 
-const PORT = config.port;
+const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
   console.log(`🚀 Server is running on http://localhost:${PORT}`);
-  console.log(`   Environment: ${config.nodeEnv}`);
-  console.log(`   Press Ctrl+C to stop`);
+  console.log(`   Environment : ${process.env.NODE_ENV || 'development'}`);
+  console.log(`   Health check: http://localhost:${PORT}/health`);
 });
