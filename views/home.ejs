@@ -1,19 +1,18 @@
 <%- include('layouts/base', { body: `
 
-  <!-- ── Hero ─────────────────────────────────────────────────────────────── -->
-  <section class="hero-section text-white text-center d-flex align-items-center">
+  <!-- Hero Section -->
+  <section class="hero-section text-white text-center d-flex align-items-center justify-content-center">
     <div class="container py-5">
       <div class="row justify-content-center">
         <div class="col-lg-8">
-          <h1 class="display-3 fw-bold mb-3">
-            <i class="bi bi-images me-2"></i>PhotoGallery
-          </h1>
-          <p class="lead mb-4 text-white-50">${tagline}</p>
-          <div class="d-flex flex-wrap justify-content-center gap-3">
-            <a href="/upload" class="btn btn-primary btn-lg px-5">
+          <i class="bi bi-camera2 hero-icon mb-4 d-block"></i>
+          <h1 class="display-4 fw-bold mb-3">${heroHeadline}</h1>
+          <p class="lead mb-4 text-white-50">${heroSubtext}</p>
+          <div class="d-flex gap-3 justify-content-center flex-wrap">
+            <a href="/upload" class="btn btn-primary btn-lg px-4">
               <i class="bi bi-cloud-upload me-2"></i>Upload Photos
             </a>
-            <a href="/gallery" class="btn btn-outline-light btn-lg px-5">
+            <a href="/gallery" class="btn btn-outline-light btn-lg px-4">
               <i class="bi bi-grid-3x3-gap me-2"></i>Browse Gallery
             </a>
           </div>
@@ -22,34 +21,36 @@
     </div>
   </section>
 
-  <!-- ── Features ─────────────────────────────────────────────────────────── -->
-  <section class="py-6 bg-light">
-    <div class="container py-5">
-      <h2 class="text-center fw-bold mb-2">Everything you need</h2>
-      <p class="text-center text-muted mb-5">A full-featured photo management experience right in your browser.</p>
+  <!-- Features Section -->
+  <section class="features-section py-5 bg-light">
+    <div class="container">
+      <div class="text-center mb-5">
+        <h2 class="fw-bold">Everything You Need</h2>
+        <p class="text-muted">A complete photo management experience in your browser.</p>
+      </div>
       <div class="row g-4">
-        ${features.map(f => `
-        <div class="col-sm-6 col-lg-3">
-          <div class="card h-100 feature-card border-0 shadow-sm text-center p-3">
-            <div class="card-body">
-              <div class="feature-icon mb-3">${f.icon}</div>
-              <h5 class="card-title fw-semibold">${f.heading}</h5>
-              <p class="card-text text-muted small">${f.body}</p>
+        ${features.map(f => \`
+          <div class="col-sm-6 col-lg-3">
+            <div class="card feature-card h-100 border-0 shadow-sm text-center p-3">
+              <div class="card-body">
+                <div class="feature-icon mb-3">${f.icon}</div>
+                <h5 class="card-title fw-semibold">${f.title}</h5>
+                <p class="card-text text-muted small">${f.description}</p>
+              </div>
             </div>
           </div>
-        </div>
-        `).join('')}
+        \`).join('')}
       </div>
     </div>
   </section>
 
-  <!-- ── Call to action ────────────────────────────────────────────────────── -->
-  <section class="py-5 text-center bg-primary text-white">
-    <div class="container py-4">
-      <h2 class="fw-bold mb-3">Ready to get started?</h2>
-      <p class="lead text-white-50 mb-4">Upload your first photo and start building your collection today.</p>
-      <a href="/upload" class="btn btn-light btn-lg px-5 fw-semibold">
-        <i class="bi bi-rocket-takeoff me-2"></i>Get Started
+  <!-- Status / CTA Section -->
+  <section class="py-5">
+    <div class="container text-center">
+      <h3 class="fw-bold mb-3">Ready to Get Started?</h3>
+      <p class="text-muted mb-4">Create your personal gallery in seconds — no account required.</p>
+      <a href="/upload" class="btn btn-success btn-lg px-5">
+        <i class="bi bi-plus-circle me-2"></i>Add Your First Photo
       </a>
     </div>
   </section>

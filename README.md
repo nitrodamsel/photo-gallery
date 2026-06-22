@@ -1,48 +1,70 @@
-# PhotoGallery
+# 📸 PhotoGallery
 
-A full-featured photo gallery web application built with **Node.js**, **Express**, and **EJS**. Upload photos, organise them with custom tags, and explore rich EXIF metadata — all in a clean, responsive UI.
+A lightweight, self-hosted photo gallery built with **Node.js**, **Express**, and **EJS**. Upload photos, browse them in a beautiful responsive grid, organise with custom tags, and explore automatically extracted EXIF metadata.
 
 ---
 
-## ✨ Features (Roadmap)
+## ✨ Features
 
-| Phase | Description | Status |
-|-------|-------------|--------|
-| **1** | Foundation & project scaffold | ✅ Complete |
-| **2** | Image upload & processing (Sharp, Multer) | 🔜 Planned |
-| **3** | Gallery view with masonry grid | 🔜 Planned |
-| **4** | Tagging system & filter UI | 🔜 Planned |
-| **5** | EXIF metadata extraction & display | 🔜 Planned |
-| **6** | Search & advanced filtering | 🔜 Planned |
+| Phase | Feature |
+|-------|---------|
+| ✅ 1 | Project scaffold — Express server, EJS templates, static assets |
+| 🔜 2 | Photo upload with Multer, Sharp thumbnail generation |
+| 🔜 3 | Gallery grid with lightbox & pagination |
+| 🔜 4 | Tag management & filtering |
+| 🔜 5 | EXIF data extraction & display |
+| 🔜 6 | SQLite persistence via Sequelize |
 
 ---
 
 ## 🛠 Prerequisites
 
-- **Node.js** >= 18  
-- **npm** >= 9
+| Tool | Version |
+|------|---------|
+| [Node.js](https://nodejs.org/) | >= 18 |
+| npm | >= 9 |
 
 ---
 
-## 🚀 Setup & Running Locally
+## 🚀 Quick Start
+
+### 1. Clone & install dependencies
 
 ```bash
-# 1. Clone the repository
 git clone https://github.com/your-username/photo-gallery.git
 cd photo-gallery
-
-# 2. Install dependencies
 npm install
+```
 
-# 3. Configure environment variables
+### 2. Configure environment variables
+
+```bash
 cp .env.example .env
-#    Edit .env as needed (defaults work out of the box for local dev)
+```
 
-# 4. Start the development server (with hot-reload via nodemon)
+Open `.env` and adjust any values as needed:
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `PORT` | `3000` | HTTP port the server listens on |
+| `NODE_ENV` | `development` | Runtime environment |
+| `UPLOAD_DIR` | `uploads` | Directory for uploaded images |
+| `MAX_FILE_SIZE_MB` | `10` | Maximum upload file size in megabytes |
+| `DB_PATH` | `./database.db` | Path to the SQLite database file |
+
+### 3. Start the development server
+
+```bash
 npm run dev
 ```
 
-The app will be available at **http://localhost:3000**.
+The server will start with **nodemon** for hot-reloading. Visit [http://localhost:3000](http://localhost:3000).
+
+### 4. Production start
+
+```bash
+npm start
+```
 
 ---
 
@@ -50,65 +72,51 @@ The app will be available at **http://localhost:3000**.
 
 ```
 photo-gallery/
-├── app.js                  # Express app factory
-├── server.js               # Entry point — calls app.listen
-├── .env                    # Local environment config (git-ignored)
-├── .env.example            # Environment variable template
+├── app.js               # Express app factory
+├── server.js            # Entry point — starts HTTP server
+├── .env                 # Local environment config (gitignored)
+├── .env.example         # Environment variable template
 ├── config/
-│   └── index.js            # Centralised config with validation
+│   └── index.js         # Centralised config with defaults & validation
+├── middleware/          # Custom Express middleware (added in later phases)
 ├── routes/
-│   └── index.js            # Root router (GET /, GET /health)
-├── middleware/             # Custom Express middleware (future phases)
+│   └── index.js         # Root router (GET /, GET /health)
 ├── views/
-│   ├── home.ejs            # Landing page
-│   ├── error.ejs           # Error page
 │   ├── layouts/
-│   │   └── base.ejs        # Base HTML shell
-│   └── partials/
-│       └── navbar.ejs      # Navigation bar
+│   │   └── base.ejs     # Base HTML shell
+│   ├── partials/
+│   │   └── navbar.ejs   # Top navigation bar
+│   ├── home.ejs         # Landing page
+│   └── error.ejs        # Error page
 ├── public/
-│   ├── css/main.css        # Custom styles & CSS variables
-│   └── js/main.js          # Client-side JS bootstrapper
-└── uploads/                # Uploaded images (git-ignored)
+│   ├── css/
+│   │   └── main.css     # Custom styles, gallery grid, tag badges
+│   └── js/
+│       └── main.js      # Client-side bootstrapper
+└── uploads/             # User-uploaded images (gitignored)
 ```
 
 ---
 
-## 🔌 API Endpoints
+## 🔗 API Endpoints
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `GET` | `/` | Landing / home page |
+| `GET` | `/` | Landing page |
 | `GET` | `/health` | Health-check — returns JSON status |
 
 ---
 
-## 🧰 Tech Stack
+## 🧩 Scripts
 
-| Layer | Technology |
-|-------|-----------|
-| Web framework | [Express.js](https://expressjs.com/) |
-| Templating | [EJS](https://ejs.co/) |
-| Styling | [Bootstrap 5](https://getbootstrap.com/) + custom CSS |
-| Image processing | [Sharp](https://sharp.pixelplumbing.com/) *(Phase 2)* |
-| EXIF extraction | [exifr](https://github.com/MikeKovarik/exifr) *(Phase 5)* |
-| ORM / Database | [Sequelize](https://sequelize.org/) + SQLite *(Phase 2)* |
-| File uploads | [Multer](https://github.com/expressjs/multer) *(Phase 2)* |
-| Dev server | [nodemon](https://nodemon.io/) |
-| Config | [dotenv](https://github.com/motdotla/dotenv) |
+| Command | Description |
+|---------|-------------|
+| `npm run dev` | Start with nodemon (hot-reload) |
+| `npm start` | Start in production mode |
+| `npm test` | Placeholder for test runner |
 
 ---
 
-## 📝 Scripts
+## 📜 License
 
-| Script | Command | Description |
-|--------|---------|-------------|
-| `start` | `npm start` | Run in production mode |
-| `dev` | `npm run dev` | Run with nodemon (hot-reload) |
-| `test` | `npm test` | Run test suite *(placeholder)* |
-
----
-
-## 📄 License
-
-MIT — see [LICENSE](LICENSE) for details.
+MIT © 2026 PhotoGallery

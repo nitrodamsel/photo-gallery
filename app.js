@@ -8,46 +8,41 @@ const indexRouter = require('./routes/index');
 
 const app = express();
 
-// ── View engine setup ────────────────────────────────────────────────────────
+// ─── View Engine ───────────────────────────────────────────────────────────────
 app.set('views', path.join(__dirname, 'views'));
 app.set('view engine', 'ejs');
 
-// ── Logging ──────────────────────────────────────────────────────────────────
-if (process.env.NODE_ENV !== 'test') {
-  app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
-}
-
-// ── Body parsers ─────────────────────────────────────────────────────────────
+// ─── Middleware ─────────────────────────────────────────────────────────────────
+app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-
-// ── Static files ─────────────────────────────────────────────────────────────
 app.use(express.static(path.join(__dirname, 'public')));
 
-// ── Routers ───────────────────────────────────────────────────────────────────
+// ─── Routes ─────────────────────────────────────────────────────────────────────
 app.use('/', indexRouter);
 
-// ── 404 handler ──────────────────────────────────────────────────────────────
+// ─── 404 Handler ────────────────────────────────────────────────────────────────
 app.use((req, res, next) => {
-  res.status(404).render('error', {
-    title: '404 – Page Not Found',
-    message: `The page you are looking for doesn't exist.`,
-    status: 404,
-  });
+  const err = new Error(`Not Found: ${req.originalUrl}`);
+  err.status = 404;
+  next(err);
 });
 
-// ── Global error handler ─────────────────────────────────────────────────────
-// eslint-disable-next-line no-unused-vars
-app.use((err, req, res, next) => {
-  console.error(err.stack);
+// ─── Global Error Handler ────────────────────────────────────────────────────────
+app.use((err, req, res, next) => { // eslint-disable-line no-unused-vars
   const status = err.status || 500;
-  res.status(status).render('error', {
-    title: `${status} – Server Error`,
-    message: process.env.NODE_ENV === 'production'
-      ? 'Something went wrong. Please try again later.'
-      : err.message,
-    status,
-  });
+  res.status(status);
+
+  if (req.accepts('html')) {
+    res.render('error', {
+      title: `Error ${status}`,
+      message: err.message,
+      status,
+      stack: process.env.NODE_ENV !== 'production' ? err.stack : null,
+    });
+  } else {
+    res.json({ error: { status, message: err.message } });
+  }
 });
 
 module.exports = app;

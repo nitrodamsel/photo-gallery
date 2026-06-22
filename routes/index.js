@@ -5,32 +5,33 @@ const router = express.Router();
 
 /**
  * GET /
- * Renders the home / landing page.
+ * Renders the homepage with placeholder data.
  */
 router.get('/', (req, res) => {
   res.render('home', {
     title: 'Photo Gallery',
-    tagline: 'Upload, organise, and explore your photos with ease.',
+    heroHeadline: 'Your Personal Photo Gallery',
+    heroSubtext: 'Upload, organise, and explore your photos with automatic EXIF data extraction and smart tagging.',
     features: [
       {
         icon: '🖼️',
-        heading: 'Beautiful Gallery',
-        body: 'Browse your photos in a responsive masonry grid with smooth hover effects.',
+        title: 'Beautiful Gallery',
+        description: 'Browse your photos in a responsive masonry grid with smooth hover effects.',
+      },
+      {
+        icon: '📤',
+        title: 'Easy Uploads',
+        description: 'Drag-and-drop or click-to-upload with automatic thumbnail generation.',
       },
       {
         icon: '🏷️',
-        heading: 'Smart Tagging',
-        body: 'Organise images with custom tags and filter your collection in seconds.',
+        title: 'Smart Tagging',
+        description: 'Organise photos with custom tags and filter your collection instantly.',
       },
       {
         icon: '📷',
-        heading: 'EXIF Metadata',
-        body: 'Automatically extract camera settings, GPS coordinates, and more from every photo.',
-      },
-      {
-        icon: '⚡',
-        heading: 'Fast Uploads',
-        body: 'Drag-and-drop upload with automatic thumbnail generation powered by Sharp.',
+        title: 'EXIF Data',
+        description: 'Automatically extract camera settings, GPS coordinates, and timestamps.',
       },
     ],
   });
@@ -38,10 +39,10 @@ router.get('/', (req, res) => {
 
 /**
  * GET /health
- * Health-check endpoint — useful for uptime monitors and container orchestration.
+ * Health-check endpoint — returns JSON status for monitoring / load balancers.
  */
 router.get('/health', (req, res) => {
-  res.status(200).json({
+  res.json({
     status: 'ok',
     uptime: process.uptime(),
     timestamp: new Date().toISOString(),
