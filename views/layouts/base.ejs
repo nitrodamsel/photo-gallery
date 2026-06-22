@@ -1,60 +1,63 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description" content="A personal photo gallery application for organizing and viewing your photos." />
-  <title><%= typeof title !== 'undefined' ? title + ' | PhotoGallery' : 'PhotoGallery' %></title>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="<%= typeof description !== 'undefined' ? description : 'A beautiful photo gallery app' %>" />
+    <meta name="theme-color" content="#6366f1" />
 
-  <!-- Bootstrap 5 CSS -->
-  <link
-    rel="stylesheet"
-    href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
-    integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH"
-    crossorigin="anonymous"
-  />
+    <title><%= typeof title !== 'undefined' ? title + ' | PhotoGallery' : 'PhotoGallery' %></title>
 
-  <!-- Bootstrap Icons -->
-  <link
-    rel="stylesheet"
-    href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"
-  />
+    <!-- Bootstrap 5 CSS CDN -->
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+      integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH"
+      crossorigin="anonymous"
+    />
 
-  <!-- Custom CSS -->
-  <link rel="stylesheet" href="/css/main.css" />
-</head>
-<body>
-  <!-- Navbar -->
-  <%- include('../partials/navbar') %>
+    <!-- Bootstrap Icons -->
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"
+    />
 
-  <!-- Main Content -->
-  <main id="main-content">
-    <%- body %>
-  </main>
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="/css/main.css" />
 
-  <!-- Footer -->
-  <footer class="app-footer">
-    <div class="container">
-      <div class="row align-items-center">
-        <div class="col-md-6 text-center text-md-start">
-          <span class="fw-semibold text-primary">📷 PhotoGallery</span>
-          <span class="text-muted ms-2">— Your photos, beautifully organized.</span>
-        </div>
-        <div class="col-md-6 text-center text-md-end mt-2 mt-md-0">
-          <small class="text-muted">Built with Express.js &amp; EJS</small>
-        </div>
+    <!-- Favicon (inline SVG via data URI) -->
+    <link
+      rel="icon"
+      href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📸</text></svg>"
+    />
+  </head>
+  <body>
+    <!-- Navigation -->
+    <%- include('../partials/navbar') %>
+
+    <!-- Main Content -->
+    <main>
+      <%- body %>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer mt-auto py-4">
+      <div class="container text-center">
+        <span class="text-muted small">
+          &copy; <%= new Date().getFullYear() %> PhotoGallery &mdash; Built with
+          <i class="bi bi-heart-fill text-danger"></i> using Express &amp; EJS
+        </span>
       </div>
-    </div>
-  </footer>
+    </footer>
 
-  <!-- Bootstrap 5 JS Bundle -->
-  <script
-    src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
-    integrity="sha384-YvpcrYf0tY3lHB60NNkmXc4s9bIOgUxi8T/jzmBGFadXx8m2DsA9OxzCzeFWOPpJ"
-    crossorigin="anonymous"
-  ></script>
+    <!-- Bootstrap 5 JS Bundle CDN -->
+    <script
+      src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
+      integrity="sha384-YvpcrYf0tY3lHB60NNkmXc4s9bIOgUxi8T/jzmL2Hkqkr5M6V3zz7V3oEShV9FP"
+      crossorigin="anonymous"
+    ></script>
 
-  <!-- Custom JS -->
-  <script src="/js/main.js"></script>
-</body>
+    <!-- Custom JS -->
+    <script src="/js/main.js"></script>
+  </body>
 </html>

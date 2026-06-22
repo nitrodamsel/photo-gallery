@@ -1,34 +1,50 @@
 'use strict';
 
-require('dotenv').config();
+/**
+ * Centralized application configuration.
+ * Built from process.env with sensible defaults and basic validation.
+ */
+
+function requireEnv(key, defaultValue) {
+  const value = process.env[key] ?? defaultValue;
+  if (value === undefined || value === null || value === '') {
+    throw new Error(`Missing required environment variable: ${key}`);
+  }
+  return value;
+}
+
+function parseIntEnv(key, defaultValue) {
+  const raw = process.env[key];
+  if (raw === undefined || raw === null) return defaultValue;
+  const parsed = parseInt(raw, 10);
+  if (isNaN(parsed)) {
+    throw new Error(`Environment variable ${key} must be an integer, got: "${raw}"`);
+  }
+  return parsed;
+}
 
 const config = {
-  port: parseInt(process.env.PORT, 10) || 3000,
-  nodeEnv: process.env.NODE_ENV || 'development',
-  uploadDir: process.env.UPLOAD_DIR || 'uploads',
-  maxFileSizeMb: parseInt(process.env.MAX_FILE_SIZE_MB, 10) || 10,
-  dbPath: process.env.DB_PATH || './database.db',
+  // Server
+  port: parseIntEnv('PORT', 3000),
+  nodeEnv: requireEnv('NODE_ENV', 'development'),
 
-  get isProduction() {
-    return this.nodeEnv === 'production';
-  },
+  // File uploads
+  uploadDir: requireEnv('UPLOAD_DIR', 'uploads'),
+  maxFileSizeMb: parseIntEnv('MAX_FILE_SIZE_MB', 10),
 
+  // Database
+  dbPath: requireEnv('DB_PATH', './database.db'),
+
+  // Derived helpers
   get isDevelopment() {
     return this.nodeEnv === 'development';
   },
-
+  get isProduction() {
+    return this.nodeEnv === 'production';
+  },
   get maxFileSizeBytes() {
     return this.maxFileSizeMb * 1024 * 1024;
   },
 };
-
-// Validate critical config values
-if (isNaN(config.port) || config.port < 1 || config.port > 65535) {
-  throw new Error(`Invalid PORT value: "${process.env.PORT}". Must be a number between 1 and 65535.`);
-}
-
-if (isNaN(config.maxFileSizeMb) || config.maxFileSizeMb <= 0) {
-  throw new Error(`Invalid MAX_FILE_SIZE_MB value: "${process.env.MAX_FILE_SIZE_MB}". Must be a positive number.`);
-}
 
 module.exports = config;

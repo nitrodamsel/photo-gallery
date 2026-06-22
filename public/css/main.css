@@ -1,40 +1,36 @@
-/* ============================================================
-   CSS Custom Properties (Design Tokens)
-   ============================================================ */
+/* ─────────────────────────────────────────────────────────────────────────────
+   Photo Gallery — Custom Stylesheet
+   ───────────────────────────────────────────────────────────────────────────── */
+
+/* ── CSS Custom Properties (Design Tokens) ────────────────────────────────── */
 :root {
-  --color-primary: #4f46e5;
-  --color-primary-hover: #4338ca;
-  --color-primary-light: #ede9fe;
-  --color-secondary: #06b6d4;
-  --color-success: #10b981;
-  --color-warning: #f59e0b;
-  --color-danger: #ef4444;
+  --pg-primary:        #6366f1;   /* Indigo */
+  --pg-primary-dark:   #4f46e5;
+  --pg-primary-light:  #a5b4fc;
+  --pg-secondary:      #ec4899;   /* Pink accent */
+  --pg-surface:        #ffffff;
+  --pg-surface-alt:    #f8fafc;
+  --pg-border:         #e2e8f0;
+  --pg-text:           #1e293b;
+  --pg-text-muted:     #64748b;
+  --pg-dark:           #0f172a;
 
-  --color-bg: #f8fafc;
-  --color-surface: #ffffff;
-  --color-border: #e2e8f0;
-  --color-text: #1e293b;
-  --color-text-muted: #64748b;
+  /* Spacing */
+  --pg-radius-sm:  0.375rem;
+  --pg-radius:     0.75rem;
+  --pg-radius-lg:  1.25rem;
 
-  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08);
-  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.1);
-  --shadow-lg: 0 10px 30px rgba(0, 0, 0, 0.12);
-  --shadow-hover: 0 8px 24px rgba(79, 70, 229, 0.2);
+  /* Shadows */
+  --pg-shadow-sm:  0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.06);
+  --pg-shadow:     0 4px 6px -1px rgba(0,0,0,.1), 0 2px 4px -1px rgba(0,0,0,.06);
+  --pg-shadow-lg:  0 10px 15px -3px rgba(0,0,0,.1), 0 4px 6px -2px rgba(0,0,0,.05);
+  --pg-shadow-xl:  0 20px 25px -5px rgba(0,0,0,.1), 0 10px 10px -5px rgba(0,0,0,.04);
 
-  --radius-sm: 0.375rem;
-  --radius-md: 0.75rem;
-  --radius-lg: 1.25rem;
-  --radius-xl: 1.75rem;
-
-  --transition-base: 0.2s ease;
-  --transition-smooth: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-
-  --navbar-height: 64px;
+  /* Transitions */
+  --pg-transition: 0.2s ease;
 }
 
-/* ============================================================
-   Base & Reset
-   ============================================================ */
+/* ── Base Reset & Globals ─────────────────────────────────────────────────── */
 *,
 *::before,
 *::after {
@@ -46,80 +42,25 @@ html {
 }
 
 body {
-  background-color: var(--color-bg);
-  color: var(--color-text);
   font-family: 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
-  line-height: 1.6;
+  color: var(--pg-text);
+  background-color: var(--pg-surface-alt);
   min-height: 100vh;
   display: flex;
   flex-direction: column;
 }
 
-#main-content {
+main {
   flex: 1;
 }
 
-a {
-  color: var(--color-primary);
-  text-decoration: none;
-  transition: color var(--transition-base);
-}
+/* ── Typography Helpers ───────────────────────────────────────────────────── */
+.tracking-wide { letter-spacing: 0.08em; }
+.opacity-90    { opacity: 0.9; }
 
-a:hover {
-  color: var(--color-primary-hover);
-}
-
-/* ============================================================
-   Navbar
-   ============================================================ */
-.app-navbar {
-  background-color: var(--color-surface);
-  border-bottom: 1px solid var(--color-border);
-  box-shadow: var(--shadow-sm);
-  height: var(--navbar-height);
-}
-
-.app-navbar .navbar-brand {
-  font-size: 1.2rem;
-  color: var(--color-text);
-  transition: opacity var(--transition-base);
-}
-
-.app-navbar .navbar-brand:hover {
-  opacity: 0.8;
-  color: var(--color-text);
-}
-
-.navbar-brand-icon {
-  font-size: 1.5rem;
-  line-height: 1;
-}
-
-.app-navbar .nav-link {
-  color: var(--color-text-muted);
-  font-weight: 500;
-  padding: 0.5rem 0.75rem;
-  border-radius: var(--radius-sm);
-  transition: color var(--transition-base), background-color var(--transition-base);
-}
-
-.app-navbar .nav-link:hover {
-  color: var(--color-primary);
-  background-color: var(--color-primary-light);
-}
-
-.app-navbar .nav-link.active {
-  color: var(--color-primary);
-  background-color: var(--color-primary-light);
-}
-
-/* ============================================================
-   Hero Section
-   ============================================================ */
+/* ── Hero Section ─────────────────────────────────────────────────────────── */
 .hero-section {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-  padding: 5rem 0 4rem;
+  background: linear-gradient(135deg, #1e1b4b 0%, #312e81 40%, #6366f1 100%);
   position: relative;
   overflow: hidden;
 }
@@ -127,103 +68,38 @@ a:hover {
 .hero-section::before {
   content: '';
   position: absolute;
-  top: -50%;
-  left: -50%;
-  width: 200%;
-  height: 200%;
-  background: radial-gradient(circle at 30% 50%, rgba(255,255,255,0.08) 0%, transparent 60%),
-              radial-gradient(circle at 70% 20%, rgba(255,255,255,0.05) 0%, transparent 50%);
+  inset: 0;
+  background:
+    radial-gradient(ellipse at 20% 50%, rgba(139, 92, 246, 0.3) 0%, transparent 60%),
+    radial-gradient(ellipse at 80% 20%, rgba(236, 72, 153, 0.2) 0%, transparent 50%);
   pointer-events: none;
 }
 
-.hero-icon {
+.hero-emoji {
   font-size: 4rem;
   line-height: 1;
-  filter: drop-shadow(0 4px 8px rgba(0,0,0,0.2));
-  animation: float 3s ease-in-out infinite;
+  filter: drop-shadow(0 4px 8px rgba(0,0,0,0.3));
 }
 
-@keyframes float {
-  0%, 100% { transform: translateY(0px); }
-  50% { transform: translateY(-8px); }
+/* ── Stats Bar ────────────────────────────────────────────────────────────── */
+.stats-bar {
+  border-top: 1px solid rgba(255,255,255,0.05);
+  border-bottom: 1px solid rgba(255,255,255,0.05);
 }
 
-.hero-title {
-  color: white;
-  text-shadow: 0 2px 8px rgba(0,0,0,0.2);
-}
-
-.hero-tagline {
-  color: rgba(255, 255, 255, 0.88);
-}
-
-.hero-section .btn-primary {
-  background-color: white;
-  color: var(--color-primary);
-  border-color: white;
-  font-weight: 600;
-}
-
-.hero-section .btn-primary:hover {
-  background-color: rgba(255,255,255,0.9);
-  border-color: rgba(255,255,255,0.9);
-  color: var(--color-primary-hover);
-  transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(0,0,0,0.2);
-}
-
-.hero-section .btn-outline-secondary {
-  color: white;
-  border-color: rgba(255,255,255,0.6);
-  font-weight: 600;
-}
-
-.hero-section .btn-outline-secondary:hover {
-  background-color: rgba(255,255,255,0.15);
-  border-color: white;
-  color: white;
-  transform: translateY(-2px);
-}
-
-/* ============================================================
-   Stats Section
-   ============================================================ */
-.stats-section {
-  background-color: var(--color-surface);
-  border-bottom: 1px solid var(--color-border);
-}
-
-.stat-card {
-  border-radius: var(--radius-md);
-  transition: background-color var(--transition-base);
-}
-
-.stat-card:hover {
-  background-color: var(--color-primary-light);
-}
-
-.stat-number {
-  font-size: 2.5rem !important;
-  line-height: 1.1;
-}
-
-/* ============================================================
-   Features Section
-   ============================================================ */
-.features-section {
-  background-color: var(--color-bg);
-}
-
+/* ── Feature Cards ────────────────────────────────────────────────────────── */
 .feature-card {
-  background-color: var(--color-surface);
-  border-radius: var(--radius-lg) !important;
-  box-shadow: var(--shadow-sm);
-  transition: transform var(--transition-smooth), box-shadow var(--transition-smooth);
+  background: var(--pg-surface);
+  border-radius: var(--pg-radius-lg) !important;
+  transition:
+    transform var(--pg-transition),
+    box-shadow var(--pg-transition);
+  cursor: default;
 }
 
 .feature-card:hover {
-  transform: translateY(-6px);
-  box-shadow: var(--shadow-hover);
+  transform: translateY(-4px);
+  box-shadow: var(--pg-shadow-xl) !important;
 }
 
 .feature-icon {
@@ -231,60 +107,76 @@ a:hover {
   line-height: 1;
 }
 
-/* ============================================================
-   CTA Section
-   ============================================================ */
+/* ── CTA Section ──────────────────────────────────────────────────────────── */
 .cta-section {
-  background-color: var(--color-bg);
+  background: linear-gradient(135deg, var(--pg-primary-dark) 0%, var(--pg-primary) 100%);
 }
 
-.cta-card {
-  background: linear-gradient(135deg, var(--color-primary-light) 0%, #ddd6fe 100%);
-  border: 1px solid #c4b5fd;
+/* ── Error Section ────────────────────────────────────────────────────────── */
+.error-section {
+  min-height: 60vh;
+  display: flex;
+  align-items: center;
 }
 
-/* ============================================================
-   Gallery Grid
-   ============================================================ */
+.error-code {
+  font-size: 8rem;
+  line-height: 1;
+  opacity: 0.15;
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  user-select: none;
+  pointer-events: none;
+}
+
+.error-section .col-md-6 {
+  position: relative;
+  padding-top: 3rem;
+}
+
+/* ── Gallery Grid ─────────────────────────────────────────────────────────── */
 .gallery-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-  gap: 1.25rem;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 1rem;
 }
 
 .gallery-card {
-  background-color: var(--color-surface);
-  border-radius: var(--radius-lg);
-  overflow: hidden;
-  box-shadow: var(--shadow-sm);
-  transition: transform var(--transition-smooth), box-shadow var(--transition-smooth);
-  cursor: pointer;
   position: relative;
+  overflow: hidden;
+  border-radius: var(--pg-radius);
+  background: var(--pg-surface);
+  box-shadow: var(--pg-shadow-sm);
+  transition:
+    transform var(--pg-transition),
+    box-shadow var(--pg-transition);
+  cursor: pointer;
 }
 
 .gallery-card:hover {
-  transform: translateY(-4px) scale(1.01);
-  box-shadow: var(--shadow-hover);
+  transform: scale(1.02) translateY(-2px);
+  box-shadow: var(--pg-shadow-lg);
 }
 
-.gallery-card-img {
+.gallery-card img {
   width: 100%;
-  aspect-ratio: 4 / 3;
+  height: 200px;
   object-fit: cover;
   display: block;
-  transition: transform var(--transition-smooth);
+  transition: transform 0.4s ease;
 }
 
-.gallery-card:hover .gallery-card-img {
-  transform: scale(1.04);
+.gallery-card:hover img {
+  transform: scale(1.05);
 }
 
 .gallery-card-overlay {
   position: absolute;
   inset: 0;
-  background: linear-gradient(to top, rgba(0,0,0,0.55) 0%, transparent 60%);
+  background: linear-gradient(to top, rgba(0,0,0,0.7) 0%, transparent 50%);
   opacity: 0;
-  transition: opacity var(--transition-smooth);
+  transition: opacity var(--pg-transition);
   display: flex;
   align-items: flex-end;
   padding: 1rem;
@@ -294,168 +186,113 @@ a:hover {
   opacity: 1;
 }
 
-.gallery-card-body {
-  padding: 0.85rem 1rem;
-}
-
-.gallery-card-title {
-  font-size: 0.9rem;
+.gallery-card-overlay .card-title {
+  color: #fff;
   font-weight: 600;
-  color: var(--color-text);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  margin-bottom: 0.4rem;
+  margin: 0;
+  font-size: 0.9rem;
 }
 
-/* ============================================================
-   Tag Badges
-   ============================================================ */
+/* ── Tag Badges ───────────────────────────────────────────────────────────── */
 .tag-badge {
   display: inline-flex;
   align-items: center;
-  gap: 0.25rem;
-  padding: 0.2rem 0.65rem;
+  gap: 0.3em;
+  padding: 0.25em 0.65em;
   border-radius: 999px;
   font-size: 0.75rem;
   font-weight: 600;
-  background-color: var(--color-primary-light);
-  color: var(--color-primary);
-  border: 1px solid #c4b5fd;
-  transition: background-color var(--transition-base), transform var(--transition-base);
+  text-decoration: none;
+  transition:
+    background-color var(--pg-transition),
+    transform var(--pg-transition);
   cursor: pointer;
-  text-decoration: none;
+  white-space: nowrap;
 }
 
-.tag-badge:hover {
-  background-color: var(--color-primary);
-  color: white;
-  border-color: var(--color-primary);
-  transform: translateY(-1px);
-  text-decoration: none;
+.tag-badge-primary {
+  background-color: rgba(99, 102, 241, 0.12);
+  color: var(--pg-primary-dark);
+  border: 1px solid rgba(99, 102, 241, 0.25);
 }
 
-.tag-badge-sm {
-  padding: 0.15rem 0.5rem;
-  font-size: 0.7rem;
+.tag-badge-primary:hover {
+  background-color: var(--pg-primary);
+  color: #fff;
+  border-color: var(--pg-primary);
+  transform: scale(1.05);
 }
 
-.tag-badge-removable::after {
-  content: '×';
-  font-size: 0.85em;
-  margin-left: 0.15rem;
-  opacity: 0.7;
+.tag-badge-secondary {
+  background-color: rgba(236, 72, 153, 0.1);
+  color: #be185d;
+  border: 1px solid rgba(236, 72, 153, 0.2);
 }
 
-.tag-badge-removable:hover::after {
-  opacity: 1;
+.tag-badge-secondary:hover {
+  background-color: var(--pg-secondary);
+  color: #fff;
+  border-color: var(--pg-secondary);
+  transform: scale(1.05);
 }
 
-/* Color variants for tags */
-.tag-badge-blue   { background-color: #dbeafe; color: #1d4ed8; border-color: #bfdbfe; }
-.tag-badge-green  { background-color: #d1fae5; color: #065f46; border-color: #a7f3d0; }
-.tag-badge-yellow { background-color: #fef3c7; color: #92400e; border-color: #fde68a; }
-.tag-badge-red    { background-color: #fee2e2; color: #991b1b; border-color: #fecaca; }
-.tag-badge-pink   { background-color: #fce7f3; color: #9d174d; border-color: #fbcfe8; }
-.tag-badge-cyan   { background-color: #cffafe; color: #155e75; border-color: #a5f3fc; }
+.tag-badge-neutral {
+  background-color: rgba(100, 116, 139, 0.1);
+  color: var(--pg-text-muted);
+  border: 1px solid var(--pg-border);
+}
 
-/* ============================================================
-   Upload Area
-   ============================================================ */
-.upload-dropzone {
-  border: 2px dashed var(--color-border);
-  border-radius: var(--radius-xl);
-  padding: 3rem 2rem;
+.tag-badge-neutral:hover {
+  background-color: var(--pg-text-muted);
+  color: #fff;
+  border-color: var(--pg-text-muted);
+  transform: scale(1.05);
+}
+
+/* ── Upload Drop Zone ─────────────────────────────────────────────────────── */
+.drop-zone {
+  border: 2px dashed var(--pg-border);
+  border-radius: var(--pg-radius-lg);
+  padding: 3rem;
   text-align: center;
-  background-color: var(--color-surface);
-  transition: border-color var(--transition-base), background-color var(--transition-base);
   cursor: pointer;
+  transition:
+    border-color var(--pg-transition),
+    background-color var(--pg-transition);
 }
 
-.upload-dropzone:hover,
-.upload-dropzone.dragover {
-  border-color: var(--color-primary);
-  background-color: var(--color-primary-light);
+.drop-zone:hover,
+.drop-zone.drag-over {
+  border-color: var(--pg-primary);
+  background-color: rgba(99, 102, 241, 0.04);
 }
 
-.upload-dropzone-icon {
-  font-size: 3.5rem;
-  color: var(--color-text-muted);
-  margin-bottom: 1rem;
+/* ── Footer ───────────────────────────────────────────────────────────────── */
+.footer {
+  background-color: var(--pg-dark);
+  border-top: 1px solid rgba(255,255,255,0.05);
+  color: var(--pg-text-muted);
 }
 
-/* ============================================================
-   Footer
-   ============================================================ */
-.app-footer {
-  background-color: var(--color-surface);
-  border-top: 1px solid var(--color-border);
-  padding: 1.25rem 0;
-  margin-top: auto;
-}
+/* ── Utilities ────────────────────────────────────────────────────────────── */
+.cursor-pointer { cursor: pointer; }
 
-/* ============================================================
-   Error Section
-   ============================================================ */
-.error-section {
-  min-height: calc(100vh - var(--navbar-height) - 80px);
-  display: flex;
-  align-items: center;
-}
-
-.error-icon {
-  font-size: 5rem;
-  line-height: 1;
-}
-
-/* ============================================================
-   Utility Overrides
-   ============================================================ */
+/* Bootstrap primary color override to match design tokens */
 .btn-primary {
-  background-color: var(--color-primary);
-  border-color: var(--color-primary);
-  font-weight: 500;
-  transition: background-color var(--transition-base), border-color var(--transition-base), transform var(--transition-base), box-shadow var(--transition-base);
+  --bs-btn-bg:            var(--pg-primary);
+  --bs-btn-border-color:  var(--pg-primary);
+  --bs-btn-hover-bg:      var(--pg-primary-dark);
+  --bs-btn-hover-border-color: var(--pg-primary-dark);
+  --bs-btn-active-bg:     var(--pg-primary-dark);
 }
 
-.btn-primary:hover {
-  background-color: var(--color-primary-hover);
-  border-color: var(--color-primary-hover);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.35);
-}
+.text-primary { color: var(--pg-primary) !important; }
+.bg-primary   { background-color: var(--pg-primary) !important; }
 
-.btn-primary:active {
-  transform: translateY(0);
-}
-
-.card {
-  border-radius: var(--radius-lg);
-  border-color: var(--color-border);
-}
-
-.rounded-4 {
-  border-radius: var(--radius-xl) !important;
-}
-
-/* ============================================================
-   Responsive
-   ============================================================ */
-@media (max-width: 767.98px) {
-  .hero-section {
-    padding: 3rem 0 2.5rem;
-  }
-
-  .hero-icon {
-    font-size: 3rem;
-  }
-
-  .gallery-grid {
-    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-    gap: 0.75rem;
-  }
-
-  .stat-number {
-    font-size: 2rem !important;
-  }
+/* ── Responsive Adjustments ───────────────────────────────────────────────── */
+@media (max-width: 576px) {
+  .hero-emoji { font-size: 3rem; }
+  .gallery-grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
+  .gallery-card img { height: 150px; }
+  .drop-zone { padding: 2rem 1rem; }
 }

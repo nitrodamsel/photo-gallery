@@ -1,33 +1,33 @@
-# 📷 PhotoGallery
+# 📸 PhotoGallery
 
-A personal photo gallery web application built with **Express.js** and **EJS** server-side rendering. Upload, organize, and browse your photos with tag-based filtering and EXIF metadata extraction.
+A full-featured photo gallery web application built with **Express.js** and **EJS**. Upload, organize, tag, and explore your photo collection with automatic EXIF metadata extraction, smart thumbnails, and powerful search.
 
 ---
 
 ## ✨ Features
 
-- 🖼️ **Gallery View** — Responsive masonry-style grid with smooth hover effects
-- 📤 **Easy Upload** — Single or multi-file uploads with automatic thumbnail generation
-- 🏷️ **Tag System** — Add custom tags to photos and filter by any combination
-- 🔍 **Search** — Full-text search across filenames, descriptions, and tags
-- 📊 **EXIF Data** — Automatic extraction of camera metadata from images
-- 🗃️ **SQLite Storage** — Lightweight, zero-config database via Sequelize ORM
+- 🖼️ **Responsive Gallery** — Masonry-style grid with smooth hover effects
+- 📤 **Drag-and-Drop Upload** — JPEG, PNG, WebP, and more
+- 🏷️ **Tagging System** — Custom tags with filter and search
+- 📷 **EXIF Metadata** — Camera model, aperture, shutter speed, GPS, and more
+- ✂️ **Image Processing** — Auto-generated thumbnails via Sharp
+- 🔍 **Full-Text Search** — Across titles, descriptions, and tags
 
 ---
 
-## 📋 Prerequisites
+## 🛠️ Prerequisites
 
 - **Node.js** >= 18.x
 - **npm** >= 9.x
 
 ---
 
-## 🚀 Setup & Installation
+## 🚀 Setup & Running
 
 ### 1. Clone the repository
 
 ```bash
-git clone <repository-url>
+git clone <repo-url>
 cd photo-gallery-app
 ```
 
@@ -43,15 +43,7 @@ npm install
 cp .env.example .env
 ```
 
-Edit `.env` and adjust any values as needed:
-
-```env
-PORT=3000
-NODE_ENV=development
-UPLOAD_DIR=uploads
-MAX_FILE_SIZE_MB=10
-DB_PATH=./database.db
-```
+Open `.env` and adjust any values as needed (the defaults work out of the box for local development).
 
 ### 4. Start the development server
 
@@ -59,31 +51,27 @@ DB_PATH=./database.db
 npm run dev
 ```
 
-The server will start at **http://localhost:3000** with hot-reloading via `nodemon`.
+The server will start with **nodemon** for hot-reloading.
+
+Open [http://localhost:3000](http://localhost:3000) in your browser.
+
+### 5. Start in production mode
+
+```bash
+npm start
+```
 
 ---
 
-## 📜 Available Scripts
+## 📡 API Endpoints
 
-| Script | Description |
-|--------|-------------|
-| `npm start` | Start the production server |
-| `npm run dev` | Start development server with hot-reload (nodemon) |
-| `npm test` | Run tests |
-
----
-
-## 🛠️ API Endpoints
-
-| Method | Path | Description |
-|--------|------|-------------|
-| `GET` | `/` | Home / landing page |
-| `GET` | `/health` | Health check — returns JSON status |
-| `GET` | `/gallery` | Photo gallery grid *(Phase 2)* |
-| `GET` | `/upload` | Upload form *(Phase 3)* |
-| `POST` | `/upload` | Handle file upload *(Phase 3)* |
-| `GET` | `/tags` | Tag browser *(Phase 4)* |
-| `GET` | `/photos/:id` | Single photo detail *(Phase 2)* |
+| Method | Path      | Description                        |
+|--------|-----------|------------------------------------|
+| GET    | `/`       | Homepage with feature highlights   |
+| GET    | `/health` | Health-check — returns JSON status |
+| GET    | `/gallery`| Photo gallery *(Phase 2)*          |
+| GET    | `/upload` | Upload form *(Phase 2)*            |
+| GET    | `/tags`   | Tag browser *(Phase 3)*            |
 
 ---
 
@@ -92,59 +80,71 @@ The server will start at **http://localhost:3000** with hot-reloading via `nodem
 ```
 photo-gallery-app/
 ├── app.js              # Express app factory
-├── server.js           # Entry point
+├── server.js           # Entry point — starts the HTTP server
+├── .env                # Local environment config (gitignored)
+├── .env.example        # Template for environment variables
+├── .gitignore
+├── package.json
 ├── config/
-│   └── index.js        # Centralized config with validation
-├── middleware/         # Custom Express middleware
-├── routes/
-│   └── index.js        # Root router (/, /health)
-├── views/
-│   ├── home.ejs        # Landing page
-│   ├── error.ejs       # Error page
-│   ├── layouts/
-│   │   └── base.ejs    # Base HTML shell
-│   └── partials/
-│       └── navbar.ejs  # Navigation bar
+│   └── index.js        # Centralized config with defaults & validation
+├── middleware/         # Custom Express middleware (future phases)
 ├── public/
 │   ├── css/
-│   │   └── main.css    # Custom styles & gallery grid
+│   │   └── main.css    # CSS variables, gallery grid, card & tag styles
 │   └── js/
 │       └── main.js     # Client-side bootstrapper
+├── routes/
+│   └── index.js        # Root router (GET /, GET /health)
 ├── uploads/            # User-uploaded images (gitignored)
-├── .env                # Local environment config (gitignored)
-├── .env.example        # Environment variable template
-├── .gitignore
-└── package.json
+└── views/
+    ├── home.ejs         # Landing page
+    ├── error.ejs        # Error page
+    ├── layouts/
+    │   └── base.ejs     # Base HTML shell with Bootstrap 5
+    └── partials/
+        └── navbar.ejs   # Navigation bar
 ```
 
 ---
 
 ## 🗺️ Phase Roadmap
 
-| Phase | Description | Status |
-|-------|-------------|--------|
-| **Phase 1** | Foundation & Project Scaffold | ✅ Complete |
-| **Phase 2** | Gallery View & Image Model | 🔜 Planned |
-| **Phase 3** | File Upload & Processing | 🔜 Planned |
-| **Phase 4** | Tag System & Filtering | 🔜 Planned |
-| **Phase 5** | Search & EXIF Metadata | 🔜 Planned |
-| **Phase 6** | Polish & Production Ready | 🔜 Planned |
+| Phase | Description                                      | Status      |
+|-------|--------------------------------------------------|-------------|
+| 1     | Foundation & Project Scaffold                    | ✅ Complete  |
+| 2     | Image Upload & Storage                           | 🔲 Planned  |
+| 3     | Gallery View & Tagging                           | 🔲 Planned  |
+| 4     | EXIF Metadata Extraction                         | 🔲 Planned  |
+| 5     | Search & Filtering                               | 🔲 Planned  |
+| 6     | Image Processing & Thumbnails                    | 🔲 Planned  |
 
 ---
 
 ## 🧰 Tech Stack
 
-| Layer | Technology |
-|-------|-----------|
-| Web Framework | [Express.js](https://expressjs.com/) |
-| Templating | [EJS](https://ejs.co/) |
-| CSS Framework | [Bootstrap 5](https://getbootstrap.com/) |
-| Image Processing | [Sharp](https://sharp.pixelplumbing.com/) |
-| EXIF Parsing | [exifr](https://github.com/MikeKovarik/exifr) |
-| ORM | [Sequelize](https://sequelize.org/) |
-| Database | SQLite via [sqlite3](https://github.com/TryGhost/node-sqlite3) |
-| Dev Server | [nodemon](https://nodemon.io/) |
-| Env Config | [dotenv](https://github.com/motdotla/dotenv) |
+| Layer        | Technology                         |
+|--------------|------------------------------------|
+| Framework    | Express.js 4.x                     |
+| Templating   | EJS                                |
+| Styling      | Bootstrap 5 + Custom CSS           |
+| Database     | SQLite via Sequelize               |
+| Image Proc.  | Sharp                              |
+| EXIF         | exifr                              |
+| Upload       | Multer                             |
+| Dev Server   | Nodemon                            |
+| Config       | dotenv                             |
+
+---
+
+## 📝 Environment Variables
+
+| Variable          | Default          | Description                          |
+|-------------------|------------------|--------------------------------------|
+| `PORT`            | `3000`           | HTTP server port                     |
+| `NODE_ENV`        | `development`    | Runtime environment                  |
+| `UPLOAD_DIR`      | `uploads`        | Directory for uploaded images        |
+| `MAX_FILE_SIZE_MB`| `10`             | Maximum upload file size in MB       |
+| `DB_PATH`         | `./database.db`  | SQLite database file path            |
 
 ---
 

@@ -1,30 +1,25 @@
 <%- include('layouts/base', { body: `
-  <section class="error-section py-5">
-    <div class="container">
-      <div class="row justify-content-center text-center">
-        <div class="col-lg-6">
-          <div class="error-icon mb-4">${status === 404 ? '🔍' : '⚠️'}</div>
-          <h1 class="display-1 fw-bold text-primary">${status}</h1>
-          <h2 class="fw-semibold mb-3">${status === 404 ? 'Page Not Found' : 'Something Went Wrong'}</h2>
-          <p class="text-muted lead mb-4">${message}</p>
-          <div class="d-flex flex-wrap justify-content-center gap-3">
-            <a href="/" class="btn btn-primary px-4">
-              <i class="bi bi-house-fill me-2"></i>Go Home
-            </a>
-            <button onclick="history.back()" class="btn btn-outline-secondary px-4">
-              <i class="bi bi-arrow-left me-2"></i>Go Back
-            </button>
-          </div>
-          ${stack ? `
-            <div class="mt-5 text-start">
-              <details class="text-muted">
-                <summary class="btn btn-sm btn-outline-danger mb-2">Stack Trace</summary>
-                <pre class="bg-dark text-light p-3 rounded small overflow-auto">${stack}</pre>
-              </details>
-            </div>
-          ` : ''}
+
+<section class="error-section py-5 text-center">
+  <div class="container py-5">
+    <div class="row justify-content-center">
+      <div class="col-md-6">
+        <div class="error-code display-1 fw-bold text-primary mb-2">
+          <%= statusCode || 500 %>
+        </div>
+        <h1 class="h3 fw-bold mb-3"><%= title || 'Something Went Wrong' %></h1>
+        <p class="text-muted mb-4"><%= message || 'An unexpected error occurred.' %></p>
+        <div class="d-flex gap-3 justify-content-center">
+          <a href="/" class="btn btn-primary px-4">
+            <i class="bi bi-house me-2"></i>Go Home
+          </a>
+          <button onclick="history.back()" class="btn btn-outline-secondary px-4">
+            <i class="bi bi-arrow-left me-2"></i>Go Back
+          </button>
         </div>
       </div>
     </div>
-  </section>
-`) %>
+  </div>
+</section>
+
+` }) %>

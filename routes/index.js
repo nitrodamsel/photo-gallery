@@ -2,33 +2,45 @@
 
 const express = require('express');
 const router = express.Router();
-const config = require('../config');
 
-// GET / — Render home page
+/**
+ * GET /
+ * Renders the homepage with placeholder data.
+ */
 router.get('/', (req, res) => {
   res.render('home', {
     title: 'Photo Gallery',
-    tagline: 'Your personal photo collection, beautifully organized.',
+    description: 'A beautiful place to organize and share your photos.',
     features: [
       {
         icon: '🖼️',
-        title: 'Gallery View',
-        description: 'Browse all your photos in a responsive masonry grid with smooth hover effects.',
+        heading: 'Smart Gallery',
+        body: 'Browse your photos in a responsive, masonry-style grid with smooth hover effects.',
       },
       {
         icon: '📤',
-        title: 'Easy Upload',
-        description: 'Upload single or multiple images with automatic EXIF data extraction.',
+        heading: 'Easy Upload',
+        body: 'Drag-and-drop or click to upload images. Supports JPEG, PNG, WebP, and more.',
       },
       {
         icon: '🏷️',
-        title: 'Tag & Organize',
-        description: 'Add custom tags to photos and filter your gallery by any combination of tags.',
+        heading: 'Tag & Organize',
+        body: 'Add custom tags to every photo so you can filter and find them in seconds.',
+      },
+      {
+        icon: '📷',
+        heading: 'EXIF Metadata',
+        body: 'Automatically extracts camera model, aperture, shutter speed, GPS, and more.',
+      },
+      {
+        icon: '✂️',
+        heading: 'Image Processing',
+        body: 'Generates optimized thumbnails and strips sensitive metadata on the fly.',
       },
       {
         icon: '🔍',
-        title: 'Smart Search',
-        description: 'Search across filenames, descriptions, and tags to find any photo instantly.',
+        heading: 'Powerful Search',
+        body: 'Full-text search across titles, descriptions, and tags to find any photo fast.',
       },
     ],
     stats: {
@@ -39,14 +51,17 @@ router.get('/', (req, res) => {
   });
 });
 
-// GET /health — Health check endpoint
+/**
+ * GET /health
+ * Health-check endpoint — returns JSON status for monitoring tools.
+ */
 router.get('/health', (req, res) => {
-  res.json({
+  res.status(200).json({
     status: 'ok',
-    timestamp: new Date().toISOString(),
-    environment: config.nodeEnv,
-    version: process.env.npm_package_version || '1.0.0',
     uptime: process.uptime(),
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || 'development',
+    version: process.env.npm_package_version || '1.0.0',
   });
 });
 

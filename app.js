@@ -4,42 +4,61 @@ const express = require('express');
 const morgan = require('morgan');
 const path = require('path');
 
+// Load routes
 const indexRouter = require('./routes/index');
 
-const app = express();
+/**
+ * Express App Factory
+ * Registers middleware, mounts routers, and exports the app instance.
+ */
+function createApp() {
+  const app = express();
 
-// View engine setup
-app.set('view engine', 'ejs');
-app.set('views', path.join(__dirname, 'views'));
+  // ── View Engine ──────────────────────────────────────────────────────────────
+  app.set('view engine', 'ejs');
+  app.set('views', path.join(__dirname, 'views'));
 
-// Middleware
-app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+  // ── Middleware ────────────────────────────────────────────────────────────────
+  // HTTP request logger
+  app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
 
-// Static files
-app.use(express.static(path.join(__dirname, 'public')));
+  // Parse JSON bodies
+  app.use(express.json());
 
-// Routes
-app.use('/', indexRouter);
+  // Parse URL-encoded bodies (form submissions)
+  app.use(express.urlencoded({ extended: true }));
 
-// 404 handler
-app.use((req, res, next) => {
-  const err = new Error('Not Found');
-  err.status = 404;
-  next(err);
-});
+  // Serve static assets from /public
+  app.use(express.static(path.join(__dirname, 'public')));
 
-// Error handler
-app.use((err, req, res, next) => {
-  const status = err.status || 500;
-  res.status(status);
-  res.render('error', {
-    title: `Error ${status}`,
-    message: err.message,
-    status,
-    stack: process.env.NODE_ENV !== 'production' ? err.stack : null,
+  // ── Routers ───────────────────────────────────────────────────────────────────
+  app.use('/', indexRouter);
+
+  // ── 404 Handler ──────────────────────────────────────────────────────────────
+  app.use((req, res, next) => {
+    res.status(404).render('error', {
+      title: 'Page Not Found',
+      statusCode: 404,
+      message: `The page you are looking for — ${req.originalUrl} — does not exist.`,
+    });
   });
-});
 
-module.exports = app;
+  // ── Global Error Handler ──────────────────────────────────────────────────────
+  // eslint-disable-next-line no-unused-vars
+  app.use((err, req, res, next) => {
+    console.error(err.stack);
+    const statusCode = err.status || err.statusCode || 500;
+    res.status(statusCode).render('error', {
+      title: 'Something Went Wrong',
+      statusCode,
+      message:
+        process.env.NODE_ENV === 'production'
+          ? 'An unexpected error occurred. Please try again later.'
+          : err.message,
+    });
+  });
+
+  return app;
+}
+
+module.exports = createApp();
