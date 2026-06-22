@@ -1,66 +1,58 @@
-# 📸 PhotoGallery
+# 📷 PhotoGallery
 
-A lightweight, self-hosted photo gallery built with **Node.js**, **Express**, and **EJS**. Upload photos, browse them in a beautiful responsive grid, organise with custom tags, and explore automatically extracted EXIF metadata.
+A full-featured personal photo gallery web application built with **Express.js**, **EJS**, and **SQLite**.
+Upload, organise, tag, and explore your photos — all from a clean, responsive interface.
 
 ---
 
 ## ✨ Features
 
-| Phase | Feature |
-|-------|---------|
-| ✅ 1 | Project scaffold — Express server, EJS templates, static assets |
-| 🔜 2 | Photo upload with Multer, Sharp thumbnail generation |
-| 🔜 3 | Gallery grid with lightbox & pagination |
-| 🔜 4 | Tag management & filtering |
-| 🔜 5 | EXIF data extraction & display |
-| 🔜 6 | SQLite persistence via Sequelize |
+- **Smart Gallery** — Responsive grid with smooth hover effects
+- **Easy Uploads** — Bulk image upload with automatic thumbnail generation
+- **Tag & Search** — Organise photos with custom tags and search instantly
+- **EXIF Insights** — View camera metadata (shutter speed, aperture, ISO, GPS, and more)
 
 ---
 
-## 🛠 Prerequisites
+## 🛠️ Prerequisites
 
-| Tool | Version |
-|------|---------|
-| [Node.js](https://nodejs.org/) | >= 18 |
-| npm | >= 9 |
+- **Node.js** `>= 18.x` — [Download](https://nodejs.org/)
+- **npm** `>= 9.x` (bundled with Node.js)
 
 ---
 
-## 🚀 Quick Start
+## 🚀 Setup & Development
 
-### 1. Clone & install dependencies
+### 1. Clone the repository
 
 ```bash
-git clone https://github.com/your-username/photo-gallery.git
-cd photo-gallery
+git clone <repository-url>
+cd photo-gallery-app
+```
+
+### 2. Install dependencies
+
+```bash
 npm install
 ```
 
-### 2. Configure environment variables
+### 3. Configure environment variables
 
 ```bash
 cp .env.example .env
 ```
 
-Open `.env` and adjust any values as needed:
+Edit `.env` to customise your settings (port, upload limits, etc.).
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `PORT` | `3000` | HTTP port the server listens on |
-| `NODE_ENV` | `development` | Runtime environment |
-| `UPLOAD_DIR` | `uploads` | Directory for uploaded images |
-| `MAX_FILE_SIZE_MB` | `10` | Maximum upload file size in megabytes |
-| `DB_PATH` | `./database.db` | Path to the SQLite database file |
-
-### 3. Start the development server
+### 4. Start the development server
 
 ```bash
 npm run dev
 ```
 
-The server will start with **nodemon** for hot-reloading. Visit [http://localhost:3000](http://localhost:3000).
+The app will be available at **http://localhost:3000** with hot-reloading via `nodemon`.
 
-### 4. Production start
+### 5. Start in production mode
 
 ```bash
 npm start
@@ -68,55 +60,89 @@ npm start
 
 ---
 
+## 🔑 Environment Variables
+
+| Variable           | Default        | Description                              |
+|--------------------|----------------|------------------------------------------|
+| `PORT`             | `3000`         | Port the server listens on               |
+| `NODE_ENV`         | `development`  | Environment (`development`/`production`) |
+| `UPLOAD_DIR`       | `uploads`      | Directory for storing uploaded images    |
+| `MAX_FILE_SIZE_MB` | `10`           | Maximum upload file size in megabytes    |
+| `DB_PATH`          | `./database.db`| Path to the SQLite database file         |
+
+---
+
+## 🩺 Health Check
+
+```
+GET /health
+```
+
+Returns a JSON object with server status:
+
+```json
+{
+  "status": "ok",
+  "timestamp": "2026-06-22T12:00:00.000Z",
+  "uptime": 42,
+  "environment": "development",
+  "version": "1.0.0"
+}
+```
+
+---
+
 ## 📁 Project Structure
 
 ```
-photo-gallery/
-├── app.js               # Express app factory
-├── server.js            # Entry point — starts HTTP server
-├── .env                 # Local environment config (gitignored)
-├── .env.example         # Environment variable template
+photo-gallery-app/
+├── app.js              # Express app factory
+├── server.js           # Entry point — starts the HTTP server
+├── .env                # Local environment config (gitignored)
+├── .env.example        # Environment variable template
+├── .gitignore
+├── package.json
+│
 ├── config/
-│   └── index.js         # Centralised config with defaults & validation
-├── middleware/          # Custom Express middleware (added in later phases)
+│   └── index.js        # Centralised config with validation
+│
 ├── routes/
-│   └── index.js         # Root router (GET /, GET /health)
+│   └── index.js        # Root router (GET /, GET /health)
+│
+├── middleware/         # Custom Express middleware (future phases)
+│
 ├── views/
+│   ├── home.ejs        # Homepage
+│   ├── error.ejs       # Error page
 │   ├── layouts/
-│   │   └── base.ejs     # Base HTML shell
-│   ├── partials/
-│   │   └── navbar.ejs   # Top navigation bar
-│   ├── home.ejs         # Landing page
-│   └── error.ejs        # Error page
+│   │   └── base.ejs    # Base HTML shell
+│   └── partials/
+│       └── navbar.ejs  # Top navigation bar
+│
 ├── public/
 │   ├── css/
-│   │   └── main.css     # Custom styles, gallery grid, tag badges
+│   │   └── main.css    # Custom styles, gallery grid, tag badges
 │   └── js/
-│       └── main.js      # Client-side bootstrapper
-└── uploads/             # User-uploaded images (gitignored)
+│       └── main.js     # Client-side JS bootstrapper
+│
+└── uploads/            # User-uploaded images (gitignored)
 ```
 
 ---
 
-## 🔗 API Endpoints
+## 🗺️ Phase Roadmap
 
-| Method | Path | Description |
-|--------|------|-------------|
-| `GET` | `/` | Landing page |
-| `GET` | `/health` | Health-check — returns JSON status |
-
----
-
-## 🧩 Scripts
-
-| Command | Description |
-|---------|-------------|
-| `npm run dev` | Start with nodemon (hot-reload) |
-| `npm start` | Start in production mode |
-| `npm test` | Placeholder for test runner |
+| Phase | Description                                              | Status |
+|-------|----------------------------------------------------------|--------|
+| **1** | Foundation & Project Scaffold                            | ✅ Done |
+| **2** | Image Upload & Storage                                   | 🔜 Planned |
+| **3** | Gallery View & Thumbnail Generation                      | 🔜 Planned |
+| **4** | EXIF Metadata Extraction & Display                       | 🔜 Planned |
+| **5** | Tagging System & Search                                  | 🔜 Planned |
+| **6** | Polish, Pagination & Performance                         | 🔜 Planned |
 
 ---
 
-## 📜 License
+## 📄 Licence
 
-MIT © 2026 PhotoGallery
+ISC

@@ -1,58 +1,86 @@
 <%- include('layouts/base', { body: `
 
-  <!-- Hero Section -->
-  <section class="hero-section text-white text-center d-flex align-items-center justify-content-center">
-    <div class="container py-5">
-      <div class="row justify-content-center">
-        <div class="col-lg-8">
-          <i class="bi bi-camera2 hero-icon mb-4 d-block"></i>
-          <h1 class="display-4 fw-bold mb-3">${heroHeadline}</h1>
-          <p class="lead mb-4 text-white-50">${heroSubtext}</p>
-          <div class="d-flex gap-3 justify-content-center flex-wrap">
-            <a href="/upload" class="btn btn-primary btn-lg px-4">
-              <i class="bi bi-cloud-upload me-2"></i>Upload Photos
-            </a>
-            <a href="/gallery" class="btn btn-outline-light btn-lg px-4">
-              <i class="bi bi-grid-3x3-gap me-2"></i>Browse Gallery
-            </a>
-          </div>
+<!-- ── Hero Section ──────────────────────────────────────────────────────── -->
+<section class="hero-section">
+  <div class="container">
+    <div class="row justify-content-center text-center">
+      <div class="col-lg-8">
+        <div class="hero-badge mb-4">
+          <span class="badge-pill">✨ Phase 1 — Foundation</span>
+        </div>
+        <h1 class="hero-title">${heroTitle}</h1>
+        <p class="hero-subtitle">${heroSubtitle}</p>
+        <div class="hero-actions d-flex gap-3 justify-content-center flex-wrap">
+          <a href="/gallery" class="btn btn-primary btn-lg px-5">
+            <i class="bi bi-images me-2"></i>Browse Gallery
+          </a>
+          <a href="/upload" class="btn btn-outline-primary btn-lg px-5">
+            <i class="bi bi-cloud-upload me-2"></i>Upload Photos
+          </a>
         </div>
       </div>
     </div>
-  </section>
+  </div>
+</section>
 
-  <!-- Features Section -->
-  <section class="features-section py-5 bg-light">
-    <div class="container">
-      <div class="text-center mb-5">
-        <h2 class="fw-bold">Everything You Need</h2>
-        <p class="text-muted">A complete photo management experience in your browser.</p>
+<!-- ── Stats Bar ──────────────────────────────────────────────────────────── -->
+<section class="stats-bar">
+  <div class="container">
+    <div class="row g-0 text-center">
+      <div class="col-4">
+        <div class="stat-item">
+          <span class="stat-number">${stats.photos}</span>
+          <span class="stat-label">Photos</span>
+        </div>
       </div>
-      <div class="row g-4">
-        ${features.map(f => \`
-          <div class="col-sm-6 col-lg-3">
-            <div class="card feature-card h-100 border-0 shadow-sm text-center p-3">
-              <div class="card-body">
-                <div class="feature-icon mb-3">${f.icon}</div>
-                <h5 class="card-title fw-semibold">${f.title}</h5>
-                <p class="card-text text-muted small">${f.description}</p>
-              </div>
-            </div>
-          </div>
-        \`).join('')}
+      <div class="col-4">
+        <div class="stat-item stat-divider">
+          <span class="stat-number">${stats.tags}</span>
+          <span class="stat-label">Tags</span>
+        </div>
+      </div>
+      <div class="col-4">
+        <div class="stat-item">
+          <span class="stat-number">${stats.uploads}</span>
+          <span class="stat-label">Uploads</span>
+        </div>
       </div>
     </div>
-  </section>
+  </div>
+</section>
 
-  <!-- Status / CTA Section -->
-  <section class="py-5">
-    <div class="container text-center">
-      <h3 class="fw-bold mb-3">Ready to Get Started?</h3>
-      <p class="text-muted mb-4">Create your personal gallery in seconds — no account required.</p>
-      <a href="/upload" class="btn btn-success btn-lg px-5">
-        <i class="bi bi-plus-circle me-2"></i>Add Your First Photo
+<!-- ── Features Section ───────────────────────────────────────────────────── -->
+<section class="features-section">
+  <div class="container">
+    <div class="section-header text-center mb-5">
+      <h2 class="section-title">Everything You Need</h2>
+      <p class="section-subtitle text-muted">A complete toolkit for managing your personal photo collection.</p>
+    </div>
+    <div class="row g-4">
+      ${features.map(f => `
+      <div class="col-sm-6 col-lg-3">
+        <div class="feature-card h-100">
+          <div class="feature-icon">${f.icon}</div>
+          <h3 class="feature-title">${f.title}</h3>
+          <p class="feature-desc text-muted">${f.description}</p>
+        </div>
+      </div>
+      `).join('')}
+    </div>
+  </div>
+</section>
+
+<!-- ── CTA Section ────────────────────────────────────────────────────────── -->
+<section class="cta-section">
+  <div class="container">
+    <div class="cta-card text-center">
+      <h2 class="cta-title">Ready to Get Started?</h2>
+      <p class="cta-subtitle">Upload your first photo and start building your gallery today.</p>
+      <a href="/upload" class="btn btn-white btn-lg px-5">
+        <i class="bi bi-rocket-takeoff me-2"></i>Get Started
       </a>
     </div>
-  </section>
+  </div>
+</section>
 
 ` }) %>

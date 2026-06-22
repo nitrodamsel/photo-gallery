@@ -10,43 +10,49 @@ const router = express.Router();
 router.get('/', (req, res) => {
   res.render('home', {
     title: 'Photo Gallery',
-    heroHeadline: 'Your Personal Photo Gallery',
-    heroSubtext: 'Upload, organise, and explore your photos with automatic EXIF data extraction and smart tagging.',
+    heroTitle: 'Your Personal Photo Gallery',
+    heroSubtitle: 'Upload, organise, and explore your photos with ease.',
     features: [
       {
         icon: '🖼️',
-        title: 'Beautiful Gallery',
-        description: 'Browse your photos in a responsive masonry grid with smooth hover effects.',
+        title: 'Smart Gallery',
+        description: 'Browse your photos in a beautiful, responsive grid layout with smooth hover effects.',
       },
       {
-        icon: '📤',
+        icon: '⬆️',
         title: 'Easy Uploads',
-        description: 'Drag-and-drop or click-to-upload with automatic thumbnail generation.',
+        description: 'Upload images in bulk. We automatically generate thumbnails and extract EXIF metadata.',
       },
       {
         icon: '🏷️',
-        title: 'Smart Tagging',
-        description: 'Organise photos with custom tags and filter your collection instantly.',
+        title: 'Tag & Search',
+        description: 'Organise photos with custom tags and find exactly what you are looking for instantly.',
       },
       {
-        icon: '📷',
-        title: 'EXIF Data',
-        description: 'Automatically extract camera settings, GPS coordinates, and timestamps.',
+        icon: '📊',
+        title: 'EXIF Insights',
+        description: 'View detailed camera metadata: shutter speed, aperture, ISO, GPS coordinates, and more.',
       },
     ],
+    stats: {
+      photos: 0,
+      tags: 0,
+      uploads: 0,
+    },
   });
 });
 
 /**
  * GET /health
- * Health-check endpoint — returns JSON status for monitoring / load balancers.
+ * Health-check endpoint — returns JSON status for monitoring and load balancers.
  */
 router.get('/health', (req, res) => {
-  res.json({
+  res.status(200).json({
     status: 'ok',
-    uptime: process.uptime(),
     timestamp: new Date().toISOString(),
+    uptime: Math.floor(process.uptime()),
     environment: process.env.NODE_ENV || 'development',
+    version: process.env.npm_package_version || '1.0.0',
   });
 });
 
