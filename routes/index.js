@@ -2,36 +2,33 @@
 
 const express = require('express');
 const router = express.Router();
+const config = require('../config');
 
-/**
- * GET /
- * Renders the homepage with placeholder data.
- */
+// GET / — Render home page
 router.get('/', (req, res) => {
   res.render('home', {
     title: 'Photo Gallery',
-    heroTitle: 'Your Personal Photo Gallery',
-    heroSubtitle: 'Upload, organise, and explore your photos with ease.',
+    tagline: 'Your personal photo collection, beautifully organized.',
     features: [
       {
         icon: '🖼️',
-        title: 'Smart Gallery',
-        description: 'Browse your photos in a beautiful, responsive grid layout with smooth hover effects.',
+        title: 'Gallery View',
+        description: 'Browse all your photos in a responsive masonry grid with smooth hover effects.',
       },
       {
-        icon: '⬆️',
-        title: 'Easy Uploads',
-        description: 'Upload images in bulk. We automatically generate thumbnails and extract EXIF metadata.',
+        icon: '📤',
+        title: 'Easy Upload',
+        description: 'Upload single or multiple images with automatic EXIF data extraction.',
       },
       {
         icon: '🏷️',
-        title: 'Tag & Search',
-        description: 'Organise photos with custom tags and find exactly what you are looking for instantly.',
+        title: 'Tag & Organize',
+        description: 'Add custom tags to photos and filter your gallery by any combination of tags.',
       },
       {
-        icon: '📊',
-        title: 'EXIF Insights',
-        description: 'View detailed camera metadata: shutter speed, aperture, ISO, GPS coordinates, and more.',
+        icon: '🔍',
+        title: 'Smart Search',
+        description: 'Search across filenames, descriptions, and tags to find any photo instantly.',
       },
     ],
     stats: {
@@ -42,17 +39,14 @@ router.get('/', (req, res) => {
   });
 });
 
-/**
- * GET /health
- * Health-check endpoint — returns JSON status for monitoring and load balancers.
- */
+// GET /health — Health check endpoint
 router.get('/health', (req, res) => {
-  res.status(200).json({
+  res.json({
     status: 'ok',
     timestamp: new Date().toISOString(),
-    uptime: Math.floor(process.uptime()),
-    environment: process.env.NODE_ENV || 'development',
+    environment: config.nodeEnv,
     version: process.env.npm_package_version || '1.0.0',
+    uptime: process.uptime(),
   });
 });
 

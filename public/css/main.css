@@ -1,48 +1,54 @@
 /* ============================================================
-   PhotoGallery — Custom Stylesheet
+   CSS Custom Properties (Design Tokens)
    ============================================================ */
-
-/* ── CSS Custom Properties ───────────────────────────────────────────────── */
 :root {
-  --color-primary:       #6366f1;
-  --color-primary-dark:  #4f46e5;
-  --color-primary-light: #a5b4fc;
-  --color-secondary:     #f59e0b;
-  --color-success:       #10b981;
-  --color-danger:        #ef4444;
-  --color-surface:       #ffffff;
-  --color-surface-alt:   #f8fafc;
-  --color-border:        #e2e8f0;
-  --color-text:          #1e293b;
-  --color-text-muted:    #64748b;
-  --color-hero-bg:       #f0f0ff;
+  --color-primary: #4f46e5;
+  --color-primary-hover: #4338ca;
+  --color-primary-light: #ede9fe;
+  --color-secondary: #06b6d4;
+  --color-success: #10b981;
+  --color-warning: #f59e0b;
+  --color-danger: #ef4444;
 
-  --font-sans: 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  --color-bg: #f8fafc;
+  --color-surface: #ffffff;
+  --color-border: #e2e8f0;
+  --color-text: #1e293b;
+  --color-text-muted: #64748b;
 
-  --radius-sm:  0.375rem;
-  --radius-md:  0.75rem;
-  --radius-lg:  1.25rem;
-  --radius-xl:  2rem;
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 10px 30px rgba(0, 0, 0, 0.12);
+  --shadow-hover: 0 8px 24px rgba(79, 70, 229, 0.2);
 
-  --shadow-sm:  0 1px 3px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04);
-  --shadow-md:  0 4px 6px -1px rgba(0,0,0,.08), 0 2px 4px -1px rgba(0,0,0,.05);
-  --shadow-lg:  0 10px 25px -3px rgba(0,0,0,.1), 0 4px 6px -2px rgba(0,0,0,.05);
-  --shadow-card-hover: 0 20px 40px -8px rgba(99,102,241,.25);
+  --radius-sm: 0.375rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 1.25rem;
+  --radius-xl: 1.75rem;
 
-  --transition-fast: 150ms ease;
-  --transition-base: 250ms ease;
-  --transition-slow: 400ms ease;
+  --transition-base: 0.2s ease;
+  --transition-smooth: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+
+  --navbar-height: 64px;
 }
 
-/* ── Base Reset & Typography ─────────────────────────────────────────────── */
-*, *::before, *::after {
+/* ============================================================
+   Base & Reset
+   ============================================================ */
+*,
+*::before,
+*::after {
   box-sizing: border-box;
 }
 
+html {
+  scroll-behavior: smooth;
+}
+
 body {
-  font-family: var(--font-sans);
+  background-color: var(--color-bg);
   color: var(--color-text);
-  background-color: var(--color-surface-alt);
+  font-family: 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
   line-height: 1.6;
   min-height: 100vh;
   display: flex;
@@ -56,35 +62,36 @@ body {
 a {
   color: var(--color-primary);
   text-decoration: none;
-  transition: color var(--transition-fast);
+  transition: color var(--transition-base);
 }
 
 a:hover {
-  color: var(--color-primary-dark);
+  color: var(--color-primary-hover);
 }
 
-.text-indigo {
-  color: var(--color-primary);
-}
-
-/* ── Navbar ──────────────────────────────────────────────────────────────── */
+/* ============================================================
+   Navbar
+   ============================================================ */
 .app-navbar {
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  background-color: var(--color-surface);
   border-bottom: 1px solid var(--color-border);
-  padding: 0.75rem 0;
   box-shadow: var(--shadow-sm);
+  height: var(--navbar-height);
 }
 
-.navbar-brand-text {
+.app-navbar .navbar-brand {
   font-size: 1.2rem;
-  color: var(--color-primary);
-  letter-spacing: -0.3px;
+  color: var(--color-text);
+  transition: opacity var(--transition-base);
 }
 
-.navbar-logo {
-  font-size: 1.4rem;
+.app-navbar .navbar-brand:hover {
+  opacity: 0.8;
+  color: var(--color-text);
+}
+
+.navbar-brand-icon {
+  font-size: 1.5rem;
   line-height: 1;
 }
 
@@ -93,20 +100,26 @@ a:hover {
   font-weight: 500;
   padding: 0.5rem 0.75rem;
   border-radius: var(--radius-sm);
-  transition: color var(--transition-fast), background-color var(--transition-fast);
+  transition: color var(--transition-base), background-color var(--transition-base);
 }
 
-.app-navbar .nav-link:hover,
+.app-navbar .nav-link:hover {
+  color: var(--color-primary);
+  background-color: var(--color-primary-light);
+}
+
 .app-navbar .nav-link.active {
   color: var(--color-primary);
-  background-color: rgba(99, 102, 241, 0.08);
+  background-color: var(--color-primary-light);
 }
 
-/* ── Hero Section ────────────────────────────────────────────────────────── */
+/* ============================================================
+   Hero Section
+   ============================================================ */
 .hero-section {
-  background: linear-gradient(135deg, var(--color-hero-bg) 0%, #faf5ff 100%);
-  padding: 6rem 0 5rem;
-  border-bottom: 1px solid var(--color-border);
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 5rem 0 4rem;
   position: relative;
   overflow: hidden;
 }
@@ -115,190 +128,174 @@ a:hover {
   content: '';
   position: absolute;
   top: -50%;
-  right: -20%;
-  width: 600px;
-  height: 600px;
-  background: radial-gradient(circle, rgba(99,102,241,0.08) 0%, transparent 70%);
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: radial-gradient(circle at 30% 50%, rgba(255,255,255,0.08) 0%, transparent 60%),
+              radial-gradient(circle at 70% 20%, rgba(255,255,255,0.05) 0%, transparent 50%);
   pointer-events: none;
 }
 
-.hero-badge {
-  display: inline-block;
+.hero-icon {
+  font-size: 4rem;
+  line-height: 1;
+  filter: drop-shadow(0 4px 8px rgba(0,0,0,0.2));
+  animation: float 3s ease-in-out infinite;
 }
 
-.badge-pill {
-  background: rgba(99,102,241,0.12);
-  color: var(--color-primary-dark);
-  border: 1px solid rgba(99,102,241,0.25);
-  border-radius: 50px;
-  padding: 0.35rem 1rem;
-  font-size: 0.8rem;
-  font-weight: 600;
-  letter-spacing: 0.3px;
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-8px); }
 }
 
 .hero-title {
-  font-size: clamp(2rem, 5vw, 3.25rem);
-  font-weight: 800;
-  line-height: 1.15;
-  color: var(--color-text);
-  letter-spacing: -0.5px;
-  margin-bottom: 1.25rem;
+  color: white;
+  text-shadow: 0 2px 8px rgba(0,0,0,0.2);
 }
 
-.hero-subtitle {
-  font-size: 1.15rem;
-  color: var(--color-text-muted);
-  max-width: 520px;
-  margin: 0 auto 2.5rem;
+.hero-tagline {
+  color: rgba(255, 255, 255, 0.88);
 }
 
-.hero-actions .btn {
-  border-radius: var(--radius-md);
+.hero-section .btn-primary {
+  background-color: white;
+  color: var(--color-primary);
+  border-color: white;
   font-weight: 600;
-  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
 }
 
-.hero-actions .btn:hover {
+.hero-section .btn-primary:hover {
+  background-color: rgba(255,255,255,0.9);
+  border-color: rgba(255,255,255,0.9);
+  color: var(--color-primary-hover);
   transform: translateY(-2px);
-  box-shadow: var(--shadow-lg);
+  box-shadow: 0 6px 20px rgba(0,0,0,0.2);
 }
 
-/* ── Stats Bar ───────────────────────────────────────────────────────────── */
-.stats-bar {
-  background: var(--color-surface);
+.hero-section .btn-outline-secondary {
+  color: white;
+  border-color: rgba(255,255,255,0.6);
+  font-weight: 600;
+}
+
+.hero-section .btn-outline-secondary:hover {
+  background-color: rgba(255,255,255,0.15);
+  border-color: white;
+  color: white;
+  transform: translateY(-2px);
+}
+
+/* ============================================================
+   Stats Section
+   ============================================================ */
+.stats-section {
+  background-color: var(--color-surface);
   border-bottom: 1px solid var(--color-border);
-  padding: 1.5rem 0;
-  box-shadow: var(--shadow-sm);
 }
 
-.stat-item {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.15rem;
-  padding: 0.5rem;
+.stat-card {
+  border-radius: var(--radius-md);
+  transition: background-color var(--transition-base);
 }
 
-.stat-divider {
-  border-left: 1px solid var(--color-border);
-  border-right: 1px solid var(--color-border);
+.stat-card:hover {
+  background-color: var(--color-primary-light);
 }
 
 .stat-number {
-  font-size: 1.75rem;
-  font-weight: 800;
-  color: var(--color-primary);
-  line-height: 1;
+  font-size: 2.5rem !important;
+  line-height: 1.1;
 }
 
-.stat-label {
-  font-size: 0.8rem;
-  font-weight: 600;
-  color: var(--color-text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-/* ── Features Section ────────────────────────────────────────────────────── */
+/* ============================================================
+   Features Section
+   ============================================================ */
 .features-section {
-  padding: 5rem 0;
-  background: var(--color-surface-alt);
+  background-color: var(--color-bg);
 }
 
-.section-title {
-  font-size: clamp(1.5rem, 3vw, 2.25rem);
-  font-weight: 800;
-  color: var(--color-text);
-  letter-spacing: -0.3px;
-  margin-bottom: 0.5rem;
-}
-
-.section-subtitle {
-  font-size: 1rem;
-  max-width: 480px;
-  margin: 0 auto;
-}
-
-/* ── Feature Cards ───────────────────────────────────────────────────────── */
 .feature-card {
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  padding: 2rem 1.5rem;
-  text-align: center;
+  background-color: var(--color-surface);
+  border-radius: var(--radius-lg) !important;
   box-shadow: var(--shadow-sm);
-  transition:
-    transform var(--transition-base),
-    box-shadow var(--transition-base),
-    border-color var(--transition-base);
-  cursor: default;
+  transition: transform var(--transition-smooth), box-shadow var(--transition-smooth);
 }
 
 .feature-card:hover {
   transform: translateY(-6px);
-  box-shadow: var(--shadow-card-hover);
-  border-color: var(--color-primary-light);
+  box-shadow: var(--shadow-hover);
 }
 
 .feature-icon {
   font-size: 2.5rem;
-  margin-bottom: 1rem;
-  display: block;
   line-height: 1;
 }
 
-.feature-title {
-  font-size: 1.1rem;
-  font-weight: 700;
-  color: var(--color-text);
-  margin-bottom: 0.5rem;
+/* ============================================================
+   CTA Section
+   ============================================================ */
+.cta-section {
+  background-color: var(--color-bg);
 }
 
-.feature-desc {
-  font-size: 0.9rem;
-  line-height: 1.6;
-  margin-bottom: 0;
+.cta-card {
+  background: linear-gradient(135deg, var(--color-primary-light) 0%, #ddd6fe 100%);
+  border: 1px solid #c4b5fd;
 }
 
-/* ── Gallery Grid ────────────────────────────────────────────────────────── */
+/* ============================================================
+   Gallery Grid
+   ============================================================ */
 .gallery-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-  gap: 1rem;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 1.25rem;
 }
 
 .gallery-card {
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
+  background-color: var(--color-surface);
+  border-radius: var(--radius-lg);
   overflow: hidden;
   box-shadow: var(--shadow-sm);
-  transition:
-    transform var(--transition-base),
-    box-shadow var(--transition-base);
+  transition: transform var(--transition-smooth), box-shadow var(--transition-smooth);
+  cursor: pointer;
   position: relative;
 }
 
 .gallery-card:hover {
   transform: translateY(-4px) scale(1.01);
-  box-shadow: var(--shadow-card-hover);
+  box-shadow: var(--shadow-hover);
 }
 
-.gallery-card img {
+.gallery-card-img {
   width: 100%;
-  height: 200px;
+  aspect-ratio: 4 / 3;
   object-fit: cover;
   display: block;
-  transition: transform var(--transition-slow);
+  transition: transform var(--transition-smooth);
 }
 
-.gallery-card:hover img {
-  transform: scale(1.05);
+.gallery-card:hover .gallery-card-img {
+  transform: scale(1.04);
+}
+
+.gallery-card-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, rgba(0,0,0,0.55) 0%, transparent 60%);
+  opacity: 0;
+  transition: opacity var(--transition-smooth);
+  display: flex;
+  align-items: flex-end;
+  padding: 1rem;
+}
+
+.gallery-card:hover .gallery-card-overlay {
+  opacity: 1;
 }
 
 .gallery-card-body {
-  padding: 0.75rem 1rem;
+  padding: 0.85rem 1rem;
 }
 
 .gallery-card-title {
@@ -308,194 +305,149 @@ a:hover {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  margin-bottom: 0.35rem;
+  margin-bottom: 0.4rem;
 }
 
-/* ── Tag Badges ──────────────────────────────────────────────────────────── */
+/* ============================================================
+   Tag Badges
+   ============================================================ */
 .tag-badge {
   display: inline-flex;
   align-items: center;
   gap: 0.25rem;
-  background: rgba(99,102,241,0.1);
-  color: var(--color-primary-dark);
-  border: 1px solid rgba(99,102,241,0.2);
-  border-radius: 50px;
   padding: 0.2rem 0.65rem;
+  border-radius: 999px;
   font-size: 0.75rem;
   font-weight: 600;
-  text-decoration: none;
-  transition:
-    background-color var(--transition-fast),
-    border-color var(--transition-fast),
-    color var(--transition-fast);
+  background-color: var(--color-primary-light);
+  color: var(--color-primary);
+  border: 1px solid #c4b5fd;
+  transition: background-color var(--transition-base), transform var(--transition-base);
   cursor: pointer;
-  white-space: nowrap;
+  text-decoration: none;
 }
 
 .tag-badge:hover {
-  background: var(--color-primary);
+  background-color: var(--color-primary);
+  color: white;
   border-color: var(--color-primary);
-  color: #ffffff;
+  transform: translateY(-1px);
+  text-decoration: none;
 }
 
-.tag-badge.tag-sm {
+.tag-badge-sm {
   padding: 0.15rem 0.5rem;
   font-size: 0.7rem;
 }
 
-.tag-badge.tag-lg {
-  padding: 0.35rem 0.9rem;
-  font-size: 0.85rem;
+.tag-badge-removable::after {
+  content: '×';
+  font-size: 0.85em;
+  margin-left: 0.15rem;
+  opacity: 0.7;
 }
 
-.tag-badge.tag-secondary {
-  background: rgba(100,116,139,0.1);
-  color: var(--color-text-muted);
-  border-color: rgba(100,116,139,0.2);
+.tag-badge-removable:hover::after {
+  opacity: 1;
 }
 
-.tag-badge.tag-secondary:hover {
-  background: var(--color-text-muted);
-  border-color: var(--color-text-muted);
-  color: #ffffff;
-}
+/* Color variants for tags */
+.tag-badge-blue   { background-color: #dbeafe; color: #1d4ed8; border-color: #bfdbfe; }
+.tag-badge-green  { background-color: #d1fae5; color: #065f46; border-color: #a7f3d0; }
+.tag-badge-yellow { background-color: #fef3c7; color: #92400e; border-color: #fde68a; }
+.tag-badge-red    { background-color: #fee2e2; color: #991b1b; border-color: #fecaca; }
+.tag-badge-pink   { background-color: #fce7f3; color: #9d174d; border-color: #fbcfe8; }
+.tag-badge-cyan   { background-color: #cffafe; color: #155e75; border-color: #a5f3fc; }
 
-/* ── CTA Section ─────────────────────────────────────────────────────────── */
-.cta-section {
-  padding: 4rem 0 5rem;
-  background: var(--color-surface-alt);
-}
-
-.cta-card {
-  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%);
+/* ============================================================
+   Upload Area
+   ============================================================ */
+.upload-dropzone {
+  border: 2px dashed var(--color-border);
   border-radius: var(--radius-xl);
-  padding: 4rem 2rem;
-  box-shadow: 0 20px 50px -10px rgba(99,102,241,0.4);
+  padding: 3rem 2rem;
+  text-align: center;
+  background-color: var(--color-surface);
+  transition: border-color var(--transition-base), background-color var(--transition-base);
+  cursor: pointer;
 }
 
-.cta-title {
-  font-size: clamp(1.5rem, 3vw, 2.25rem);
-  font-weight: 800;
-  color: #ffffff;
-  margin-bottom: 0.75rem;
-}
-
-.cta-subtitle {
-  color: rgba(255,255,255,0.8);
-  font-size: 1rem;
-  margin-bottom: 2rem;
-}
-
-.btn-white {
-  background: #ffffff;
-  color: var(--color-primary-dark);
-  border: 2px solid transparent;
-  font-weight: 700;
-  border-radius: var(--radius-md);
-  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
-}
-
-.btn-white:hover {
-  background: #f8f8ff;
-  color: var(--color-primary-dark);
-  transform: translateY(-2px);
-  box-shadow: 0 10px 25px -5px rgba(0,0,0,0.2);
-}
-
-/* ── Bootstrap Overrides ─────────────────────────────────────────────────── */
-.btn-primary {
-  background-color: var(--color-primary);
+.upload-dropzone:hover,
+.upload-dropzone.dragover {
   border-color: var(--color-primary);
-  font-weight: 600;
-  border-radius: var(--radius-sm);
+  background-color: var(--color-primary-light);
 }
 
-.btn-primary:hover,
-.btn-primary:focus {
-  background-color: var(--color-primary-dark);
-  border-color: var(--color-primary-dark);
-}
-
-.btn-outline-primary {
-  color: var(--color-primary);
-  border-color: var(--color-primary);
-  font-weight: 600;
-  border-radius: var(--radius-sm);
-}
-
-.btn-outline-primary:hover {
-  background-color: var(--color-primary);
-  border-color: var(--color-primary);
-}
-
-/* ── Error Page ──────────────────────────────────────────────────────────── */
-.error-section {
-  padding: 8rem 0;
-}
-
-.error-code {
-  font-size: clamp(5rem, 15vw, 9rem);
-  font-weight: 900;
-  color: var(--color-primary);
-  opacity: 0.15;
-  line-height: 1;
-  margin-bottom: -1rem;
-}
-
-.error-title {
-  font-size: clamp(1.5rem, 4vw, 2.5rem);
-  font-weight: 800;
-  color: var(--color-text);
+.upload-dropzone-icon {
+  font-size: 3.5rem;
+  color: var(--color-text-muted);
   margin-bottom: 1rem;
 }
 
-.error-message {
-  font-size: 1rem;
-  max-width: 420px;
-  margin: 0 auto 1.5rem;
-}
-
-/* ── Footer ──────────────────────────────────────────────────────────────── */
+/* ============================================================
+   Footer
+   ============================================================ */
 .app-footer {
-  background: var(--color-surface);
+  background-color: var(--color-surface);
   border-top: 1px solid var(--color-border);
   padding: 1.25rem 0;
   margin-top: auto;
 }
 
-/* ── Upload Zone ─────────────────────────────────────────────────────────── */
-.upload-zone {
-  border: 2px dashed var(--color-border);
-  border-radius: var(--radius-lg);
-  padding: 3rem 2rem;
-  text-align: center;
-  background: var(--color-surface);
-  transition:
-    border-color var(--transition-base),
-    background-color var(--transition-base);
-  cursor: pointer;
+/* ============================================================
+   Error Section
+   ============================================================ */
+.error-section {
+  min-height: calc(100vh - var(--navbar-height) - 80px);
+  display: flex;
+  align-items: center;
 }
 
-.upload-zone:hover,
-.upload-zone.drag-over {
+.error-icon {
+  font-size: 5rem;
+  line-height: 1;
+}
+
+/* ============================================================
+   Utility Overrides
+   ============================================================ */
+.btn-primary {
+  background-color: var(--color-primary);
   border-color: var(--color-primary);
-  background: rgba(99,102,241,0.04);
+  font-weight: 500;
+  transition: background-color var(--transition-base), border-color var(--transition-base), transform var(--transition-base), box-shadow var(--transition-base);
 }
 
-.upload-zone-icon {
-  font-size: 3rem;
-  color: var(--color-text-muted);
-  margin-bottom: 1rem;
+.btn-primary:hover {
+  background-color: var(--color-primary-hover);
+  border-color: var(--color-primary-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.35);
 }
 
-/* ── Responsive Utilities ────────────────────────────────────────────────── */
-@media (max-width: 576px) {
+.btn-primary:active {
+  transform: translateY(0);
+}
+
+.card {
+  border-radius: var(--radius-lg);
+  border-color: var(--color-border);
+}
+
+.rounded-4 {
+  border-radius: var(--radius-xl) !important;
+}
+
+/* ============================================================
+   Responsive
+   ============================================================ */
+@media (max-width: 767.98px) {
   .hero-section {
-    padding: 4rem 0 3.5rem;
+    padding: 3rem 0 2.5rem;
   }
 
-  .features-section {
-    padding: 3rem 0;
+  .hero-icon {
+    font-size: 3rem;
   }
 
   .gallery-grid {
@@ -503,26 +455,7 @@ a:hover {
     gap: 0.75rem;
   }
 
-  .gallery-card img {
-    height: 150px;
+  .stat-number {
+    font-size: 2rem !important;
   }
-}
-
-/* ── Scrollbar Styling (WebKit) ──────────────────────────────────────────── */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-
-::-webkit-scrollbar-track {
-  background: var(--color-surface-alt);
-}
-
-::-webkit-scrollbar-thumb {
-  background: var(--color-border);
-  border-radius: 3px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: var(--color-text-muted);
 }
