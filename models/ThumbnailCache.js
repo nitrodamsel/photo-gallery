@@ -8,10 +8,9 @@ class ThumbnailCache extends Model {}
 ThumbnailCache.init(
   {
     id: {
-      type: DataTypes.UUID,
-      defaultValue: DataTypes.UUIDV4,
+      type: DataTypes.INTEGER,
+      autoIncrement: true,
       primaryKey: true,
-      allowNull: false,
     },
     imageId: {
       type: DataTypes.UUID,
@@ -20,24 +19,17 @@ ThumbnailCache.init(
         model: 'images',
         key: 'id',
       },
-      onDelete: 'CASCADE',
       onUpdate: 'CASCADE',
+      onDelete: 'CASCADE',
     },
     size: {
-      type: DataTypes.STRING,
+      type: DataTypes.INTEGER,
       allowNull: false,
+      comment: 'Thumbnail size in pixels (width)',
     },
     filename: {
       type: DataTypes.STRING,
       allowNull: false,
-    },
-    width: {
-      type: DataTypes.INTEGER,
-      allowNull: true,
-    },
-    height: {
-      type: DataTypes.INTEGER,
-      allowNull: true,
     },
     fileSize: {
       type: DataTypes.INTEGER,
@@ -58,7 +50,7 @@ ThumbnailCache.init(
       {
         unique: true,
         fields: ['imageId', 'size'],
-        name: 'unique_thumbnail_image_size',
+        name: 'thumbnail_cache_imageId_size_unique',
       },
     ],
   }

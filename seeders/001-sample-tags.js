@@ -2,7 +2,7 @@
 
 const { v4: uuidv4 } = require('uuid');
 
-const TAGS = [
+const SAMPLE_TAGS = [
   { name: 'Nature',       slug: 'nature',       color: '#2ecc71' },
   { name: 'Architecture', slug: 'architecture', color: '#3498db' },
   { name: 'Portrait',     slug: 'portrait',     color: '#e74c3c' },
@@ -11,31 +11,31 @@ const TAGS = [
 ];
 
 module.exports = {
-  async up(queryInterface) {
+  async run(models) {
+    const { Tag } = models;
     const now = new Date();
-    const rows = TAGS.map((t) => ({
-      id: uuidv4(),
-      name: t.name,
-      slug: t.slug,
-      color: t.color,
-      createdAt: now,
-      updatedAt: now,
-    }));
 
-    // Only insert tags that don't already exist (idempotent seeder)
-    for (const row of rows) {
-      const [existing] = await queryInterface.sequelize.query(
-        `SELECT id FROM tags WHERE slug = '${row.slug}' LIMIT 1`
-      );
-      if (!existing || existing.length === 0) {
-        await queryInterface.bulkInsert('tags', [row]);
+    console.log('[Seeder] Creating sample tags...');
+
+    for (const tagData of SAMPLE_TAGS) {
+      const [tag, created] = await Tag.findOrCreate({
+        where: { slug: tagData.slug },
+        defaults: {
+          id: uuidv4(),
+          name: tagData.name,
+          slug: tagData.slug,
+          color: tagData.color,
+          createdAt: now,
+        },
+      });
+
+      if (created) {
+        console.log(`  ✓ Created tag: ${tag.name}`);
+      } else {
+        console.log(`  - Tag already exists: ${tag.name}`);
       }
     }
-  },
 
-  async down(queryInterface) {
-    await queryInterface.bulkDelete('tags', {
-      slug: TAGS.map((t) => t.slug),
-    });
+    console.log('[Seeder] Sample tags complete.');
   },
 };

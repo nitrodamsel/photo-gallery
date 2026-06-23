@@ -4,10 +4,9 @@ module.exports = {
   async up(queryInterface, Sequelize) {
     await queryInterface.createTable('thumbnail_cache', {
       id: {
-        type: Sequelize.UUID,
-        defaultValue: Sequelize.UUIDV4,
+        type: Sequelize.INTEGER,
+        autoIncrement: true,
         primaryKey: true,
-        allowNull: false,
       },
       imageId: {
         type: Sequelize.UUID,
@@ -16,24 +15,16 @@ module.exports = {
           model: 'images',
           key: 'id',
         },
-        onDelete: 'CASCADE',
         onUpdate: 'CASCADE',
+        onDelete: 'CASCADE',
       },
       size: {
-        type: Sequelize.STRING,
+        type: Sequelize.INTEGER,
         allowNull: false,
       },
       filename: {
         type: Sequelize.STRING,
         allowNull: false,
-      },
-      width: {
-        type: Sequelize.INTEGER,
-        allowNull: true,
-      },
-      height: {
-        type: Sequelize.INTEGER,
-        allowNull: true,
       },
       fileSize: {
         type: Sequelize.INTEGER,
@@ -54,10 +45,9 @@ module.exports = {
       },
     });
 
-    await queryInterface.addConstraint('thumbnail_cache', {
-      fields: ['imageId', 'size'],
-      type: 'unique',
-      name: 'unique_thumbnail_image_size',
+    await queryInterface.addIndex('thumbnail_cache', ['imageId', 'size'], {
+      unique: true,
+      name: 'thumbnail_cache_imageId_size_unique',
     });
   },
 

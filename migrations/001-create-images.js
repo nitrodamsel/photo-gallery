@@ -20,7 +20,7 @@ module.exports = {
       },
       mimeType: {
         type: Sequelize.STRING,
-        allowNull: false,
+        allowNull: true,
       },
       fileSize: {
         type: Sequelize.INTEGER,

@@ -4,13 +4,15 @@ const { DataTypes, Model } = require('sequelize');
 const sequelize = require('../config/database');
 
 class Image extends Model {
+  /**
+   * Returns a plain object suitable for public API responses,
+   * stripping any internal/sensitive fields.
+   */
   toPublicJSON() {
-    const { id, filename, originalName, mimeType, fileSize, width, height, exifData, uploadedAt, description, Tags } = this.get({ plain: true });
-    const result = { id, filename, originalName, mimeType, fileSize, width, height, exifData, uploadedAt, description };
-    if (Tags !== undefined) {
-      result.tags = Tags;
-    }
-    return result;
+    const values = this.toJSON();
+    // Remove any internal fields if needed
+    delete values.updatedAt;
+    return values;
   }
 }
 
@@ -33,7 +35,7 @@ Image.init(
     },
     mimeType: {
       type: DataTypes.STRING,
-      allowNull: false,
+      allowNull: true,
     },
     fileSize: {
       type: DataTypes.INTEGER,

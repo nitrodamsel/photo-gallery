@@ -4,13 +4,12 @@ const { Sequelize } = require('sequelize');
 const path = require('path');
 const config = require('./index');
 
-const dbPath = config.dbPath || process.env.DB_PATH || path.join(__dirname, '..', 'data', 'database.sqlite');
-const isDevelopment = (config.env || process.env.NODE_ENV || 'development') === 'development';
+const dbPath = config.db.path || path.join(__dirname, '..', 'database.sqlite');
 
 const sequelize = new Sequelize({
   dialect: 'sqlite',
   storage: dbPath,
-  logging: isDevelopment ? console.log : false,
+  logging: config.env === 'development' ? console.log : false,
   define: {
     underscored: false,
     freezeTableName: false,

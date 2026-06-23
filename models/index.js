@@ -5,42 +5,51 @@ const Image = require('./Image');
 const Tag = require('./Tag');
 const ImageTag = require('./ImageTag');
 const ThumbnailCache = require('./ThumbnailCache');
+const config = require('../config');
 
-// Associations
+// ─── Associations ────────────────────────────────────────────────────────────
+
+// Image <-> Tag many-to-many through ImageTag
 Image.belongsToMany(Tag, {
   through: ImageTag,
   foreignKey: 'imageId',
   otherKey: 'tagId',
-  as: 'Tags',
+  as: 'tags',
 });
 
 Tag.belongsToMany(Image, {
   through: ImageTag,
   foreignKey: 'tagId',
   otherKey: 'imageId',
-  as: 'Images',
+  as: 'images',
+});
+
+// ThumbnailCache belongs to Image
+ThumbnailCache.belongsTo(Image, {
+  foreignKey: 'imageId',
+  as: 'image',
+  onDelete: 'CASCADE',
 });
 
 Image.hasMany(ThumbnailCache, {
   foreignKey: 'imageId',
-  as: 'Thumbnails',
-  onDelete: 'CASCADE',
+  as: 'thumbnails',
 });
 
-ThumbnailCache.belongsTo(Image, {
-  foreignKey: 'imageId',
-  as: 'Image',
-});
+// ─── Sync (development only) ─────────────────────────────────────────────────
 
-ImageTag.belongsTo(Image, { foreignKey: 'imageId' });
-ImageTag.belongsTo(Tag, { foreignKey: 'tagId' });
+async function syncDatabase() {
+  if (config.env === 'development') {
+    await sequelize.sync({ alter: true });
+    console.log('[DB] Database synced (alter: true)');
+  }
+}
 
-const db = {
+module.exports = {
   sequelize,
   Image,
   Tag,
   ImageTag,
   ThumbnailCache,
+  syncDatabase,
 };
-
-module.exports = db;

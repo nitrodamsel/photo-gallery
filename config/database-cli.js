@@ -1,28 +1,18 @@
 'use strict';
 
-/**
- * Sequelize CLI configuration.
- * Used by sequelize-cli commands if needed alongside our programmatic runner.
- */
-
 const path = require('path');
-
-const dbPath = process.env.DB_PATH || path.join(__dirname, '..', 'data', 'database.sqlite');
 
 module.exports = {
   development: {
     dialect: 'sqlite',
-    storage: dbPath,
-    logging: true,
+    storage: path.join(__dirname, '..', 'database.sqlite'),
   },
   test: {
     dialect: 'sqlite',
-    storage: ':memory:',
-    logging: false,
+    storage: path.join(__dirname, '..', 'database_test.sqlite'),
   },
   production: {
     dialect: 'sqlite',
-    storage: process.env.DB_PATH || path.join(__dirname, '..', 'data', 'database.sqlite'),
-    logging: false,
+    storage: process.env.DB_PATH || path.join(__dirname, '..', 'database.sqlite'),
   },
 };

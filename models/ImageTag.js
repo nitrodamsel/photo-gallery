@@ -8,10 +8,9 @@ class ImageTag extends Model {}
 ImageTag.init(
   {
     id: {
-      type: DataTypes.UUID,
-      defaultValue: DataTypes.UUIDV4,
+      type: DataTypes.INTEGER,
+      autoIncrement: true,
       primaryKey: true,
-      allowNull: false,
     },
     imageId: {
       type: DataTypes.UUID,
@@ -20,8 +19,8 @@ ImageTag.init(
         model: 'images',
         key: 'id',
       },
-      onDelete: 'CASCADE',
       onUpdate: 'CASCADE',
+      onDelete: 'CASCADE',
     },
     tagId: {
       type: DataTypes.UUID,
@@ -30,8 +29,8 @@ ImageTag.init(
         model: 'tags',
         key: 'id',
       },
-      onDelete: 'CASCADE',
       onUpdate: 'CASCADE',
+      onDelete: 'CASCADE',
     },
   },
   {
@@ -43,7 +42,7 @@ ImageTag.init(
       {
         unique: true,
         fields: ['imageId', 'tagId'],
-        name: 'unique_image_tag',
+        name: 'image_tags_imageId_tagId_unique',
       },
     ],
   }

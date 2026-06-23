@@ -4,10 +4,9 @@ module.exports = {
   async up(queryInterface, Sequelize) {
     await queryInterface.createTable('image_tags', {
       id: {
-        type: Sequelize.UUID,
-        defaultValue: Sequelize.UUIDV4,
+        type: Sequelize.INTEGER,
+        autoIncrement: true,
         primaryKey: true,
-        allowNull: false,
       },
       imageId: {
         type: Sequelize.UUID,
@@ -16,8 +15,8 @@ module.exports = {
           model: 'images',
           key: 'id',
         },
-        onDelete: 'CASCADE',
         onUpdate: 'CASCADE',
+        onDelete: 'CASCADE',
       },
       tagId: {
         type: Sequelize.UUID,
@@ -26,8 +25,8 @@ module.exports = {
           model: 'tags',
           key: 'id',
         },
-        onDelete: 'CASCADE',
         onUpdate: 'CASCADE',
+        onDelete: 'CASCADE',
       },
       createdAt: {
         type: Sequelize.DATE,
@@ -39,10 +38,10 @@ module.exports = {
       },
     });
 
-    await queryInterface.addConstraint('image_tags', {
-      fields: ['imageId', 'tagId'],
-      type: 'unique',
-      name: 'unique_image_tag',
+    // Unique composite index on [imageId, tagId]
+    await queryInterface.addIndex('image_tags', ['imageId', 'tagId'], {
+      unique: true,
+      name: 'image_tags_imageId_tagId_unique',
     });
   },
 
