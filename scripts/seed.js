@@ -2,72 +2,88 @@
 'use strict';
 
 /**
- * CLI helper to run all seeders.
- * Usage: npm run seed
- *        node scripts/seed.js [--undo]
+ * scripts/seed.js
+ *
+ * CLI helper that runs all seeders in order.
+ * Usage: node scripts/seed.js [--undo]
+ *
+ * Flags:
+ *   (none)  Run all seeders
+ *   --undo  Undo all seeders (calls each seeder's down() function)
  */
 
 const path = require('path');
+const fs = require('fs');
 const { Sequelize } = require('sequelize');
-const { Umzug, SequelizeStorage } = require('umzug');
 
+const dbConfig = require('../config/database-cli');
 const env = process.env.NODE_ENV || 'development';
-const dbConfig = require('../config/database-cli')[env];
+const config = dbConfig[env];
+
+// Ensure the data directory exists
+if (config.storage && config.storage !== ':memory:') {
+  const dir = path.dirname(config.storage);
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
+}
 
 const sequelize = new Sequelize({
-  dialect: dbConfig.dialect,
-  storage: dbConfig.storage,
-  logging: false,
+  dialect: config.dialect,
+  storage: config.storage,
+  logging: config.logging ? console.log : false,
 });
 
-const umzug = new Umzug({
-  migrations: {
-    glob: path.join(__dirname, '..', 'seeders', '*.js'),
-    resolve: ({ name, path: seederPath, context }) => {
-      const seeder = require(seederPath);
-      return {
-        name,
-        up: async () => seeder.up(context, Sequelize),
-        down: async () => seeder.down(context, Sequelize),
-      };
-    },
-  },
-  context: sequelize.getQueryInterface(),
-  storage: new SequelizeStorage({
-    sequelize,
-    modelName: 'SequelizeSeederMeta', // separate table from migrations
-    tableName: 'SequelizeSeedsMeta',
-  }),
-  logger: console,
-});
+async function loadSeeders() {
+  const seedersDir = path.join(__dirname, '..', 'seeders');
+  const files = fs
+    .readdirSync(seedersDir)
+    .filter((f) => f.endsWith('.js'))
+    .sort(); // run in alphabetical/numerical order
+
+  return files.map((file) => ({
+    name: file,
+    module: require(path.join(seedersDir, file)),
+  }));
+}
 
 async function main() {
   const args = process.argv.slice(2);
+  const undo = args.includes('--undo');
+
+  const queryInterface = sequelize.getQueryInterface();
 
   try {
-    if (args.includes('--undo')) {
-      console.log('[Seed] Reverting last seeder...');
-      await umzug.down();
-      console.log('[Seed] Last seeder reverted.');
-    } else if (args.includes('--undo-all')) {
-      console.log('[Seed] Reverting all seeders...');
-      await umzug.down({ to: 0 });
-      console.log('[Seed] All seeders reverted.');
-    } else {
-      console.log('[Seed] Running seeders...');
-      const seeders = await umzug.up();
-      if (seeders.length === 0) {
-        console.log('[Seed] No pending seeders found.');
-      } else {
-        console.log(`[Seed] Applied ${seeders.length} seeder(s):`);
-        seeders.forEach((s) => console.log(`  - ${s.name}`));
+    await sequelize.authenticate();
+    console.log('[seed] Database connection established.');
+
+    const seeders = await loadSeeders();
+
+    if (undo) {
+      // Run down() in reverse order
+      const reversed = [...seeders].reverse();
+      for (const seeder of reversed) {
+        console.log(`[seed] Undoing: ${seeder.name}`);
+        await seeder.module.down(queryInterface, Sequelize);
+        console.log(`[seed]   ✓ Undone: ${seeder.name}`);
       }
+      console.log('[seed] All seeders undone.');
+    } else {
+      for (const seeder of seeders) {
+        console.log(`[seed] Running: ${seeder.name}`);
+        await seeder.module.up(queryInterface, Sequelize);
+        console.log(`[seed]   ✓ Done: ${seeder.name}`);
+      }
+      console.log('[seed] All seeders completed.');
     }
-  } catch (err) {
-    console.error('[Seed] Error:', err.message);
-    process.exit(1);
-  } finally {
+
     await sequelize.close();
+    process.exit(0);
+  } catch (err) {
+    console.error('[seed] Error:', err.message);
+    console.error(err.stack);
+    await sequelize.close().catch(() => {});
+    process.exit(1);
   }
 }
 

@@ -1,132 +1,112 @@
 'use strict';
 
 const { DataTypes, Model, Op } = require('sequelize');
+const sequelize = require('../config/database');
 
 /**
- * Simple slug generator (avoids external dependency).
- * Converts "Hello World!" -> "hello-world"
+ * Simple slugify helper — converts a string to a URL-safe slug.
  */
 function slugify(str) {
   return str
     .toString()
     .toLowerCase()
     .trim()
-    .replace(/[\s_]+/g, '-')       // spaces/underscores -> hyphens
-    .replace(/[^\w-]+/g, '')        // remove non-word chars except hyphens
-    .replace(/--+/g, '-')           // collapse multiple hyphens
-    .replace(/^-+|-+$/g, '');       // trim leading/trailing hyphens
+    .replace(/[\s_]+/g, '-')       // spaces and underscores → dashes
+    .replace(/[^a-z0-9-]/g, '')    // remove non-alphanumeric (except dashes)
+    .replace(/--+/g, '-')          // collapse multiple dashes
+    .replace(/^-|-$/g, '');        // trim leading/trailing dashes
 }
 
-// Default color palette for auto-assignment
-const DEFAULT_COLORS = [
-  '#ef4444', // red
-  '#f97316', // orange
-  '#eab308', // yellow
-  '#22c55e', // green
-  '#3b82f6', // blue
-  '#8b5cf6', // violet
-  '#ec4899', // pink
-  '#14b8a6', // teal
-  '#f59e0b', // amber
-  '#6366f1', // indigo
+/** Default color palette assigned to tags in round-robin order */
+const COLOR_PALETTE = [
+  '#E53E3E', // red
+  '#DD6B20', // orange
+  '#D69E2E', // yellow
+  '#38A169', // green
+  '#3182CE', // blue
+  '#805AD5', // purple
+  '#D53F8C', // pink
+  '#319795', // teal
 ];
 
 let colorIndex = 0;
 
-function getNextColor() {
-  const color = DEFAULT_COLORS[colorIndex % DEFAULT_COLORS.length];
+function nextColor() {
+  const color = COLOR_PALETTE[colorIndex % COLOR_PALETTE.length];
   colorIndex += 1;
   return color;
 }
 
 class Tag extends Model {
   /**
-   * Find an existing tag by name or create a new one.
+   * Find or create a tag by name.
    * @param {string} name
    * @returns {Promise<[Tag, boolean]>} [tag, created]
    */
   static async findOrCreateByName(name) {
-    const trimmedName = name.trim();
-    const slug = slugify(trimmedName);
+    const trimmed = name.trim();
+    const slug = slugify(trimmed);
 
-    return Tag.findOrCreate({
-      where: { slug },
+    const [tag, created] = await Tag.findOrCreate({
+      where: {
+        [Op.or]: [{ name: trimmed }, { slug }],
+      },
       defaults: {
-        name: trimmedName,
+        name: trimmed,
         slug,
-        color: getNextColor(),
+        color: nextColor(),
       },
     });
-  }
 
-  static associate(models) {
-    Tag.belongsToMany(models.Image, {
-      through: models.ImageTag,
-      foreignKey: 'tagId',
-      otherKey: 'imageId',
-      as: 'images',
-    });
-    Tag.hasMany(models.ImageTag, {
-      foreignKey: 'tagId',
-      as: 'imageTags',
-    });
+    return [tag, created];
   }
 }
 
-function initTag(sequelize) {
-  Tag.init(
-    {
-      id: {
-        type: DataTypes.UUID,
-        defaultValue: DataTypes.UUIDV4,
-        primaryKey: true,
-        allowNull: false,
+Tag.init(
+  {
+    id: {
+      type: DataTypes.UUID,
+      defaultValue: DataTypes.UUIDV4,
+      primaryKey: true,
+      allowNull: false,
+    },
+    name: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      unique: true,
+    },
+    slug: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      unique: true,
+    },
+    color: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      defaultValue: '#3182CE',
+    },
+  },
+  {
+    sequelize,
+    modelName: 'Tag',
+    tableName: 'tags',
+    timestamps: true,
+    hooks: {
+      beforeCreate(tag) {
+        if (!tag.slug) {
+          tag.slug = slugify(tag.name);
+        }
+        if (!tag.color) {
+          tag.color = nextColor();
+        }
       },
-      name: {
-        type: DataTypes.STRING,
-        allowNull: false,
-        unique: true,
-      },
-      slug: {
-        type: DataTypes.STRING,
-        allowNull: false,
-        unique: true,
-      },
-      color: {
-        type: DataTypes.STRING(7), // hex color e.g. #ff0000
-        allowNull: false,
-        defaultValue: '#3b82f6',
-      },
-      createdAt: {
-        type: DataTypes.DATE,
-        allowNull: false,
+      beforeUpdate(tag) {
+        if (tag.changed('name') && !tag.changed('slug')) {
+          tag.slug = slugify(tag.name);
+        }
       },
     },
-    {
-      sequelize,
-      modelName: 'Tag',
-      tableName: 'tags',
-      timestamps: true,
-      updatedAt: false,
-      hooks: {
-        beforeCreate(tag) {
-          if (!tag.slug) {
-            tag.slug = slugify(tag.name);
-          }
-          if (!tag.color) {
-            tag.color = getNextColor();
-          }
-        },
-        beforeUpdate(tag) {
-          if (tag.changed('name') && !tag.changed('slug')) {
-            tag.slug = slugify(tag.name);
-          }
-        },
-      },
-    }
-  );
+  }
+);
 
-  return Tag;
-}
-
-module.exports = { Tag, initTag, slugify };
+module.exports = Tag;

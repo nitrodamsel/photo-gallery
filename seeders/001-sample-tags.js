@@ -2,61 +2,45 @@
 
 const { v4: uuidv4 } = require('uuid');
 
-const sampleTags = [
-  {
-    id: uuidv4(),
-    name: 'Nature',
-    slug: 'nature',
-    color: '#22c55e',
-    createdAt: new Date(),
-  },
-  {
-    id: uuidv4(),
-    name: 'Architecture',
-    slug: 'architecture',
-    color: '#3b82f6',
-    createdAt: new Date(),
-  },
-  {
-    id: uuidv4(),
-    name: 'Portrait',
-    slug: 'portrait',
-    color: '#ec4899',
-    createdAt: new Date(),
-  },
-  {
-    id: uuidv4(),
-    name: 'Street',
-    slug: 'street',
-    color: '#f97316',
-    createdAt: new Date(),
-  },
-  {
-    id: uuidv4(),
-    name: 'Abstract',
-    slug: 'abstract',
-    color: '#8b5cf6',
-    createdAt: new Date(),
-  },
+const SAMPLE_TAGS = [
+  { name: 'Nature',       slug: 'nature',       color: '#38A169' },
+  { name: 'Architecture', slug: 'architecture', color: '#3182CE' },
+  { name: 'Portrait',     slug: 'portrait',     color: '#D53F8C' },
+  { name: 'Street',       slug: 'street',       color: '#DD6B20' },
+  { name: 'Abstract',     slug: 'abstract',     color: '#805AD5' },
 ];
 
 module.exports = {
   async up(queryInterface) {
-    // Use bulkInsert but skip if tags already exist
-    for (const tag of sampleTags) {
+    const now = new Date();
+
+    const rows = SAMPLE_TAGS.map((tag) => ({
+      id: uuidv4(),
+      name: tag.name,
+      slug: tag.slug,
+      color: tag.color,
+      createdAt: now,
+      updatedAt: now,
+    }));
+
+    // Avoid duplicate key errors on re-run by checking existence first
+    for (const row of rows) {
       const existing = await queryInterface.sequelize.query(
-        `SELECT id FROM tags WHERE slug = '${tag.slug}' LIMIT 1`,
-        { type: queryInterface.sequelize.QueryTypes.SELECT }
+        `SELECT id FROM tags WHERE name = ? OR slug = ? LIMIT 1`,
+        {
+          replacements: [row.name, row.slug],
+          type: queryInterface.sequelize.QueryTypes.SELECT,
+        }
       );
+
       if (existing.length === 0) {
-        await queryInterface.bulkInsert('tags', [tag], {});
+        await queryInterface.bulkInsert('tags', [row], {});
       }
     }
   },
 
   async down(queryInterface) {
-    await queryInterface.bulkDelete('tags', {
-      slug: sampleTags.map((t) => t.slug),
-    });
+    const names = SAMPLE_TAGS.map((t) => t.name);
+    await queryInterface.bulkDelete('tags', { name: names }, {});
   },
 };

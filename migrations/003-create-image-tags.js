@@ -1,5 +1,6 @@
 'use strict';
 
+/** @type {import('sequelize-cli').Migration} */
 module.exports = {
   async up(queryInterface, Sequelize) {
     await queryInterface.createTable('image_tags', {
@@ -32,27 +33,19 @@ module.exports = {
       createdAt: {
         type: Sequelize.DATE,
         allowNull: false,
+        defaultValue: Sequelize.literal('CURRENT_TIMESTAMP'),
       },
       updatedAt: {
         type: Sequelize.DATE,
         allowNull: false,
+        defaultValue: Sequelize.literal('CURRENT_TIMESTAMP'),
       },
     });
 
-    // Unique composite index to prevent duplicate image-tag pairs
+    // Unique composite index on [imageId, tagId]
     await queryInterface.addIndex('image_tags', ['imageId', 'tagId'], {
       unique: true,
-      name: 'image_tags_image_id_tag_id_unique',
-    });
-
-    // Index for lookups by imageId
-    await queryInterface.addIndex('image_tags', ['imageId'], {
-      name: 'image_tags_image_id',
-    });
-
-    // Index for lookups by tagId
-    await queryInterface.addIndex('image_tags', ['tagId'], {
-      name: 'image_tags_tag_id',
+      name: 'unique_image_tag',
     });
   },
 

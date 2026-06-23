@@ -1,5 +1,6 @@
 'use strict';
 
+/** @type {import('sequelize-cli').Migration} */
 module.exports = {
   async up(queryInterface, Sequelize) {
     await queryInterface.createTable('thumbnail_cache', {
@@ -27,37 +28,30 @@ module.exports = {
         type: Sequelize.STRING,
         allowNull: false,
       },
-      width: {
-        type: Sequelize.INTEGER,
-        allowNull: true,
-      },
-      height: {
-        type: Sequelize.INTEGER,
-        allowNull: true,
-      },
       fileSize: {
         type: Sequelize.INTEGER,
         allowNull: true,
       },
+      generatedAt: {
+        type: Sequelize.DATE,
+        allowNull: false,
+        defaultValue: Sequelize.literal('CURRENT_TIMESTAMP'),
+      },
       createdAt: {
         type: Sequelize.DATE,
         allowNull: false,
+        defaultValue: Sequelize.literal('CURRENT_TIMESTAMP'),
       },
       updatedAt: {
         type: Sequelize.DATE,
         allowNull: false,
+        defaultValue: Sequelize.literal('CURRENT_TIMESTAMP'),
       },
     });
 
-    // Unique composite index on imageId + size
     await queryInterface.addIndex('thumbnail_cache', ['imageId', 'size'], {
       unique: true,
-      name: 'thumbnail_cache_image_id_size_unique',
-    });
-
-    // Index for lookups by imageId
-    await queryInterface.addIndex('thumbnail_cache', ['imageId'], {
-      name: 'thumbnail_cache_image_id',
+      name: 'unique_thumbnail_image_size',
     });
   },
 

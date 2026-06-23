@@ -1,5 +1,6 @@
 'use strict';
 
+/** @type {import('sequelize-cli').Migration} */
 module.exports = {
   async up(queryInterface, Sequelize) {
     await queryInterface.createTable('tags', {
@@ -20,24 +21,20 @@ module.exports = {
         unique: true,
       },
       color: {
-        type: Sequelize.STRING(7),
+        type: Sequelize.STRING,
         allowNull: false,
-        defaultValue: '#3b82f6',
+        defaultValue: '#3182CE',
       },
       createdAt: {
         type: Sequelize.DATE,
         allowNull: false,
+        defaultValue: Sequelize.literal('CURRENT_TIMESTAMP'),
       },
-    });
-
-    await queryInterface.addIndex('tags', ['slug'], {
-      unique: true,
-      name: 'tags_slug_unique',
-    });
-
-    await queryInterface.addIndex('tags', ['name'], {
-      unique: true,
-      name: 'tags_name_unique',
+      updatedAt: {
+        type: Sequelize.DATE,
+        allowNull: false,
+        defaultValue: Sequelize.literal('CURRENT_TIMESTAMP'),
+      },
     });
   },
 
