@@ -1,50 +1,14 @@
 'use strict';
 
-/**
- * Centralized application configuration.
- * Built from process.env with sensible defaults and basic validation.
- */
+const path = require('path');
 
-function requireEnv(key, defaultValue) {
-  const value = process.env[key] ?? defaultValue;
-  if (value === undefined || value === null || value === '') {
-    throw new Error(`Missing required environment variable: ${key}`);
-  }
-  return value;
-}
+const env = process.env.NODE_ENV || 'development';
 
-function parseIntEnv(key, defaultValue) {
-  const raw = process.env[key];
-  if (raw === undefined || raw === null) return defaultValue;
-  const parsed = parseInt(raw, 10);
-  if (isNaN(parsed)) {
-    throw new Error(`Environment variable ${key} must be an integer, got: "${raw}"`);
-  }
-  return parsed;
-}
-
-const config = {
-  // Server
-  port: parseIntEnv('PORT', 3000),
-  nodeEnv: requireEnv('NODE_ENV', 'development'),
-
-  // File uploads
-  uploadDir: requireEnv('UPLOAD_DIR', 'uploads'),
-  maxFileSizeMb: parseIntEnv('MAX_FILE_SIZE_MB', 10),
-
-  // Database
-  dbPath: requireEnv('DB_PATH', './database.db'),
-
-  // Derived helpers
-  get isDevelopment() {
-    return this.nodeEnv === 'development';
-  },
-  get isProduction() {
-    return this.nodeEnv === 'production';
-  },
-  get maxFileSizeBytes() {
-    return this.maxFileSizeMb * 1024 * 1024;
-  },
+module.exports = {
+  env,
+  port: parseInt(process.env.PORT, 10) || 3000,
+  dbPath: process.env.DB_PATH || path.join(__dirname, '..', 'data', 'database.sqlite'),
+  uploadDir: process.env.UPLOAD_DIR || path.join(__dirname, '..', 'uploads'),
+  isDevelopment: env === 'development',
+  isProduction: env === 'production',
 };
-
-module.exports = config;
