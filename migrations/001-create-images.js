@@ -20,7 +20,7 @@ module.exports = {
       },
       mimeType: {
         type: Sequelize.STRING,
-        allowNull: true,
+        allowNull: false,
       },
       fileSize: {
         type: Sequelize.INTEGER,
@@ -55,6 +55,12 @@ module.exports = {
         type: Sequelize.DATE,
         allowNull: false,
       },
+    });
+
+    // Index on filename for fast lookups
+    await queryInterface.addIndex('images', ['filename'], {
+      unique: true,
+      name: 'images_filename_unique',
     });
   },
 

@@ -5,19 +5,24 @@ const path = require('path');
 const env = process.env.NODE_ENV || 'development';
 
 const config = {
-  env,
-  port: parseInt(process.env.PORT, 10) || 3000,
-  db: {
-    path: process.env.DB_PATH || path.join(__dirname, '..', 'database.sqlite'),
+  development: {
+    env: 'development',
+    port: process.env.PORT || 3000,
+    dbPath: process.env.DB_PATH || path.join(__dirname, '..', 'database.sqlite'),
+    uploadsDir: path.join(__dirname, '..', 'uploads'),
   },
-  uploads: {
-    dir: process.env.UPLOADS_DIR || path.join(__dirname, '..', 'uploads'),
-    maxSize: parseInt(process.env.MAX_FILE_SIZE, 10) || 10 * 1024 * 1024, // 10MB
+  production: {
+    env: 'production',
+    port: process.env.PORT || 3000,
+    dbPath: process.env.DB_PATH || path.join(__dirname, '..', 'database.sqlite'),
+    uploadsDir: path.join(__dirname, '..', 'uploads'),
   },
-  thumbnails: {
-    dir: process.env.THUMBNAILS_DIR || path.join(__dirname, '..', 'uploads', 'thumbnails'),
-    sizes: [150, 300, 600],
+  test: {
+    env: 'test',
+    port: process.env.PORT || 3001,
+    dbPath: process.env.DB_PATH || path.join(__dirname, '..', 'database.test.sqlite'),
+    uploadsDir: path.join(__dirname, '..', 'uploads'),
   },
 };
 
-module.exports = config;
+module.exports = config[env];

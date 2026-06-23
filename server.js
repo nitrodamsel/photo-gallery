@@ -1,41 +1,21 @@
 'use strict';
 
-const path = require('path');
-const fs = require('fs');
 const app = require('./app');
-const config = require('./config');
-const sequelize = require('./config/database');
+const { syncDatabase } = require('./models');
 
-// Ensure required directories exist
-const dirs = [
-  path.join(__dirname, 'data'),
-  path.join(__dirname, 'uploads'),
-  path.join(__dirname, 'public', 'thumbnails'),
-];
-dirs.forEach((dir) => {
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
-    console.log(`Created directory: ${dir}`);
-  }
-});
+const PORT = process.env.PORT || 3000;
+const env = process.env.NODE_ENV || 'development';
 
 async function start() {
   try {
-    await sequelize.authenticate();
-    console.log('Database connection established.');
+    // Sync database (alter in dev, skip in prod)
+    await syncDatabase();
 
-    if (config.isDevelopment) {
-      // In development, auto-sync with alter to apply model changes
-      const { sequelize: db } = require('./models');
-      await db.sync({ alter: true });
-      console.log('Database synced (development mode).');
-    }
-
-    app.listen(config.port, () => {
-      console.log(`Server running on http://localhost:${config.port} [${config.env}]`);
+    app.listen(PORT, () => {
+      console.log(`[Server] Running on http://localhost:${PORT} (${env})`);
     });
   } catch (err) {
-    console.error('Failed to start server:', err);
+    console.error('[Server] Failed to start:', err);
     process.exit(1);
   }
 }

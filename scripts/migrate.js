@@ -2,96 +2,69 @@
 'use strict';
 
 /**
- * Programmatic migration runner.
+ * CLI helper to run pending Sequelize migrations programmatically.
  * Usage: npm run migrate
- *
- * Runs all pending Sequelize migrations using the Umzug library
- * (or falls back to sequelize.sync in development).
+ *        node scripts/migrate.js [--undo] [--undo-all]
  */
 
 const path = require('path');
 const { Sequelize } = require('sequelize');
-const config = require('../config');
+const { Umzug, SequelizeStorage } = require('umzug');
 
-async function runMigrations() {
-  console.log('[Migrate] Starting migrations...');
-  console.log(`[Migrate] Environment: ${config.env}`);
+const env = process.env.NODE_ENV || 'development';
+const dbConfig = require('../config/database-cli')[env];
 
-  let Umzug;
-  try {
-    ({ Umzug } = require('umzug'));
-  } catch {
-    // Umzug not installed — fall back to sync in development
-    if (config.env !== 'development') {
-      console.error('[Migrate] ERROR: umzug is required for production migrations.');
-      process.exit(1);
-    }
-    console.warn('[Migrate] umzug not found. Falling back to sequelize.sync({ alter: true }) in development.');
-    const { syncDatabase } = require('../models');
-    await syncDatabase();
-    console.log('[Migrate] Sync complete.');
-    return;
-  }
+const sequelize = new Sequelize({
+  dialect: dbConfig.dialect,
+  storage: dbConfig.storage,
+  logging: false,
+});
 
-  const sequelize = require('../config/database');
-
-  const umzug = new Umzug({
-    migrations: {
-      glob: path.join(__dirname, '..', 'migrations', '*.js'),
-      resolve: ({ name, path: migPath, context }) => {
-        const migration = require(migPath);
-        return {
-          name,
-          up: async () => migration.up(context, Sequelize),
-          down: async () => migration.down(context, Sequelize),
-        };
-      },
+const umzug = new Umzug({
+  migrations: {
+    glob: path.join(__dirname, '..', 'migrations', '*.js'),
+    resolve: ({ name, path: migPath, context }) => {
+      const migration = require(migPath);
+      return {
+        name,
+        up: async () => migration.up(context, Sequelize),
+        down: async () => migration.down(context, Sequelize),
+      };
     },
-    context: sequelize.getQueryInterface(),
-    storage: {
-      async executed({ context: queryInterface }) {
-        await queryInterface.createTable('SequelizeMeta', {
-          name: { type: Sequelize.STRING, allowNull: false, unique: true, primaryKey: true },
-        }).catch(() => {}); // table may already exist
+  },
+  context: sequelize.getQueryInterface(),
+  storage: new SequelizeStorage({ sequelize }),
+  logger: console,
+});
 
-        const [results] = await queryInterface.sequelize.query(
-          'SELECT name FROM SequelizeMeta'
-        );
-        return results.map((r) => r.name);
-      },
-      async logMigration({ name, context: queryInterface }) {
-        await queryInterface.sequelize.query(
-          `INSERT INTO SequelizeMeta (name) VALUES ('${name}')`
-        );
-      },
-      async unlogMigration({ name, context: queryInterface }) {
-        await queryInterface.sequelize.query(
-          `DELETE FROM SequelizeMeta WHERE name = '${name}'`
-        );
-      },
-    },
-    logger: console,
-  });
+async function main() {
+  const args = process.argv.slice(2);
 
   try {
-    const pending = await umzug.pending();
-    if (pending.length === 0) {
-      console.log('[Migrate] No pending migrations.');
+    if (args.includes('--undo-all')) {
+      console.log('[Migrate] Reverting all migrations...');
+      await umzug.down({ to: 0 });
+      console.log('[Migrate] All migrations reverted.');
+    } else if (args.includes('--undo')) {
+      console.log('[Migrate] Reverting last migration...');
+      await umzug.down();
+      console.log('[Migrate] Last migration reverted.');
     } else {
-      console.log(`[Migrate] Running ${pending.length} pending migration(s)...`);
-      const executed = await umzug.up();
-      executed.forEach((m) => console.log(`  ✓ ${m.name}`));
+      console.log('[Migrate] Running pending migrations...');
+      const migrations = await umzug.up();
+      if (migrations.length === 0) {
+        console.log('[Migrate] No pending migrations found.');
+      } else {
+        console.log(`[Migrate] Applied ${migrations.length} migration(s):`);
+        migrations.forEach((m) => console.log(`  - ${m.name}`));
+      }
     }
-    console.log('[Migrate] All migrations complete.');
   } catch (err) {
-    console.error('[Migrate] Migration failed:', err.message);
+    console.error('[Migrate] Error:', err.message);
     process.exit(1);
   } finally {
     await sequelize.close();
   }
 }
 
-runMigrations().catch((err) => {
-  console.error('[Migrate] Unexpected error:', err);
-  process.exit(1);
-});
+main();

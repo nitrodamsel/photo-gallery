@@ -2,57 +2,73 @@
 'use strict';
 
 /**
- * Database seeder CLI helper.
+ * CLI helper to run all seeders.
  * Usage: npm run seed
- *
- * Loads all seeders in order and executes them.
+ *        node scripts/seed.js [--undo]
  */
 
 const path = require('path');
-const config = require('../config');
+const { Sequelize } = require('sequelize');
+const { Umzug, SequelizeStorage } = require('umzug');
 
-async function runSeeders() {
-  console.log('[Seed] Starting database seeding...');
-  console.log(`[Seed] Environment: ${config.env}`);
+const env = process.env.NODE_ENV || 'development';
+const dbConfig = require('../config/database-cli')[env];
 
-  // Ensure DB is initialized
-  const { syncDatabase, ...models } = require('../models');
+const sequelize = new Sequelize({
+  dialect: dbConfig.dialect,
+  storage: dbConfig.storage,
+  logging: false,
+});
 
-  // Run sync first (creates tables if not exist)
-  await syncDatabase();
-
-  // Load seeders in order
-  const seederFiles = [
-    '../seeders/001-sample-tags.js',
-    '../seeders/002-sample-images.js',
-  ];
-
-  for (const seederPath of seederFiles) {
-    const seederName = path.basename(seederPath);
-    console.log(`\n[Seed] Running seeder: ${seederName}`);
-    try {
+const umzug = new Umzug({
+  migrations: {
+    glob: path.join(__dirname, '..', 'seeders', '*.js'),
+    resolve: ({ name, path: seederPath, context }) => {
       const seeder = require(seederPath);
-      await seeder.run(models);
-      console.log(`[Seed] ✓ ${seederName} complete`);
-    } catch (err) {
-      console.error(`[Seed] ✗ ${seederName} failed:`, err.message);
-      console.error(err.stack);
-      process.exit(1);
-    }
-  }
+      return {
+        name,
+        up: async () => seeder.up(context, Sequelize),
+        down: async () => seeder.down(context, Sequelize),
+      };
+    },
+  },
+  context: sequelize.getQueryInterface(),
+  storage: new SequelizeStorage({
+    sequelize,
+    modelName: 'SequelizeSeederMeta', // separate table from migrations
+    tableName: 'SequelizeSeedsMeta',
+  }),
+  logger: console,
+});
 
-  console.log('\n[Seed] All seeders complete.');
+async function main() {
+  const args = process.argv.slice(2);
+
+  try {
+    if (args.includes('--undo')) {
+      console.log('[Seed] Reverting last seeder...');
+      await umzug.down();
+      console.log('[Seed] Last seeder reverted.');
+    } else if (args.includes('--undo-all')) {
+      console.log('[Seed] Reverting all seeders...');
+      await umzug.down({ to: 0 });
+      console.log('[Seed] All seeders reverted.');
+    } else {
+      console.log('[Seed] Running seeders...');
+      const seeders = await umzug.up();
+      if (seeders.length === 0) {
+        console.log('[Seed] No pending seeders found.');
+      } else {
+        console.log(`[Seed] Applied ${seeders.length} seeder(s):`);
+        seeders.forEach((s) => console.log(`  - ${s.name}`));
+      }
+    }
+  } catch (err) {
+    console.error('[Seed] Error:', err.message);
+    process.exit(1);
+  } finally {
+    await sequelize.close();
+  }
 }
 
-runSeeders().catch((err) => {
-  console.error('[Seed] Unexpected error:', err);
-  process.exit(1);
-}).finally(async () => {
-  try {
-    const { sequelize } = require('../models');
-    await sequelize.close();
-  } catch {
-    // ignore
-  }
-  process.exit(0);
-});
+main();

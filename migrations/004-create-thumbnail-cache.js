@@ -4,9 +4,10 @@ module.exports = {
   async up(queryInterface, Sequelize) {
     await queryInterface.createTable('thumbnail_cache', {
       id: {
-        type: Sequelize.INTEGER,
-        autoIncrement: true,
+        type: Sequelize.UUID,
+        defaultValue: Sequelize.UUIDV4,
         primaryKey: true,
+        allowNull: false,
       },
       imageId: {
         type: Sequelize.UUID,
@@ -19,21 +20,24 @@ module.exports = {
         onDelete: 'CASCADE',
       },
       size: {
-        type: Sequelize.INTEGER,
+        type: Sequelize.STRING,
         allowNull: false,
       },
       filename: {
         type: Sequelize.STRING,
         allowNull: false,
       },
-      fileSize: {
+      width: {
         type: Sequelize.INTEGER,
         allowNull: true,
       },
-      generatedAt: {
-        type: Sequelize.DATE,
-        allowNull: false,
-        defaultValue: Sequelize.NOW,
+      height: {
+        type: Sequelize.INTEGER,
+        allowNull: true,
+      },
+      fileSize: {
+        type: Sequelize.INTEGER,
+        allowNull: true,
       },
       createdAt: {
         type: Sequelize.DATE,
@@ -45,9 +49,15 @@ module.exports = {
       },
     });
 
+    // Unique composite index on imageId + size
     await queryInterface.addIndex('thumbnail_cache', ['imageId', 'size'], {
       unique: true,
-      name: 'thumbnail_cache_imageId_size_unique',
+      name: 'thumbnail_cache_image_id_size_unique',
+    });
+
+    // Index for lookups by imageId
+    await queryInterface.addIndex('thumbnail_cache', ['imageId'], {
+      name: 'thumbnail_cache_image_id',
     });
   },
 

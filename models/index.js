@@ -1,55 +1,49 @@
 'use strict';
 
 const sequelize = require('../config/database');
-const Image = require('./Image');
-const Tag = require('./Tag');
-const ImageTag = require('./ImageTag');
-const ThumbnailCache = require('./ThumbnailCache');
-const config = require('../config');
+const { Image, initImage } = require('./Image');
+const { Tag, initTag } = require('./Tag');
+const { ImageTag, initImageTag } = require('./ImageTag');
+const { ThumbnailCache, initThumbnailCache } = require('./ThumbnailCache');
 
-// ─── Associations ────────────────────────────────────────────────────────────
+// Initialize all models
+initImage(sequelize);
+initTag(sequelize);
+initImageTag(sequelize);
+initThumbnailCache(sequelize);
 
-// Image <-> Tag many-to-many through ImageTag
-Image.belongsToMany(Tag, {
-  through: ImageTag,
-  foreignKey: 'imageId',
-  otherKey: 'tagId',
-  as: 'tags',
-});
+// Set up associations
+const models = { Image, Tag, ImageTag, ThumbnailCache };
 
-Tag.belongsToMany(Image, {
-  through: ImageTag,
-  foreignKey: 'tagId',
-  otherKey: 'imageId',
-  as: 'images',
-});
+Image.associate(models);
+Tag.associate(models);
+ImageTag.associate(models);
+ThumbnailCache.associate(models);
 
-// ThumbnailCache belongs to Image
-ThumbnailCache.belongsTo(Image, {
-  foreignKey: 'imageId',
-  as: 'image',
-  onDelete: 'CASCADE',
-});
-
-Image.hasMany(ThumbnailCache, {
-  foreignKey: 'imageId',
-  as: 'thumbnails',
-});
-
-// ─── Sync (development only) ─────────────────────────────────────────────────
-
+/**
+ * Sync database:
+ * - In development: use alter:true to auto-apply changes
+ * - In production: rely on migrations only
+ */
 async function syncDatabase() {
-  if (config.env === 'development') {
+  const env = process.env.NODE_ENV || 'development';
+  if (env === 'development') {
     await sequelize.sync({ alter: true });
-    console.log('[DB] Database synced (alter: true)');
+    console.log('[DB] Database synced (alter: true) in development mode.');
+  } else if (env === 'test') {
+    await sequelize.sync({ force: true });
+    console.log('[DB] Database synced (force: true) in test mode.');
+  } else {
+    // Production: do NOT auto-sync; use migrations
+    console.log('[DB] Skipping auto-sync in production. Run migrations manually.');
   }
 }
 
 module.exports = {
   sequelize,
+  syncDatabase,
   Image,
   Tag,
   ImageTag,
   ThumbnailCache,
-  syncDatabase,
 };

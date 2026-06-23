@@ -20,14 +20,24 @@ module.exports = {
         unique: true,
       },
       color: {
-        type: Sequelize.STRING,
-        allowNull: true,
-        defaultValue: '#3498db',
+        type: Sequelize.STRING(7),
+        allowNull: false,
+        defaultValue: '#3b82f6',
       },
       createdAt: {
         type: Sequelize.DATE,
         allowNull: false,
       },
+    });
+
+    await queryInterface.addIndex('tags', ['slug'], {
+      unique: true,
+      name: 'tags_slug_unique',
+    });
+
+    await queryInterface.addIndex('tags', ['name'], {
+      unique: true,
+      name: 'tags_name_unique',
     });
   },
 

@@ -2,14 +2,15 @@
 
 const path = require('path');
 
+// This file is used by sequelize-cli
 module.exports = {
   development: {
     dialect: 'sqlite',
-    storage: path.join(__dirname, '..', 'database.sqlite'),
+    storage: process.env.DB_PATH || path.join(__dirname, '..', 'database.sqlite'),
   },
   test: {
     dialect: 'sqlite',
-    storage: path.join(__dirname, '..', 'database_test.sqlite'),
+    storage: process.env.DB_PATH || path.join(__dirname, '..', 'database.test.sqlite'),
   },
   production: {
     dialect: 'sqlite',
