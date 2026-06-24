@@ -1,84 +1,47 @@
-<%- include('layouts/base', { body: `
-
-<!-- ── Hero Section ─────────────────────────────────────────────────────── -->
-<section class="hero-section text-white text-center py-5">
-  <div class="container py-4">
-    <div class="row justify-content-center">
-      <div class="col-lg-8">
-        <div class="hero-emoji mb-3">📸</div>
-        <h1 class="display-4 fw-bold mb-3">Your Photos, Beautifully Organized</h1>
-        <p class="lead mb-4 opacity-90">
-          Upload, tag, and explore your photo collection with automatic EXIF extraction,
-          smart thumbnails, and powerful search — all in one place.
-        </p>
-        <div class="d-flex flex-wrap gap-3 justify-content-center">
-          <a href="/upload" class="btn btn-light btn-lg px-4 fw-semibold">
-            <i class="bi bi-cloud-upload me-2"></i>Upload Photos
-          </a>
-          <a href="/gallery" class="btn btn-outline-light btn-lg px-4">
-            <i class="bi bi-images me-2"></i>Browse Gallery
-          </a>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ── Stats Bar ─────────────────────────────────────────────────────────── -->
-<section class="stats-bar py-4 bg-dark text-white">
+<%- include('layouts/base', { title: 'Gallery', body: `
+<div style="padding: 2rem 0 4rem;">
   <div class="container">
-    <div class="row text-center g-3">
-      <div class="col-4">
-        <div class="fs-2 fw-bold text-primary"><%= stats.photos %></div>
-        <div class="small text-muted text-uppercase tracking-wide">Photos</div>
-      </div>
-      <div class="col-4">
-        <div class="fs-2 fw-bold text-primary"><%= stats.tags %></div>
-        <div class="small text-muted text-uppercase tracking-wide">Tags</div>
-      </div>
-      <div class="col-4">
-        <div class="fs-2 fw-bold text-primary"><%= stats.uploads %></div>
-        <div class="small text-muted text-uppercase tracking-wide">Uploads</div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:2rem;">
+      <h1 style="margin:0;font-size:1.75rem;font-weight:700;">Photo Gallery</h1>
+      <a href="/api/upload" style="
+        background: #6366f1;
+        color: #fff;
+        padding: 0.5rem 1.25rem;
+        border-radius: 8px;
+        text-decoration: none;
+        font-weight: 600;
+      ">+ Upload</a>
+    </div>
+
+    <div id="gallery-grid" style="
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      gap: 1rem;
+    ">
+      <div style="
+        grid-column: 1 / -1;
+        text-align: center;
+        padding: 4rem 2rem;
+        color: #94a3b8;
+        border: 2px dashed #e2e8f0;
+        border-radius: 12px;
+      ">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="48" height="48" style="margin-bottom:1rem;opacity:0.4;">
+          <path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/>
+        </svg>
+        <p style="margin:0;font-size:1.1rem;font-weight:500;">No images yet</p>
+        <p style="margin:0.25rem 0 1.5rem;font-size:0.9rem;">Upload your first image to get started.</p>
+        <a href="/api/upload" style="
+          background: #6366f1;
+          color: #fff;
+          padding: 0.5rem 1.25rem;
+          border-radius: 8px;
+          text-decoration: none;
+          font-weight: 600;
+          font-size: 0.9rem;
+        ">Upload Image</a>
       </div>
     </div>
   </div>
-</section>
-
-<!-- ── Features Grid ─────────────────────────────────────────────────────── -->
-<section class="features-section py-5">
-  <div class="container py-3">
-    <div class="text-center mb-5">
-      <h2 class="fw-bold">Everything You Need</h2>
-      <p class="text-muted lead">
-        A full-featured photo management experience, built for speed and simplicity.
-      </p>
-    </div>
-
-    <div class="row g-4">
-      <% features.forEach(function(feature) { %>
-      <div class="col-md-6 col-lg-4">
-        <div class="feature-card card h-100 border-0 shadow-sm p-4">
-          <div class="feature-icon mb-3"><%= feature.icon %></div>
-          <h5 class="fw-bold mb-2"><%= feature.heading %></h5>
-          <p class="text-muted mb-0"><%= feature.body %></p>
-        </div>
-      </div>
-      <% }); %>
-    </div>
-  </div>
-</section>
-
-<!-- ── CTA Section ───────────────────────────────────────────────────────── -->
-<section class="cta-section py-5 bg-primary text-white text-center">
-  <div class="container py-3">
-    <h2 class="fw-bold mb-3">Ready to Get Started?</h2>
-    <p class="lead mb-4 opacity-90">
-      Upload your first photo and experience the magic of organized memories.
-    </p>
-    <a href="/upload" class="btn btn-light btn-lg px-5 fw-semibold">
-      <i class="bi bi-arrow-right-circle me-2"></i>Get Started — It&apos;s Free
-    </a>
-  </div>
-</section>
-
+</div>
 ` }) %>

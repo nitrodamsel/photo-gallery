@@ -1,121 +1,137 @@
 const exifr = require('exifr');
 const { formatShutter } = require('../utils/exifFormatter');
 
-const EXIF_TAGS = [
-  'GPSLatitude',
-  'GPSLongitude',
-  'GPSLatitudeRef',
-  'GPSLongitudeRef',
-  'Make',
-  'Model',
-  'LensModel',
-  'FocalLength',
-  'FNumber',
-  'ExposureTime',
-  'ISO',
-  'DateTimeOriginal',
-  'CreateDate',
-  'ColorSpace',
-  'Orientation',
-  'ImageWidth',
-  'ImageHeight',
-  'ExifImageWidth',
-  'ExifImageHeight',
-  'Software',
-  'Artist',
-  'Copyright',
-];
-
 /**
  * Extract and normalize EXIF metadata from an image file.
  * @param {string} filePath - Absolute path to the image file
- * @returns {Promise<Object>} Normalized EXIF data, or {} on failure
+ * @returns {Promise<Object>} Structured EXIF data object, or {} on failure
  */
 async function extractExif(filePath) {
   try {
     const raw = await exifr.parse(filePath, {
-      pick: EXIF_TAGS,
+      // GPS
       gps: true,
-      tiff: true,
-      exif: true,
-      ifd1: false,
-      sanitize: true,
-      reviveValues: true,
+      // Camera info
+      Make: true,
+      Model: true,
+      LensModel: true,
+      LensMake: true,
+      FocalLength: true,
+      FocalLengthIn35mmFormat: true,
+      // Exposure
+      FNumber: true,
+      ExposureTime: true,
+      ISO: true,
+      ISOSpeedRatings: true,
+      ExposureProgram: true,
+      ExposureMode: true,
+      ExposureBiasValue: true,
+      MeteringMode: true,
+      Flash: true,
+      // Date/time
+      DateTimeOriginal: true,
+      CreateDate: true,
+      ModifyDate: true,
+      // Image properties
+      ColorSpace: true,
+      Orientation: true,
+      ImageWidth: true,
+      ImageHeight: true,
+      PixelXDimension: true,
+      PixelYDimension: true,
+      // White balance
+      WhiteBalance: true,
+      // Software
+      Software: true,
+      Artist: true,
+      Copyright: true,
     });
 
     if (!raw) return {};
 
-    // Normalize GPS coordinates
+    // Normalize GPS
     let gps = null;
     if (raw.latitude != null && raw.longitude != null) {
       gps = {
         lat: raw.latitude,
         lng: raw.longitude,
+        altitude: raw.altitude || null,
       };
     } else if (raw.GPSLatitude != null && raw.GPSLongitude != null) {
-      // Manual calculation if needed
-      const lat = convertDMSToDD(raw.GPSLatitude, raw.GPSLatitudeRef);
-      const lng = convertDMSToDD(raw.GPSLongitude, raw.GPSLongitudeRef);
-      if (lat != null && lng != null) {
-        gps = { lat, lng };
-      }
+      gps = {
+        lat: raw.GPSLatitude,
+        lng: raw.GPSLongitude,
+        altitude: raw.GPSAltitude || null,
+      };
     }
+
+    // Normalize shutter speed
+    const rawShutter = raw.ExposureTime;
+    const shutterSpeed = rawShutter != null ? formatShutter(rawShutter) : null;
 
     // Normalize date taken
     const dateTaken =
-      raw.DateTimeOriginal || raw.CreateDate || null;
+      raw.DateTimeOriginal ||
+      raw.CreateDate ||
+      raw.ModifyDate ||
+      null;
 
-    // Normalize shutter speed
-    const shutterRaw = raw.ExposureTime;
-    const shutterFormatted = shutterRaw != null ? formatShutter(shutterRaw) : null;
+    // Normalize dimensions
+    const width = raw.PixelXDimension || raw.ImageWidth || null;
+    const height = raw.PixelYDimension || raw.ImageHeight || null;
 
-    // Build structured output
-    const normalized = {
-      camera: {
-        make: raw.Make || null,
-        model: raw.Model || null,
-      },
-      lens: raw.LensModel || null,
-      focalLength: raw.FocalLength != null ? `${raw.FocalLength}mm` : null,
-      aperture: raw.FNumber != null ? `f/${raw.FNumber}` : null,
-      shutterSpeed: shutterFormatted,
-      shutterSpeedRaw: shutterRaw || null,
-      iso: raw.ISO || null,
-      dateTaken: dateTaken ? dateTaken.toISOString() : null,
-      colorSpace: raw.ColorSpace != null ? String(raw.ColorSpace) : null,
-      orientation: raw.Orientation || null,
-      dimensions: {
-        width:
-          raw.ExifImageWidth || raw.ImageWidth || null,
-        height:
-          raw.ExifImageHeight || raw.ImageHeight || null,
-      },
+    const exifData = {
+      // GPS
       gps,
+
+      // Camera
+      cameraMake: raw.Make || null,
+      cameraModel: raw.Model || null,
+      lensModel: raw.LensModel || raw.LensMake || null,
+
+      // Optics
+      focalLength: raw.FocalLength ? `${raw.FocalLength}mm` : null,
+      focalLength35mm: raw.FocalLengthIn35mmFormat ? `${raw.FocalLengthIn35mmFormat}mm` : null,
+      aperture: raw.FNumber ? `f/${raw.FNumber}` : null,
+
+      // Exposure
+      shutterSpeed,
+      shutterSpeedRaw: rawShutter || null,
+      iso: raw.ISO || raw.ISOSpeedRatings || null,
+      exposureProgram: raw.ExposureProgram || null,
+      exposureMode: raw.ExposureMode || null,
+      exposureBias: raw.ExposureBiasValue != null ? `${raw.ExposureBiasValue} EV` : null,
+      meteringMode: raw.MeteringMode || null,
+      flash: raw.Flash || null,
+
+      // White balance
+      whiteBalance: raw.WhiteBalance || null,
+
+      // Date & time
+      dateTaken: dateTaken ? new Date(dateTaken).toISOString() : null,
+
+      // Image properties
+      colorSpace: raw.ColorSpace || null,
+      orientation: raw.Orientation || null,
+      width,
+      height,
+
+      // Metadata
       software: raw.Software || null,
       artist: raw.Artist || null,
       copyright: raw.Copyright || null,
-      raw: raw,
     };
 
-    return normalized;
+    // Remove null values to keep the object clean (optional)
+    const cleaned = Object.fromEntries(
+      Object.entries(exifData).filter(([, v]) => v !== null && v !== undefined)
+    );
+
+    return cleaned;
   } catch (err) {
     console.warn(`[exifService] Failed to parse EXIF from ${filePath}:`, err.message);
     return {};
   }
-}
-
-/**
- * Convert DMS (Degrees, Minutes, Seconds) array to decimal degrees.
- * @param {number[]} dms - [degrees, minutes, seconds]
- * @param {string} ref - 'N', 'S', 'E', 'W'
- * @returns {number|null}
- */
-function convertDMSToDD(dms, ref) {
-  if (!Array.isArray(dms) || dms.length < 3) return null;
-  const [degrees, minutes, seconds] = dms;
-  let dd = degrees + minutes / 60 + seconds / 3600;
-  if (ref === 'S' || ref === 'W') dd = -dd;
-  return dd;
 }
 
 module.exports = { extractExif };

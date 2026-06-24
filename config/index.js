@@ -1,14 +1,16 @@
-'use strict';
-
 const path = require('path');
 
-const env = process.env.NODE_ENV || 'development';
-
 module.exports = {
-  env,
-  port: process.env.PORT || 3000,
-  dbPath: process.env.DB_PATH || path.join(__dirname, '..', 'data', 'database.sqlite'),
-  uploadsDir: process.env.UPLOADS_DIR || path.join(__dirname, '..', 'uploads'),
-  isDevelopment: env === 'development',
-  isProduction: env === 'production',
+  database: {
+    dialect: 'sqlite',
+    storage: path.join(__dirname, '..', 'database.sqlite'),
+    logging: process.env.NODE_ENV === 'development' ? console.log : false,
+  },
+  server: {
+    port: process.env.PORT || 3000,
+  },
+  upload: {
+    maxFileSizeMB: parseInt(process.env.MAX_FILE_SIZE_MB || '20', 10),
+    uploadsDir: path.join(__dirname, '..', 'uploads'),
+  },
 };

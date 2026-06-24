@@ -12,7 +12,7 @@ const ALLOWED_MIME_TYPES = [
   'image/heif',
 ];
 
-const MAX_FILE_SIZE = parseInt(process.env.MAX_FILE_SIZE_MB || '20') * 1024 * 1024;
+const MAX_FILE_SIZE = parseInt(process.env.MAX_FILE_SIZE_MB || '20', 10) * 1024 * 1024;
 
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
@@ -20,10 +20,10 @@ const storage = multer.diskStorage({
     const year = now.getFullYear();
     const month = String(now.getMonth() + 1).padStart(2, '0');
     const subDir = `${year}-${month}`;
-    const uploadPath = path.join(__dirname, '..', 'uploads', 'originals', subDir);
+    const destPath = path.join(__dirname, '..', 'uploads', 'originals', subDir);
 
-    fs.mkdirSync(uploadPath, { recursive: true });
-    cb(null, uploadPath);
+    fs.mkdirSync(destPath, { recursive: true });
+    cb(null, destPath);
   },
   filename: function (req, file, cb) {
     const ext = path.extname(file.originalname).toLowerCase();
@@ -36,13 +36,12 @@ const fileFilter = function (req, file, cb) {
   if (ALLOWED_MIME_TYPES.includes(file.mimetype)) {
     cb(null, true);
   } else {
-    cb(
-      new multer.MulterError(
-        'LIMIT_UNEXPECTED_FILE',
-        `Invalid file type: ${file.mimetype}. Allowed: jpeg, png, webp, tiff, heic`
-      ),
-      false
+    const err = new Error(
+      `Invalid file type: ${file.mimetype}. Allowed types: ${ALLOWED_MIME_TYPES.join(', ')}`
     );
+    err.status = 400;
+    err.code = 'INVALID_FILE_TYPE';
+    cb(err, false);
   }
 };
 
@@ -51,6 +50,7 @@ const upload = multer({
   fileFilter,
   limits: {
     fileSize: MAX_FILE_SIZE,
+    files: 1,
   },
 });
 

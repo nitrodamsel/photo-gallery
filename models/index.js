@@ -1,28 +1,33 @@
 const { Sequelize } = require('sequelize');
 const config = require('../config');
 
-const sequelize = new Sequelize(config.database.url, {
-  dialect: config.database.dialect || 'sqlite',
-  storage: config.database.storage,
-  logging: config.database.logging || false,
-});
-
-const db = {};
+const sequelize = new Sequelize(
+  config.database.database,
+  config.database.username,
+  config.database.password,
+  {
+    dialect: config.database.dialect || 'sqlite',
+    storage: config.database.storage,
+    logging: config.database.logging !== undefined ? config.database.logging : false,
+    define: {
+      underscored: false,
+    },
+  }
+);
 
 // Import models
-db.Image = require('./Image')(sequelize);
-db.Tag = require('./Tag')(sequelize);
-db.ImageTag = require('./ImageTag')(sequelize);
-db.ThumbnailCache = require('./ThumbnailCache')(sequelize);
+const Image = require('./Image')(sequelize);
+const Tag = require('./Tag')(sequelize);
+const ImageTag = require('./ImageTag')(sequelize);
+const ThumbnailCache = require('./ThumbnailCache')(sequelize);
+
+const models = { Image, Tag, ImageTag, ThumbnailCache, sequelize, Sequelize };
 
 // Run associations
-Object.values(db).forEach((model) => {
-  if (model.associate) {
-    model.associate(db);
+Object.values(models).forEach((model) => {
+  if (model && typeof model.associate === 'function') {
+    model.associate(models);
   }
 });
 
-db.sequelize = sequelize;
-db.Sequelize = Sequelize;
-
-module.exports = db;
+module.exports = models;

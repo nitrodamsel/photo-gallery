@@ -1,50 +1,41 @@
-<nav class="navbar navbar-expand-lg navbar-dark bg-dark sticky-top shadow-sm">
-  <div class="container">
-    <!-- Brand -->
-    <a class="navbar-brand d-flex align-items-center gap-2 fw-bold" href="/">
-      <span class="fs-4">📸</span>
-      <span>PhotoGallery</span>
+<nav class="navbar" style="
+  background: #fff;
+  border-bottom: 1px solid #e2e8f0;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+">
+  <div class="container" style="display:flex;align-items:center;justify-content:space-between;width:100%;">
+    <a href="/" class="navbar-brand" style="
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: var(--color-primary);
+      text-decoration: none;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    ">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="24" height="24">
+        <path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/>
+      </svg>
+      Image Gallery
     </a>
-
-    <!-- Mobile toggler -->
-    <button
-      class="navbar-toggler"
-      type="button"
-      data-bs-toggle="collapse"
-      data-bs-target="#mainNavbar"
-      aria-controls="mainNavbar"
-      aria-expanded="false"
-      aria-label="Toggle navigation"
-    >
-      <span class="navbar-toggler-icon"></span>
-    </button>
-
-    <!-- Nav links -->
-    <div class="collapse navbar-collapse" id="mainNavbar">
-      <ul class="navbar-nav ms-auto mb-2 mb-lg-0 gap-lg-1">
-        <li class="nav-item">
-          <a class="nav-link" href="/gallery">
-            <i class="bi bi-images me-1"></i>Gallery
-          </a>
-        </li>
-        <li class="nav-item">
-          <a class="nav-link" href="/upload">
-            <i class="bi bi-cloud-upload me-1"></i>Upload
-          </a>
-        </li>
-        <li class="nav-item">
-          <a class="nav-link" href="/tags">
-            <i class="bi bi-tags me-1"></i>Tags
-          </a>
-        </li>
-      </ul>
-
-      <!-- CTA Button -->
-      <div class="ms-lg-3 mt-2 mt-lg-0">
-        <a href="/upload" class="btn btn-primary btn-sm px-3">
-          <i class="bi bi-plus-lg me-1"></i>Add Photo
-        </a>
-      </div>
+    <div class="navbar-links" style="display:flex;gap:1rem;align-items:center;">
+      <a href="/" style="color:#64748b;text-decoration:none;font-weight:500;">Gallery</a>
+      <a href="/api/upload" style="
+        background: var(--color-primary);
+        color: #fff;
+        padding: 0.45rem 1rem;
+        border-radius: 8px;
+        text-decoration: none;
+        font-weight: 600;
+        font-size: 0.9rem;
+        transition: background 0.15s;
+      ">Upload</a>
     </div>
   </div>
 </nav>

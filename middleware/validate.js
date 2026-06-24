@@ -1,4 +1,4 @@
-const { fromFile } = require('file-type');
+const { fileTypeFromFile } = require('file-type');
 const { safeDelete } = require('../utils/fileHelpers');
 
 const ALLOWED_MIME_TYPES = [
@@ -12,30 +12,31 @@ const ALLOWED_MIME_TYPES = [
 
 async function validateUpload(req, res, next) {
   if (!req.file) {
-    return next(Object.assign(new Error('No file uploaded. Please attach an image.'), { status: 400 }));
+    return next(Object.assign(new Error('No file was uploaded. Please attach a file with field name "image".'), { status: 400 }));
   }
 
+  let detectedType;
   try {
-    const fileTypeResult = await fromFile(req.file.path);
-
-    if (!fileTypeResult || !ALLOWED_MIME_TYPES.includes(fileTypeResult.mime)) {
-      await safeDelete(req.file.path);
-      const err = new Error(
-        `Invalid file content. Magic bytes do not match an allowed image type. Detected: ${
-          fileTypeResult ? fileTypeResult.mime : 'unknown'
-        }`
-      );
-      err.status = 422;
-      return next(err);
-    }
-
-    // Attach the verified mime type back onto the file object
-    req.file.verifiedMimeType = fileTypeResult.mime;
-    next();
-  } catch (error) {
+    detectedType = await fileTypeFromFile(req.file.path);
+  } catch (err) {
     await safeDelete(req.file.path);
-    next(error);
+    return next(Object.assign(new Error('Could not read uploaded file to determine its type.'), { status: 400 }));
   }
+
+  if (!detectedType || !ALLOWED_MIME_TYPES.includes(detectedType.mime)) {
+    await safeDelete(req.file.path);
+    const detected = detectedType ? detectedType.mime : 'unknown';
+    return next(
+      Object.assign(
+        new Error(`File type validation failed. Detected MIME type: ${detected}. Allowed: ${ALLOWED_MIME_TYPES.join(', ')}`),
+        { status: 400, code: 'INVALID_FILE_TYPE' }
+      )
+    );
+  }
+
+  // Attach detected mime to the file object for downstream use
+  req.file.detectedMime = detectedType.mime;
+  next();
 }
 
 module.exports = validateUpload;

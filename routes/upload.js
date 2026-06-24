@@ -6,7 +6,7 @@ const imageService = require('../services/imageService');
 
 /**
  * GET /api/upload
- * Render the upload form view
+ * Render the upload form
  */
 router.get('/', (req, res) => {
   res.render('upload', {
@@ -17,65 +17,60 @@ router.get('/', (req, res) => {
 
 /**
  * POST /api/upload
- * Accept multipart/form-data with field 'image'
- * Applies Multer upload middleware → validate middleware → imageService.createImage()
+ * Upload a new image, extract EXIF, generate thumbnails, persist to DB.
  */
 router.post(
   '/',
-  // Multer handles single file upload with field name 'image'
+  // 1. Multer handles multipart parsing + initial MIME filter + size limit
   (req, res, next) => {
-    upload.single('image')(req, res, (err) => {
+    const uploadSingle = upload.single('image');
+    uploadSingle(req, res, (err) => {
       if (err) {
-        // Handle Multer-specific errors
         if (err.code === 'LIMIT_FILE_SIZE') {
-          const maxMB = parseInt(process.env.MAX_FILE_SIZE_MB || '20');
+          const maxMB = parseInt(process.env.MAX_FILE_SIZE_MB || '20', 10);
           return res.status(413).json({
             success: false,
             error: `File too large. Maximum size is ${maxMB} MB.`,
+            code: 'FILE_TOO_LARGE',
           });
         }
-        if (err.code === 'LIMIT_UNEXPECTED_FILE') {
-          return res.status(415).json({
+        if (err.code === 'INVALID_FILE_TYPE') {
+          return res.status(400).json({
             success: false,
-            error: err.message || 'Invalid file type.',
+            error: err.message,
+            code: err.code,
           });
         }
-        return res.status(400).json({
-          success: false,
-          error: err.message || 'File upload failed.',
-        });
+        return next(err);
       }
       next();
     });
   },
-  // Post-upload MIME validation
+
+  // 2. Post-upload validation (magic bytes check)
   validateUpload,
-  // Route handler
-  async (req, res) => {
+
+  // 3. Service layer orchestration
+  async (req, res, next) => {
     try {
-      const options = {
+      const tags = req.body.tags
+        ? Array.isArray(req.body.tags)
+          ? req.body.tags
+          : req.body.tags.split(',').map((t) => t.trim()).filter(Boolean)
+        : [];
+
+      const image = await imageService.createImage(req.file, {
+        tags,
         title: req.body.title || null,
         description: req.body.description || null,
-        tags: req.body.tags
-          ? req.body.tags
-              .split(',')
-              .map((t) => t.trim())
-              .filter(Boolean)
-          : [],
-      };
-
-      const image = await imageService.createImage(req.file, options);
+      });
 
       return res.status(201).json({
         success: true,
         data: image,
       });
     } catch (err) {
-      console.error('[POST /api/upload] Error creating image:', err);
-      return res.status(500).json({
-        success: false,
-        error: err.message || 'Failed to create image record.',
-      });
+      next(err);
     }
   }
 );

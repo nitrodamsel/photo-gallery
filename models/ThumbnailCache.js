@@ -1,60 +1,49 @@
-'use strict';
+const { DataTypes } = require('sequelize');
 
-const { DataTypes, Model } = require('sequelize');
-const sequelize = require('../config/database');
-
-class ThumbnailCache extends Model {}
-
-ThumbnailCache.init(
-  {
+module.exports = (sequelize) => {
+  const ThumbnailCache = sequelize.define('ThumbnailCache', {
     id: {
-      type: DataTypes.UUID,
-      defaultValue: DataTypes.UUIDV4,
+      type: DataTypes.INTEGER,
+      autoIncrement: true,
       primaryKey: true,
-      allowNull: false,
     },
     imageId: {
-      type: DataTypes.UUID,
+      type: DataTypes.INTEGER,
       allowNull: false,
-      references: {
-        model: 'images',
-        key: 'id',
-      },
-      onUpdate: 'CASCADE',
-      onDelete: 'CASCADE',
+      references: { model: 'images', key: 'id' },
     },
     size: {
       type: DataTypes.STRING,
       allowNull: false,
-      comment: 'e.g. "200x200" or just "200"',
     },
-    filename: {
+    filePath: {
       type: DataTypes.STRING,
       allowNull: false,
     },
-    fileSize: {
+    width: {
       type: DataTypes.INTEGER,
       allowNull: true,
     },
-    generatedAt: {
-      type: DataTypes.DATE,
-      allowNull: false,
-      defaultValue: DataTypes.NOW,
+    height: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
     },
-  },
-  {
-    sequelize,
-    modelName: 'ThumbnailCache',
+    format: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      defaultValue: 'webp',
+    },
+  }, {
     tableName: 'thumbnail_cache',
     timestamps: true,
-    indexes: [
-      {
-        unique: true,
-        fields: ['imageId', 'size'],
-        name: 'unique_thumbnail_image_size',
-      },
-    ],
-  }
-);
+  });
 
-module.exports = ThumbnailCache;
+  ThumbnailCache.associate = (models) => {
+    ThumbnailCache.belongsTo(models.Image, {
+      foreignKey: 'imageId',
+      as: 'Image',
+    });
+  };
+
+  return ThumbnailCache;
+};

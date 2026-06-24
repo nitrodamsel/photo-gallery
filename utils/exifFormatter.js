@@ -1,6 +1,6 @@
 /**
- * Format GPS coordinates to a human-readable string.
- * @param {{ lat: number, lng: number }} gps
+ * Format GPS coordinates into a human-readable string.
+ * @param {{ lat: number, lng: number }} coords
  * @returns {string} e.g. '48.8566° N, 2.3522° E'
  */
 function formatGPS({ lat, lng }) {
@@ -15,7 +15,7 @@ function formatGPS({ lat, lng }) {
 }
 
 /**
- * Format a decimal shutter speed to a fraction string.
+ * Format a shutter speed (decimal seconds) into a fraction string.
  * @param {number} value - Shutter speed in seconds (e.g. 0.004)
  * @returns {string} e.g. '1/250s'
  */
@@ -26,14 +26,15 @@ function formatShutter(value) {
     return `${value}s`;
   }
 
+  // Calculate denominator
   const denominator = Math.round(1 / value);
   return `1/${denominator}s`;
 }
 
 /**
- * Format an ISO date string or Date object to a locale-friendly string.
+ * Format an ISO date string or Date object into a locale-friendly string.
  * @param {string|Date} isoString
- * @returns {string} Locale date string
+ * @returns {string} e.g. 'June 24, 2026, 3:45 PM'
  */
 function formatDate(isoString) {
   if (!isoString) return null;
@@ -46,11 +47,11 @@ function formatDate(isoString) {
       year: 'numeric',
       month: 'long',
       day: 'numeric',
-      hour: '2-digit',
+      hour: 'numeric',
       minute: '2-digit',
-      second: '2-digit',
+      hour12: true,
     });
-  } catch {
+  } catch (err) {
     return null;
   }
 }
