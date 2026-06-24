@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title><%= title %> — PhotoVault</title>
+  <link rel="stylesheet" href="/css/main.css" />
+  <style>
+    /* Upload page specific styles */
+    .upload-page {
+      max-width: 700px;
+      margin: 2rem auto;
+      padding: 0 1rem;
+    }
+
+    .upload-page h1 {
+      font-size: 1.8rem;
+      margin-bottom: 1.5rem;
+      color: #1a1a2e;
+    }
+
+    /* Drop zone */
+    .drop-zone {
+      border: 3px dashed #cbd5e1;
+      border-radius: 12px;
+      padding: 3rem 2rem;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+      background: #f8fafc;
+      position: relative;
+    }
+
+    .drop-zone.drag-over {
+      border-color: #6366f1;
+      background: #eef2ff;
+    }
+
+    .drop-zone input[type="file"] {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+      width: 100%;
+      height: 100%;
+    }
+
+    .drop-zone-icon {
+      font-size: 3rem;
+      margin-bottom: 0.75rem;
+      display: block;
+    }
+
+    .drop-zone-text {
+      font-size: 1.1rem;
+      color: #475569;
+      margin-bottom: 0.5rem;
+    }
+
+    .drop-zone-subtext {
+      font-size: 0.85rem;
+      color: #94a3b8;
+    }
+
+    /* Preview */
+    .preview-area {
+      display: none;
+      margin-top: 1.5rem;
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1px solid #e2e8f0;
+      background: #fff;
+    }
+
+    .preview-area.visible {
+      display: block;
+    }
+
+    .preview-area img {
+      width: 100%;
+      max-height: 400px;
+      object-fit: contain;
+      display: block;
+      background: #f1f5f9;
+    }
+
+    .preview-info {
+      padding: 0.75rem 1rem;
+      font-size: 0.875rem;
+      color: #475569;
+      border-top: 1px solid #e2e8f0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .preview-info button {
+      background: none;
+      border: none;
+      color: #ef4444;
+      cursor: pointer;
+      font-size: 0.875rem;
+      padding: 0;
+    }
+
+    /* Form fields */
+    .form-fields {
+      margin-top: 1.5rem;
+    }
+
+    .form-group {
+      margin-bottom: 1.25rem;
+    }
+
+    .form-group label {
+      display: block;
+      font-weight: 600;
+      font-size: 0.875rem;
+      color: #374151;
+      margin-bottom: 0.375rem;
+    }
+
+    .form-group input[type="text"],
+    .form-group textarea {
+      width: 100%;
+      padding: 0.625rem 0.875rem;
+      border: 1px solid #d1d5db;
+      border-radius: 8px;
+      font-size: 0.95rem;
+      color: #1f2937;
+      transition: border-color 0.15s;
+      box-sizing: border-box;
+    }
+
+    .form-group input[type="text"]:focus,
+    .form-group textarea:focus {
+      outline: none;
+      border-color: #6366f1;
+      box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+    }
+
+    .form-group textarea {
+      resize: vertical;
+      min-height: 80px;
+    }
+
+    /* Progress bar */
+    .progress-wrap {
+      display: none;
+      margin-top: 1.25rem;
+    }
+
+    .progress-wrap.visible {
+      display: block;
+    }
+
+    .progress-bar-track {
+      height: 8px;
+      background: #e2e8f0;
+      border-radius: 999px;
+      overflow: hidden;
+    }
+
+    .progress-bar-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #6366f1, #8b5cf6);
+      border-radius: 999px;
+      transition: width 0.3s ease;
+    }
+
+    .progress-status {
+      font-size: 0.8rem;
+      color: #64748b;
+      margin-top: 0.4rem;
+      text-align: right;
+    }
+
+    /* Submit button */
+    .btn-upload {
+      display: block;
+      width: 100%;
+      padding: 0.85rem;
+      background: #6366f1;
+      color: #fff;
+      font-size: 1rem;
+      font-weight: 600;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.2s;
+      margin-top: 1.5rem;
+    }
+
+    .btn-upload:hover:not(:disabled) {
+      background: #4f46e5;
+    }
+
+    .btn-upload:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    /* Error / success alert */
+    .alert {
+      padding: 0.875rem 1rem;
+      border-radius: 8px;
+      margin-bottom: 1.25rem;
+      font-size: 0.9rem;
+    }
+
+    .alert-error {
+      background: #fee2e2;
+      color: #991b1b;
+      border: 1px solid #fca5a5;
+    }
+
+    .alert-success {
+      background: #d1fae5;
+      color: #065f46;
+      border: 1px solid #6ee7b7;
+    }
+
+    /* Allowed types hint */
+    .allowed-types {
+      font-size: 0.8rem;
+      color: #94a3b8;
+      margin-top: 1rem;
+    }
+  </style>
+</head>
+<body>
+  <%- include('partials/navbar') %>
+
+  <main class="upload-page">
+    <h1>Upload Image</h1>
+
+    <% if (error) { %>
+      <div class="alert alert-error" role="alert">
+        <%= error %>
+      </div>
+    <% } %>
+
+    <div id="js-alert" style="display:none;" class="alert" role="alert"></div>
+
+    <form
+      id="upload-form"
+      action="/api/upload"
+      method="POST"
+      enctype="multipart/form-data"
+      novalidate
+    >
+      <!-- Drag-and-drop zone -->
+      <div class="drop-zone" id="drop-zone" role="button" tabindex="0" aria-label="Upload image drop zone">
+        <input
+          type="file"
+          name="image"
+          id="file-input"
+          accept="image/jpeg,image/png,image/webp,image/tiff,image/heic"
+          required
+          aria-label="Choose image file"
+        />
+        <span class="drop-zone-icon">🖼️</span>
+        <p class="drop-zone-text">Drag &amp; drop an image here, or click to browse</p>
+        <p class="drop-zone-subtext">JPEG, PNG, WebP, TIFF, HEIC — up to <%= process.env.MAX_FILE_SIZE_MB || 20 %> MB</p>
+      </div>
+
+      <!-- Image preview -->
+      <div class="preview-area" id="preview-area">
+        <img id="preview-img" src="" alt="Preview" />
+        <div class="preview-info">
+          <span id="preview-filename"></span>
+          <button type="button" id="remove-file-btn" aria-label="Remove selected file">✕ Remove</button>
+        </div>
+      </div>
+
+      <!-- Metadata fields -->
+      <div class="form-fields">
+        <div class="form-group">
+          <label for="title">Title <span style="font-weight:400;color:#94a3b8">(optional)</span></label>
+          <input type="text" id="title" name="title" placeholder="Give this photo a title" maxlength="255" />
+        </div>
+
+        <div class="form-group">
+          <label for="description">Description <span style="font-weight:400;color:#94a3b8">(optional)</span></label>
+          <textarea id="description" name="description" placeholder="Add a description…" maxlength="2000"></textarea>
+        </div>
+
+        <div class="form-group">
+          <label for="tags">Tags <span style="font-weight:400;color:#94a3b8">(optional, comma-separated)</span></label>
+          <input type="text" id="tags" name="tags" placeholder="e.g. nature, travel, portrait" />
+        </div>
+      </div>
+
+      <!-- Progress bar (wired up in Phase 5) -->
+      <div class="progress-wrap" id="progress-wrap" aria-live="polite" aria-label="Upload progress">
+        <div class="progress-bar-track">
+          <div class="progress-bar-fill" id="progress-fill"></div>
+        </div>
+        <div class="progress-status" id="progress-status">Uploading…</div>
+      </div>
+
+      <button type="submit" class="btn-upload" id="submit-btn" disabled>
+        Upload Image
+      </button>
+
+      <p class="allowed-types">
+        Allowed formats: JPEG, PNG, WebP, TIFF, HEIC &nbsp;|&nbsp;
+        Max size: <%= process.env.MAX_FILE_SIZE_MB || 20 %> MB
+      </p>
+    </form>
+  </main>
+
+  <script>
+    (function () {
+      const dropZone = document.getElementById('drop-zone');
+      const fileInput = document.getElementById('file-input');
+      const previewArea = document.getElementById('preview-area');
+      const previewImg = document.getElementById('preview-img');
+      const previewFilename = document.getElementById('preview-filename');
+      const removeBtn = document.getElementById('remove-file-btn');
+      const submitBtn = document.getElementById('submit-btn');
+      const progressWrap = document.getElementById('progress-wrap');
+      const progressFill = document.getElementById('progress-fill');
+      const progressStatus = document.getElementById('progress-status');
+      const alertBox = document.getElementById('js-alert');
+      const form = document.getElementById('upload-form');
+
+      const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/tiff', 'image/heic', 'image/heif'];
+      const MAX_BYTES = <%= parseInt(process.env.MAX_FILE_SIZE_MB || '20') %> * 1024 * 1024;
+
+      function showAlert(msg, type) {
+        alertBox.textContent = msg;
+        alertBox.className = 'alert alert-' + type;
+        alertBox.style.display = 'block';
+        alertBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+
+      function hideAlert() {
+        alertBox.style.display = 'none';
+      }
+
+      function formatBytes(bytes) {
+        if (bytes < 1024) return bytes + ' B';
+        if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
+        return (bytes / 1048576).toFixed(1) + ' MB';
+      }
+
+      function handleFile(file) {
+        hideAlert();
+
+        if (!ALLOWED_TYPES.includes(file.type)) {
+          showAlert('Invalid file type: ' + file.type + '. Please choose a JPEG, PNG, WebP, TIFF, or HEIC image.', 'error');
+          resetFileInput();
+          return;
+        }
+
+        if (file.size > MAX_BYTES) {
+          showAlert('File is too large (' + formatBytes(file.size) + '). Maximum allowed size is <%= process.env.MAX_FILE_SIZE_MB || 20 %> MB.', 'error');
+          resetFileInput();
+          return;
+        }
+
+        // Show preview
+        const reader = new FileReader();
+        reader.onload = function (e) {
+          previewImg.src = e.target.result;
+          previewFilename.textContent = file.name + ' (' + formatBytes(file.size) + ')';
+          previewArea.classList.add('visible');
+        };
+        reader.readAsDataURL(file);
+
+        submitBtn.disabled = false;
+      }
+
+      function resetFileInput() {
+        fileInput.value = '';
+        previewArea.classList.remove('visible');
+        previewImg.src = '';
+        previewFilename.textContent = '';
+        submitBtn.disabled = true;
+        progressWrap.classList.remove('visible');
+        progressFill.style.width = '0%';
+      }
+
+      // File input change
+      fileInput.addEventListener('change', function () {
+        if (this.files && this.files[0]) {
+          handleFile(this.files[0]);
+        }
+      });
+
+      // Remove file
+      removeBtn.addEventListener('click', function () {
+        resetFileInput();
+        hideAlert();
+      });
+
+      // Drag events
+      dropZone.addEventListener('dragover', function (e) {
+        e.preventDefault();
+        dropZone.classList.add('drag-over');
+      });
+
+      dropZone.addEventListener('dragleave', function (e) {
+        dropZone.classList.remove('drag-over');
+      });
+
+      dropZone.addEventListener('drop', function (e) {
+        e.preventDefault();
+        dropZone.classList.remove('drag-over');
+        const file = e.dataTransfer.files && e.dataTransfer.files[0];
+        if (file) {
+          // We need to assign the file to the input for form submission fallback
+          // Modern browsers support DataTransfer on input
+          try {
+            const dt = new DataTransfer();
+            dt.items.add(file);
+            fileInput.files = dt.files;
+          } catch (err) {
+            // DataTransfer not supported — file preview still works, form fallback won't have file
+            console.warn('DataTransfer assignment not supported:', err);
+          }
+          handleFile(file);
+        }
+      });
+
+      // Keyboard accessibility for drop zone
+      dropZone.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          fileInput.click();
+        }
+      });
+
+      // AJAX form submission with progress
+      form.addEventListener('submit', function (e) {
+        e.preventDefault();
+        hideAlert();
+
+        if (!fileInput.files || !fileInput.files[0]) {
+          showAlert('Please select a file before uploading.', 'error');
+          return;
+        }
+
+        const formData = new FormData(form);
+
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', form.action, true);
+        xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+
+        // Progress (wired up placeholder — Phase 5 will enhance this)
+        xhr.upload.addEventListener('progress', function (e) {
+          if (e.lengthComputable) {
+            const pct = Math.round((e.loaded / e.total) * 100);
+            progressWrap.classList.add('visible');
+            progressFill.style.width = pct + '%';
+            progressStatus.textContent = 'Uploading… ' + pct + '%';
+          }
+        });
+
+        xhr.upload.addEventListener('loadstart', function () {
+          progressWrap.classList.add('visible');
+          progressFill.style.width = '0%';
+          progressStatus.textContent = 'Starting upload…';
+          submitBtn.disabled = true;
+          submitBtn.textContent = 'Uploading…';
+        });
+
+        xhr.addEventListener('load', function () {
+          submitBtn.disabled = false;
+          submitBtn.textContent = 'Upload Image';
+          progressFill.style.width = '100%';
+
+          let response;
+          try {
+            response = JSON.parse(xhr.responseText);
+          } catch (err) {
+            showAlert('Unexpected server response. Please try again.', 'error');
+            return;
+          }
+
+          if (xhr.status === 201 && response.success) {
+            progressStatus.textContent = 'Upload complete!';
+            showAlert('Image uploaded successfully! Redirecting…', 'success');
+            setTimeout(function () {
+              window.location.href = '/';
+            }, 1500);
+          } else {
+            progressWrap.classList.remove('visible');
+            showAlert(response.error || 'Upload failed. Please try again.', 'error');
+          }
+        });
+
+        xhr.addEventListener('error', function () {
+          submitBtn.disabled = false;
+          submitBtn.textContent = 'Upload Image';
+          progressWrap.classList.remove('visible');
+          showAlert('Network error. Please check your connection and try again.', 'error');
+        });
+
+        xhr.addEventListener('abort', function () {
+          submitBtn.disabled = false;
+          submitBtn.textContent = 'Upload Image';
+          progressWrap.classList.remove('visible');
+          showAlert('Upload cancelled.', 'error');
+        });
+
+        xhr.send(formData);
+      });
+    })();
+  </script>
+</body>
+</html>

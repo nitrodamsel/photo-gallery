@@ -1,52 +1,31 @@
-'use strict';
+const { DataTypes } = require('sequelize');
 
-const { DataTypes, Model } = require('sequelize');
-const sequelize = require('../config/database');
-
-class ImageTag extends Model {}
-
-ImageTag.init(
-  {
-    id: {
-      type: DataTypes.UUID,
-      defaultValue: DataTypes.UUIDV4,
-      primaryKey: true,
-      allowNull: false,
-    },
-    imageId: {
-      type: DataTypes.UUID,
-      allowNull: false,
-      references: {
-        model: 'images',
-        key: 'id',
+module.exports = (sequelize) => {
+  const ImageTag = sequelize.define(
+    'ImageTag',
+    {
+      imageId: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        references: {
+          model: 'images',
+          key: 'id',
+        },
       },
-      onUpdate: 'CASCADE',
-      onDelete: 'CASCADE',
-    },
-    tagId: {
-      type: DataTypes.UUID,
-      allowNull: false,
-      references: {
-        model: 'tags',
-        key: 'id',
+      tagId: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        references: {
+          model: 'tags',
+          key: 'id',
+        },
       },
-      onUpdate: 'CASCADE',
-      onDelete: 'CASCADE',
     },
-  },
-  {
-    sequelize,
-    modelName: 'ImageTag',
-    tableName: 'image_tags',
-    timestamps: true,
-    indexes: [
-      {
-        unique: true,
-        fields: ['imageId', 'tagId'],
-        name: 'unique_image_tag',
-      },
-    ],
-  }
-);
+    {
+      tableName: 'image_tags',
+      timestamps: false,
+    }
+  );
 
-module.exports = ImageTag;
+  return ImageTag;
+};
