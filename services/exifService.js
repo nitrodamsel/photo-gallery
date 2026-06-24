@@ -4,70 +4,70 @@ const { formatShutter } = require('../utils/exifFormatter');
 /**
  * Extract and normalize EXIF metadata from an image file.
  * @param {string} filePath - Absolute path to the image file
- * @returns {Promise<Object>} Structured EXIF data object, or {} on failure
+ * @returns {Promise<object>} Structured EXIF object, or {} on failure
  */
 async function extractExif(filePath) {
   try {
     const raw = await exifr.parse(filePath, {
-      // GPS
+      // Explicit tag list for consistent extraction
+      pick: [
+        // GPS
+        'GPSLatitude',
+        'GPSLongitude',
+        'GPSLatitudeRef',
+        'GPSLongitudeRef',
+        'GPSAltitude',
+        // Camera info
+        'Make',
+        'Model',
+        'LensModel',
+        'LensMake',
+        // Exposure settings
+        'FocalLength',
+        'FNumber',
+        'ExposureTime',
+        'ISO',
+        'ISOSpeedRatings',
+        // Date
+        'DateTimeOriginal',
+        'CreateDate',
+        'ModifyDate',
+        // Image properties
+        'ColorSpace',
+        'Orientation',
+        'ImageWidth',
+        'ImageHeight',
+        'ExifImageWidth',
+        'ExifImageHeight',
+        // Additional
+        'Flash',
+        'WhiteBalance',
+        'ExposureMode',
+        'ExposureProgram',
+        'MeteringMode',
+        'Software',
+      ],
+      // Parse GPS into decimal degrees automatically
       gps: true,
-      // Camera info
-      Make: true,
-      Model: true,
-      LensModel: true,
-      LensMake: true,
-      FocalLength: true,
-      FocalLengthIn35mmFormat: true,
-      // Exposure
-      FNumber: true,
-      ExposureTime: true,
-      ISO: true,
-      ISOSpeedRatings: true,
-      ExposureProgram: true,
-      ExposureMode: true,
-      ExposureBiasValue: true,
-      MeteringMode: true,
-      Flash: true,
-      // Date/time
-      DateTimeOriginal: true,
-      CreateDate: true,
-      ModifyDate: true,
-      // Image properties
-      ColorSpace: true,
-      Orientation: true,
-      ImageWidth: true,
-      ImageHeight: true,
-      PixelXDimension: true,
-      PixelYDimension: true,
-      // White balance
-      WhiteBalance: true,
-      // Software
-      Software: true,
-      Artist: true,
-      Copyright: true,
+      translateValues: true,
+      translateKeys: true,
+      reviveValues: true,
     });
 
-    if (!raw) return {};
+    if (!raw) {
+      return {};
+    }
 
-    // Normalize GPS
+    // Normalize GPS coordinates
     let gps = null;
     if (raw.latitude != null && raw.longitude != null) {
+      // exifr provides decimal lat/lng when gps:true
       gps = {
         lat: raw.latitude,
         lng: raw.longitude,
-        altitude: raw.altitude || null,
-      };
-    } else if (raw.GPSLatitude != null && raw.GPSLongitude != null) {
-      gps = {
-        lat: raw.GPSLatitude,
-        lng: raw.GPSLongitude,
-        altitude: raw.GPSAltitude || null,
+        altitude: raw.GPSAltitude != null ? raw.GPSAltitude : null,
       };
     }
-
-    // Normalize shutter speed
-    const rawShutter = raw.ExposureTime;
-    const shutterSpeed = rawShutter != null ? formatShutter(rawShutter) : null;
 
     // Normalize date taken
     const dateTaken =
@@ -76,60 +76,46 @@ async function extractExif(filePath) {
       raw.ModifyDate ||
       null;
 
-    // Normalize dimensions
-    const width = raw.PixelXDimension || raw.ImageWidth || null;
-    const height = raw.PixelYDimension || raw.ImageHeight || null;
+    // Normalize ISO
+    const iso = raw.ISO || raw.ISOSpeedRatings || null;
 
-    const exifData = {
+    // Normalize image dimensions
+    const width = raw.ExifImageWidth || raw.ImageWidth || null;
+    const height = raw.ExifImageHeight || raw.ImageHeight || null;
+
+    // Normalize shutter speed
+    const shutterSpeed =
+      raw.ExposureTime != null ? formatShutter(raw.ExposureTime) : null;
+
+    return {
       // GPS
       gps,
-
       // Camera
       cameraMake: raw.Make || null,
       cameraModel: raw.Model || null,
       lensModel: raw.LensModel || raw.LensMake || null,
-
-      // Optics
-      focalLength: raw.FocalLength ? `${raw.FocalLength}mm` : null,
-      focalLength35mm: raw.FocalLengthIn35mmFormat ? `${raw.FocalLengthIn35mmFormat}mm` : null,
-      aperture: raw.FNumber ? `f/${raw.FNumber}` : null,
-
       // Exposure
+      focalLength: raw.FocalLength != null ? `${raw.FocalLength}mm` : null,
+      aperture: raw.FNumber != null ? `f/${raw.FNumber}` : null,
       shutterSpeed,
-      shutterSpeedRaw: rawShutter || null,
-      iso: raw.ISO || raw.ISOSpeedRatings || null,
-      exposureProgram: raw.ExposureProgram || null,
-      exposureMode: raw.ExposureMode || null,
-      exposureBias: raw.ExposureBiasValue != null ? `${raw.ExposureBiasValue} EV` : null,
-      meteringMode: raw.MeteringMode || null,
-      flash: raw.Flash || null,
-
-      // White balance
-      whiteBalance: raw.WhiteBalance || null,
-
-      // Date & time
+      iso,
+      exposureTime: raw.ExposureTime || null,
+      // Date
       dateTaken: dateTaken ? new Date(dateTaken).toISOString() : null,
-
       // Image properties
       colorSpace: raw.ColorSpace || null,
       orientation: raw.Orientation || null,
       width,
       height,
-
-      // Metadata
+      // Additional metadata
+      flash: raw.Flash || null,
+      whiteBalance: raw.WhiteBalance || null,
       software: raw.Software || null,
-      artist: raw.Artist || null,
-      copyright: raw.Copyright || null,
+      // Raw values preserved for reference
+      _raw: raw,
     };
-
-    // Remove null values to keep the object clean (optional)
-    const cleaned = Object.fromEntries(
-      Object.entries(exifData).filter(([, v]) => v !== null && v !== undefined)
-    );
-
-    return cleaned;
   } catch (err) {
-    console.warn(`[exifService] Failed to parse EXIF from ${filePath}:`, err.message);
+    console.warn(`[exifService] Failed to extract EXIF from ${filePath}:`, err.message);
     return {};
   }
 }

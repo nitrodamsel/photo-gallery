@@ -1,65 +1,63 @@
 const express = require('express');
 const path = require('path');
-const expressLayouts = require('express-ejs-layouts');
+const morgan = require('morgan');
 
 const app = express();
 
-// View engine
+// ── View engine ──────────────────────────────────────────────────────────────
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 
-// EJS layouts (if using express-ejs-layouts)
-try {
-  app.use(expressLayouts);
-  app.set('layout', 'layouts/base');
-} catch (e) {
-  // express-ejs-layouts not available, skip
-}
-
-// Body parsing
+// ── Middleware ───────────────────────────────────────────────────────────────
+app.use(morgan('dev'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Static files
+// ── Static files ─────────────────────────────────────────────────────────────
 app.use(express.static(path.join(__dirname, 'public')));
+
+// Serve uploaded files
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// Routes
+// ── Routes ───────────────────────────────────────────────────────────────────
 const indexRouter = require('./routes/index');
 const uploadRouter = require('./routes/upload');
 
 app.use('/', indexRouter);
 app.use('/api/upload', uploadRouter);
 
+// ── Error handling ───────────────────────────────────────────────────────────
 // 404 handler
 app.use((req, res, next) => {
-  const err = new Error('Page Not Found');
+  const err = new Error(`Not Found: ${req.originalUrl}`);
   err.status = 404;
   next(err);
 });
 
-// Error handler
+// Global error handler
 app.use((err, req, res, next) => {
   const status = err.status || 500;
-  console.error(`[${status}] ${err.message}`);
-  if (err.stack && status >= 500) {
-    console.error(err.stack);
-  }
+  const message = err.message || 'Internal Server Error';
 
-  // JSON response for API routes
-  if (req.path.startsWith('/api/') || req.headers['x-requested-with'] === 'XMLHttpRequest') {
+  console.error(`[Error] ${status}: ${message}`, err.stack ? `\n${err.stack}` : '');
+
+  // API errors → JSON
+  if (req.path.startsWith('/api/') || req.headers.accept?.includes('application/json')) {
     return res.status(status).json({
       success: false,
-      error: err.message || 'Internal Server Error',
-      code: err.code || null,
+      error: {
+        message,
+        code: err.code || 'INTERNAL_ERROR',
+        status,
+      },
     });
   }
 
-  // HTML response
+  // HTML errors → error view
   res.status(status).render('error', {
     title: `Error ${status}`,
     status,
-    message: err.message || 'Something went wrong.',
+    message,
     stack: process.env.NODE_ENV === 'development' ? err.stack : null,
   });
 });

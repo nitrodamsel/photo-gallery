@@ -9,22 +9,18 @@ const { safeDelete, getPublicUrl } = require('../utils/fileHelpers');
  * Create a new Image record from an uploaded file.
  * Orchestrates: EXIF extraction → thumbnail generation → DB persistence.
  *
- * @param {Express.Multer.File} file - Multer file object
- * @param {Object} [options]
+ * @param {object} file - Multer file object
+ * @param {object} [options] - Additional options
  * @param {string[]} [options.tags] - Array of tag names to associate
- * @param {string} [options.title] - Optional title override
- * @param {string} [options.description] - Optional description
- * @returns {Promise<Image>} Created Image instance with associations
+ * @returns {Promise<Image>} The created Image model instance
  */
 async function createImage(file, options = {}) {
-  const { tags = [], title, description } = options;
   const filePath = file.path;
   const originalName = file.originalname;
   const mimeType = file.detectedMime || file.mimetype;
   const fileSize = file.size;
-  const publicUrl = getPublicUrl(filePath);
 
-  // 1. Extract EXIF metadata
+  // 1. Extract EXIF metadata (non-fatal — returns {} on failure)
   let exifData = {};
   try {
     exifData = await extractExif(filePath);
@@ -32,126 +28,122 @@ async function createImage(file, options = {}) {
     console.warn('[imageService] EXIF extraction failed, continuing without EXIF:', err.message);
   }
 
-  // 2. Create initial DB record (need ID for thumbnails)
-  let image;
+  // 2. Build image record data
+  const imageData = {
+    originalName,
+    filename: path.basename(filePath),
+    filePath,
+    publicUrl: getPublicUrl(filePath),
+    mimeType,
+    fileSize,
+    width: exifData.width || null,
+    height: exifData.height || null,
+    exifData: Object.keys(exifData).length > 0 ? exifData : null,
+    dateTaken: exifData.dateTaken ? new Date(exifData.dateTaken) : null,
+    cameraMake: exifData.cameraMake || null,
+    cameraModel: exifData.cameraModel || null,
+    gpsLat: exifData.gps ? exifData.gps.lat : null,
+    gpsLng: exifData.gps ? exifData.gps.lng : null,
+  };
+
+  // 3. Create the Image DB record
+  const image = await Image.create(imageData);
+
+  // 4. Generate thumbnails (non-fatal — log and continue on failure)
   try {
-    image = await Image.create({
-      filename: path.basename(filePath),
-      originalName,
-      mimeType,
-      fileSize,
-      filePath: publicUrl,
-      title: title || originalName,
-      description: description || null,
-      exifData: Object.keys(exifData).length > 0 ? exifData : null,
-      width: exifData.width || null,
-      height: exifData.height || null,
-      cameraMake: exifData.cameraMake || null,
-      cameraModel: exifData.cameraModel || null,
-      dateTaken: exifData.dateTaken ? new Date(exifData.dateTaken) : null,
-      gpsLat: exifData.gps ? exifData.gps.lat : null,
-      gpsLng: exifData.gps ? exifData.gps.lng : null,
-    });
+    const { thumb400, thumb1200 } = await generateThumbnails(filePath, image.id);
+
+    const updates = {};
+    if (thumb400) {
+      updates.thumbnail400Path = thumb400;
+      updates.thumbnail400Url = getPublicUrl(thumb400);
+    }
+    if (thumb1200) {
+      updates.thumbnail1200Path = thumb1200;
+      updates.thumbnail1200Url = getPublicUrl(thumb1200);
+    }
+
+    if (Object.keys(updates).length > 0) {
+      await image.update(updates);
+    }
   } catch (err) {
-    // If DB create fails, clean up the uploaded file
-    await safeDelete(filePath);
-    throw err;
+    console.error('[imageService] Thumbnail generation failed, continuing with original only:', err.message);
   }
 
-  // 3. Generate thumbnails (partial failure is acceptable — log and continue)
-  let thumbPaths = { thumb400: null, thumb1200: null };
-  try {
-    thumbPaths = await generateThumbnails(filePath, image.id);
-  } catch (err) {
-    console.error('[imageService] Thumbnail generation threw unexpectedly:', err.message);
-  }
-
-  // 4. Update DB record with thumbnail paths
-  const updateData = {};
-  if (thumbPaths.thumb400) {
-    updateData.thumbnailPath = getPublicUrl(thumbPaths.thumb400);
-  }
-  if (thumbPaths.thumb1200) {
-    updateData.largeThumbnailPath = getPublicUrl(thumbPaths.thumb1200);
-  }
-
-  if (Object.keys(updateData).length > 0) {
-    await image.update(updateData);
-  }
-
-  // 5. Associate tags
-  if (tags && tags.length > 0) {
+  // 5. Associate tags if provided
+  if (options.tags && Array.isArray(options.tags) && options.tags.length > 0) {
     try {
-      const tagInstances = await Promise.all(
-        tags.map((name) =>
-          Tag.findOrCreate({ where: { name: name.trim().toLowerCase() }, defaults: { name: name.trim().toLowerCase() } })
-            .then(([tag]) => tag)
+      const tagRecords = await Promise.all(
+        options.tags.map((name) =>
+          Tag.findOrCreate({ where: { name: name.trim().toLowerCase() } }).then(([tag]) => tag)
         )
       );
-      await image.setTags(tagInstances);
+      await image.setTags(tagRecords);
     } catch (err) {
       console.warn('[imageService] Tag association failed:', err.message);
     }
   }
 
   // 6. Reload with associations
-  const fullImage = await Image.findByPk(image.id, {
+  return image.reload({
     include: [{ model: Tag, through: { attributes: [] } }],
   });
-
-  return fullImage;
 }
 
 /**
  * Get a paginated list of images with optional tag filtering.
- *
- * @param {Object} [filters]
+ * @param {object} [filters]
  * @param {number} [filters.page=1]
  * @param {number} [filters.limit=20]
  * @param {string[]} [filters.tags] - Filter by tag names
- * @param {string} [filters.search] - Search in title/description
- * @returns {Promise<{ rows: Image[], count: number, page: number, totalPages: number }>}
+ * @param {string} [filters.order='createdAt'] - Sort field
+ * @param {string} [filters.direction='DESC'] - Sort direction
+ * @returns {Promise<{ images: Image[], total: number, page: number, pages: number }>}
  */
 async function getImages(filters = {}) {
-  const { page = 1, limit = 20, tags = [], search } = filters;
-  const offset = (page - 1) * limit;
+  const {
+    page = 1,
+    limit = 20,
+    tags,
+    order = 'createdAt',
+    direction = 'DESC',
+  } = filters;
 
-  const where = {};
-  if (search) {
-    where[Op.or] = [
-      { title: { [Op.like]: `%${search}%` } },
-      { description: { [Op.like]: `%${search}%` } },
-      { originalName: { [Op.like]: `%${search}%` } },
+  const offset = (Math.max(1, page) - 1) * limit;
+
+  const queryOptions = {
+    include: [{ model: Tag, through: { attributes: [] } }],
+    order: [[order, direction.toUpperCase()]],
+    limit: parseInt(limit, 10),
+    offset,
+    distinct: true,
+  };
+
+  // Tag filtering
+  if (tags && tags.length > 0) {
+    queryOptions.include = [
+      {
+        model: Tag,
+        through: { attributes: [] },
+        where: { name: { [Op.in]: tags.map((t) => t.toLowerCase()) } },
+        required: true,
+      },
     ];
   }
 
-  const includeOptions = [
-    {
-      model: Tag,
-      through: { attributes: [] },
-      ...(tags.length > 0 ? { where: { name: { [Op.in]: tags } } } : {}),
-    },
-  ];
-
-  const { rows, count } = await Image.findAndCountAll({
-    where,
-    include: includeOptions,
-    limit: parseInt(limit, 10),
-    offset: parseInt(offset, 10),
-    order: [['createdAt', 'DESC']],
-    distinct: true,
-  });
+  const { count, rows } = await Image.findAndCountAll(queryOptions);
 
   return {
-    rows,
-    count,
+    images: rows,
+    total: count,
     page: parseInt(page, 10),
-    totalPages: Math.ceil(count / limit),
+    pages: Math.ceil(count / limit),
+    limit: parseInt(limit, 10),
   };
 }
 
 /**
- * Get a single image by ID with tags eager-loaded.
+ * Get a single image by ID with eager-loaded tags.
  * @param {string|number} id
  * @returns {Promise<Image|null>}
  */
@@ -162,7 +154,7 @@ async function getImageById(id) {
 }
 
 /**
- * Delete an image and all associated files.
+ * Delete an image and all associated files (original + thumbnails).
  * @param {string|number} id
  * @returns {Promise<boolean>} true if deleted, false if not found
  */
@@ -170,23 +162,11 @@ async function deleteImage(id) {
   const image = await Image.findByPk(id);
   if (!image) return false;
 
-  // Delete physical files (swallow errors)
-  const filesToDelete = [image.filePath, image.thumbnailPath, image.largeThumbnailPath].filter(Boolean);
-
-  await Promise.allSettled(
-    filesToDelete.map((urlPath) => {
-      // Convert public URL back to absolute path
-      const absPath = path.join(__dirname, '..', 'public', urlPath);
-      // Try both: relative to public and relative to project root
-      const altPath = path.join(__dirname, '..', urlPath);
-      return safeDelete(altPath).then(() => safeDelete(absPath));
-    })
-  );
-
-  // Delete thumbnails by ID
+  // Delete files (non-fatal)
+  await safeDelete(image.filePath);
   await deleteThumbnails(id);
 
-  // Delete DB record (cascades to ImageTag join table)
+  // Remove DB record (cascades to ImageTag junction)
   await image.destroy();
 
   return true;

@@ -2,74 +2,84 @@ const express = require('express');
 const router = express.Router();
 const upload = require('../middleware/upload');
 const validateUpload = require('../middleware/validate');
-const imageService = require('../services/imageService');
+const { createImage } = require('../services/imageService');
 
 /**
  * GET /api/upload
- * Render the upload form
+ * Render the upload form view
  */
 router.get('/', (req, res) => {
   res.render('upload', {
     title: 'Upload Image',
     error: null,
+    success: null,
   });
 });
 
 /**
  * POST /api/upload
- * Upload a new image, extract EXIF, generate thumbnails, persist to DB.
+ * Accepts multipart/form-data with field 'image'
+ * Pipeline: multer upload → MIME validation → imageService.createImage()
  */
 router.post(
   '/',
-  // 1. Multer handles multipart parsing + initial MIME filter + size limit
+  // Step 1: Multer handles disk storage, MIME pre-filter, and size limit
   (req, res, next) => {
-    const uploadSingle = upload.single('image');
-    uploadSingle(req, res, (err) => {
+    upload.single('image')(req, res, (err) => {
       if (err) {
+        // Multer-specific error handling
         if (err.code === 'LIMIT_FILE_SIZE') {
-          const maxMB = parseInt(process.env.MAX_FILE_SIZE_MB || '20', 10);
-          return res.status(413).json({
-            success: false,
-            error: `File too large. Maximum size is ${maxMB} MB.`,
-            code: 'FILE_TOO_LARGE',
-          });
+          const maxMB = process.env.MAX_FILE_SIZE_MB || '20';
+          return next(
+            Object.assign(
+              new Error(`File too large. Maximum allowed size is ${maxMB} MB.`),
+              { status: 413, code: 'FILE_TOO_LARGE' }
+            )
+          );
         }
-        if (err.code === 'INVALID_FILE_TYPE') {
-          return res.status(400).json({
-            success: false,
-            error: err.message,
-            code: err.code,
-          });
+        if (err.code === 'LIMIT_UNEXPECTED_FILE') {
+          return next(
+            Object.assign(
+              new Error('Unexpected field. Use field name "image" for file upload.'),
+              { status: 400, code: 'UNEXPECTED_FIELD' }
+            )
+          );
         }
+        err.status = err.status || 400;
         return next(err);
       }
       next();
     });
   },
 
-  // 2. Post-upload validation (magic bytes check)
+  // Step 2: Post-upload validation (magic byte check)
   validateUpload,
 
-  // 3. Service layer orchestration
+  // Step 3: Create image record via service layer
   async (req, res, next) => {
     try {
-      const tags = req.body.tags
-        ? Array.isArray(req.body.tags)
+      const options = {};
+
+      // Parse tags if provided
+      if (req.body.tags) {
+        options.tags = Array.isArray(req.body.tags)
           ? req.body.tags
-          : req.body.tags.split(',').map((t) => t.trim()).filter(Boolean)
-        : [];
+          : req.body.tags.split(',').map((t) => t.trim()).filter(Boolean);
+      }
 
-      const image = await imageService.createImage(req.file, {
-        tags,
-        title: req.body.title || null,
-        description: req.body.description || null,
-      });
+      const image = await createImage(req.file, options);
 
-      return res.status(201).json({
+      res.status(201).json({
         success: true,
+        message: 'Image uploaded successfully.',
         data: image,
       });
     } catch (err) {
+      // If DB create fails, try to clean up the uploaded file
+      if (req.file && req.file.path) {
+        const { safeDelete } = require('../utils/fileHelpers');
+        await safeDelete(req.file.path).catch(() => {});
+      }
       next(err);
     }
   }
