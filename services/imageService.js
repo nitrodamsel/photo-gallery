@@ -1,153 +1,133 @@
 const path = require('path');
+const { Op } = require('sequelize');
 const { Image, Tag, ImageTag } = require('../models');
 const { extractExif } = require('./exifService');
 const { generateThumbnails, deleteThumbnails } = require('./thumbnailService');
 const { safeDelete, getPublicUrl } = require('../utils/fileHelpers');
-const { Op } = require('sequelize');
 
 /**
  * Create a new image record from an uploaded file.
- * @param {Express.Multer.File} file - Multer file object.
- * @param {Object} options - Additional options (tags, title, etc.)
- * @returns {Promise<Image>} Created image record with associations.
+ *
+ * @param {Object} file - Multer file object
+ * @param {Object} [options] - Additional options
+ * @param {string[]} [options.tags] - Array of tag names to associate
+ * @param {string} [options.title] - Override title (defaults to original filename)
+ * @param {string} [options.description] - Image description
+ * @returns {Promise<Image>} The created Image record with associations
  */
 async function createImage(file, options = {}) {
   const filePath = file.path;
-  const originalFilename = file.originalname;
-  const mimeType = file.detectedMime || file.mimetype;
-  const fileSize = file.size;
+  let imageRecord = null;
 
-  // 1. Extract EXIF metadata
-  let exifData = {};
   try {
-    exifData = await extractExif(filePath);
-  } catch (err) {
-    console.warn(`[imageService] EXIF extraction failed: ${err.message}`);
-  }
+    // 1. Extract EXIF metadata
+    const exifData = await extractExif(filePath);
 
-  // 2. Build the initial image record
-  const imageData = {
-    filename: path.basename(filePath),
-    originalFilename,
-    filePath: getPublicUrl(filePath),
-    mimeType,
-    fileSize,
-    width: exifData.imageWidth || null,
-    height: exifData.imageHeight || null,
-    exifData: Object.keys(exifData).length > 0 ? exifData : null,
-    cameraMake: exifData.cameraMake || null,
-    cameraModel: exifData.cameraModel || null,
-    lensModel: exifData.lensModel || null,
-    focalLength: exifData.focalLength || null,
-    aperture: exifData.aperture || null,
-    shutterSpeed: exifData.shutterSpeed || null,
-    iso: exifData.iso || null,
-    dateTaken: exifData.dateTaken || null,
-    gpsLat: exifData.gps ? exifData.gps.lat : null,
-    gpsLng: exifData.gps ? exifData.gps.lng : null,
-    gpsAltitude: exifData.gps ? exifData.gps.altitude : null,
-    colorSpace: exifData.colorSpace || null,
-    orientation: exifData.orientation || null,
-    title: options.title || null,
-    description: options.description || null,
-    status: options.status || 'active',
-  };
+    // 2. Build the image record data
+    const imageData = {
+      originalFilename: file.originalname,
+      filename: file.filename,
+      filePath: filePath,
+      fileSize: file.size,
+      mimeType: file.detectedMimeType || file.mimetype,
+      publicUrl: getPublicUrl(filePath),
+      title: options.title || path.basename(file.originalname, path.extname(file.originalname)),
+      description: options.description || null,
+      exifData: Object.keys(exifData).length > 0 ? exifData : null,
+      width: exifData.width || null,
+      height: exifData.height || null,
+      cameraMake: exifData.cameraMake || null,
+      cameraModel: exifData.cameraModel || null,
+      dateTaken: exifData.dateTaken || null,
+      latitude: exifData.gps ? exifData.gps.lat : null,
+      longitude: exifData.gps ? exifData.gps.lng : null,
+    };
 
-  // 3. Persist to DB (get the ID for thumbnails)
-  let image;
-  try {
-    image = await Image.create(imageData);
-  } catch (err) {
-    // Clean up uploaded file if DB insert fails
-    await safeDelete(filePath);
-    throw Object.assign(new Error('Failed to save image to database: ' + err.message), { status: 500 });
-  }
+    // 3. Create the database record
+    imageRecord = await Image.create(imageData);
 
-  // 4. Generate thumbnails (non-fatal — partial failures are logged)
-  let thumbnails = {};
-  try {
-    thumbnails = await generateThumbnails(filePath, image.id);
-  } catch (err) {
-    console.error(`[imageService] Thumbnail generation failed for image ${image.id}: ${err.message}`);
-    // Continue — the original is still saved
-  }
-
-  // 5. Update record with thumbnail paths
-  const updateData = {};
-  if (thumbnails.thumb400) {
-    updateData.thumbnailPath = getPublicUrl(thumbnails.thumb400);
-  }
-  if (thumbnails.thumb1200) {
-    updateData.previewPath = getPublicUrl(thumbnails.thumb1200);
-  }
-
-  if (Object.keys(updateData).length > 0) {
+    // 4. Generate thumbnails (partial failure is OK — log and continue)
     try {
-      await image.update(updateData);
-    } catch (err) {
-      console.warn(`[imageService] Failed to update thumbnail paths: ${err.message}`);
-    }
-  }
+      const thumbnails = await generateThumbnails(filePath, imageRecord.id);
 
-  // 6. Handle tags if provided
-  if (options.tags && Array.isArray(options.tags) && options.tags.length > 0) {
-    try {
-      await associateTags(image, options.tags);
-    } catch (err) {
-      console.warn(`[imageService] Tag association failed: ${err.message}`);
-    }
-  }
+      const updateData = {};
+      if (thumbnails.thumb400) {
+        updateData.thumbnailSmall = getPublicUrl(thumbnails.thumb400);
+      }
+      if (thumbnails.thumb1200) {
+        updateData.thumbnailLarge = getPublicUrl(thumbnails.thumb1200);
+      }
 
-  // 7. Return full record with associations
-  return Image.findByPk(image.id, {
-    include: [{ model: Tag, through: { attributes: [] } }],
-  });
+      if (Object.keys(updateData).length > 0) {
+        await imageRecord.update(updateData);
+      }
+    } catch (thumbErr) {
+      console.error(
+        '[imageService] Thumbnail generation failed (non-fatal):',
+        thumbErr.message
+      );
+    }
+
+    // 5. Associate tags if provided
+    if (options.tags && options.tags.length > 0) {
+      await associateTags(imageRecord, options.tags);
+    }
+
+    // 6. Return the full record with associations
+    return getImageById(imageRecord.id);
+  } catch (err) {
+    // If the DB record was created but something else failed, don't clean up the file
+    // — we want to preserve the original. Log the error and re-throw.
+    console.error('[imageService] createImage error:', err.message);
+    throw err;
+  }
 }
 
 /**
- * Associate tags (by name or ID) with an image.
- * @param {Image} image
- * @param {string[]|number[]} tags
+ * Associate tags with an image, creating tags that don't exist yet.
+ *
+ * @param {Image} imageRecord
+ * @param {string[]} tagNames
  */
-async function associateTags(image, tags) {
-  const tagRecords = [];
+async function associateTags(imageRecord, tagNames) {
+  for (const name of tagNames) {
+    const trimmed = name.trim().toLowerCase();
+    if (!trimmed) continue;
 
-  for (const tag of tags) {
-    if (typeof tag === 'string') {
-      const [tagRecord] = await Tag.findOrCreate({
-        where: { name: tag.toLowerCase().trim() },
-        defaults: { name: tag.toLowerCase().trim() },
-      });
-      tagRecords.push(tagRecord);
-    } else if (typeof tag === 'number') {
-      const tagRecord = await Tag.findByPk(tag);
-      if (tagRecord) tagRecords.push(tagRecord);
-    }
+    const [tag] = await Tag.findOrCreate({
+      where: { name: trimmed },
+      defaults: { name: trimmed },
+    });
+
+    await ImageTag.findOrCreate({
+      where: { imageId: imageRecord.id, tagId: tag.id },
+    });
   }
-
-  await image.setTags(tagRecords);
 }
 
 /**
- * Get a paginated list of images with optional tag filtering.
- * @param {Object} filters
- * @param {number} filters.page
- * @param {number} filters.limit
- * @param {string[]} filters.tags
- * @param {string} filters.status
- * @returns {Promise<{ images: Image[], total: number, page: number, pages: number }>}
+ * Get a paginated list of images, with optional tag filtering.
+ *
+ * @param {Object} [filters]
+ * @param {number} [filters.page=1] - 1-indexed page number
+ * @param {number} [filters.limit=20] - Items per page
+ * @param {string[]} [filters.tags] - Filter by tag names (AND logic)
+ * @param {string} [filters.search] - Search in title/description
+ * @returns {Promise<{ rows: Image[], count: number, totalPages: number, page: number }>}
  */
 async function getImages(filters = {}) {
-  const page = Math.max(1, parseInt(filters.page, 10) || 1);
-  const limit = Math.min(100, Math.max(1, parseInt(filters.limit, 10) || 20));
+  const page = Math.max(1, parseInt(filters.page || 1, 10));
+  const limit = Math.min(100, Math.max(1, parseInt(filters.limit || 20, 10)));
   const offset = (page - 1) * limit;
 
   const where = {};
 
-  if (filters.status) {
-    where.status = filters.status;
-  } else {
-    where.status = 'active';
+  if (filters.search) {
+    where[Op.or] = [
+      { title: { [Op.like]: `%${filters.search}%` } },
+      { description: { [Op.like]: `%${filters.search}%` } },
+      { originalFilename: { [Op.like]: `%${filters.search}%` } },
+    ];
   }
 
   const queryOptions = {
@@ -155,63 +135,70 @@ async function getImages(filters = {}) {
     limit,
     offset,
     order: [['createdAt', 'DESC']],
-    include: [{ model: Tag, through: { attributes: [] } }],
-  };
-
-  // Tag filtering
-  if (filters.tags && filters.tags.length > 0) {
-    const tagNames = Array.isArray(filters.tags) ? filters.tags : [filters.tags];
-    queryOptions.include = [
+    include: [
       {
         model: Tag,
         through: { attributes: [] },
-        where: { name: { [Op.in]: tagNames.map((t) => t.toLowerCase().trim()) } },
-        required: true,
+        as: 'tags',
       },
-    ];
+    ],
+    distinct: true,
+  };
+
+  // Tag filtering: only include images that have ALL specified tags
+  if (filters.tags && filters.tags.length > 0) {
+    queryOptions.include[0].where = {
+      name: { [Op.in]: filters.tags.map((t) => t.toLowerCase()) },
+    };
+    queryOptions.include[0].required = true;
   }
 
-  const { count, rows } = await Image.findAndCountAll(queryOptions);
+  const { rows, count } = await Image.findAndCountAll(queryOptions);
 
   return {
-    images: rows,
-    total: count,
+    rows,
+    count,
     page,
     limit,
-    pages: Math.ceil(count / limit),
+    totalPages: Math.ceil(count / limit),
   };
 }
 
 /**
- * Get a single image by ID with tags eager-loaded.
- * @param {number} id
+ * Get a single image by ID with all associations eager-loaded.
+ *
+ * @param {string|number} id
  * @returns {Promise<Image|null>}
  */
 async function getImageById(id) {
   return Image.findByPk(id, {
-    include: [{ model: Tag, through: { attributes: [] } }],
+    include: [
+      {
+        model: Tag,
+        through: { attributes: [] },
+        as: 'tags',
+      },
+    ],
   });
 }
 
 /**
- * Delete an image and all associated files.
- * @param {number} id
- * @returns {Promise<boolean>}
+ * Delete an image: removes the DB record and all associated files.
+ *
+ * @param {string|number} id
+ * @returns {Promise<boolean>} true if deleted, false if not found
  */
 async function deleteImage(id) {
   const image = await Image.findByPk(id);
   if (!image) return false;
 
-  // Delete original file
-  if (image.filePath) {
-    const absolutePath = path.join(__dirname, '..', image.filePath);
-    await safeDelete(absolutePath);
-  }
+  // Remove original file
+  await safeDelete(image.filePath);
 
-  // Delete thumbnails
+  // Remove thumbnails
   await deleteThumbnails(id);
 
-  // Remove DB record (cascade will handle ImageTag join records)
+  // Remove DB record (cascades to ImageTag junction)
   await image.destroy();
 
   return true;

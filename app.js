@@ -4,61 +4,50 @@ const morgan = require('morgan');
 
 const app = express();
 
-// ── View engine ──────────────────────────────────────────────────────────────
+// View engine
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 
-// ── Middleware ───────────────────────────────────────────────────────────────
+// Middleware
 app.use(morgan('dev'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// ── Static files ─────────────────────────────────────────────────────────────
+// Static files — serve uploads directory
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Serve uploaded files
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+// Routes
+app.use('/', require('./routes/index'));
+app.use('/api/upload', require('./routes/upload'));
 
-// ── Routes ───────────────────────────────────────────────────────────────────
-const indexRouter = require('./routes/index');
-const uploadRouter = require('./routes/upload');
-
-app.use('/', indexRouter);
-app.use('/api/upload', uploadRouter);
-
-// ── Error handling ───────────────────────────────────────────────────────────
 // 404 handler
 app.use((req, res, next) => {
-  const err = new Error(`Not Found: ${req.originalUrl}`);
-  err.status = 404;
-  next(err);
+  res.status(404).render('error', {
+    title: '404 Not Found',
+    message: 'The page you are looking for does not exist.',
+    status: 404,
+  });
 });
 
 // Global error handler
 app.use((err, req, res, next) => {
+  console.error('[app] Error:', err.message);
+
   const status = err.status || 500;
-  const message = err.message || 'Internal Server Error';
+  const isApi = req.path.startsWith('/api/');
 
-  console.error(`[Error] ${status}: ${message}`, err.stack ? `\n${err.stack}` : '');
-
-  // API errors → JSON
-  if (req.path.startsWith('/api/') || req.headers.accept?.includes('application/json')) {
+  if (isApi) {
     return res.status(status).json({
-      success: false,
-      error: {
-        message,
-        code: err.code || 'INTERNAL_ERROR',
-        status,
-      },
+      error: err.message || 'Internal server error',
+      code: err.code || 'SERVER_ERROR',
     });
   }
 
-  // HTML errors → error view
   res.status(status).render('error', {
-    title: `Error ${status}`,
+    title: `${status} Error`,
+    message: err.message || 'An unexpected error occurred.',
     status,
-    message,
-    stack: process.env.NODE_ENV === 'development' ? err.stack : null,
   });
 });
 

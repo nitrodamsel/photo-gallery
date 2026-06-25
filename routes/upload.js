@@ -2,11 +2,11 @@ const express = require('express');
 const router = express.Router();
 const upload = require('../middleware/upload');
 const validateUpload = require('../middleware/validate');
-const imageService = require('../services/imageService');
+const { createImage } = require('../services/imageService');
 
 /**
  * GET /api/upload
- * Render the upload form.
+ * Render the upload form view
  */
 router.get('/', (req, res) => {
   res.render('upload', {
@@ -18,32 +18,39 @@ router.get('/', (req, res) => {
 
 /**
  * POST /api/upload
- * Handle image upload with validation, EXIF extraction, and thumbnail generation.
+ * Accept multipart/form-data with field 'image'
+ * Pipeline: multer → validate MIME → extract EXIF → generate thumbnails → persist
  */
 router.post(
   '/',
-  // Step 1: Multer handles multipart parsing, disk storage, and initial MIME check
+  // Step 1: Multer handles file storage
   (req, res, next) => {
     upload.single('image')(req, res, (err) => {
       if (err) {
-        // Multer-specific errors
+        // Handle Multer-specific errors
         if (err.code === 'LIMIT_FILE_SIZE') {
           const maxMB = parseInt(process.env.MAX_FILE_SIZE_MB || '20', 10);
-          return next(
-            Object.assign(new Error(`File too large. Maximum allowed size is ${maxMB} MB.`), {
-              status: 400,
-              code: 'FILE_TOO_LARGE',
-            })
-          );
+          return res.status(413).json({
+            error: `File too large. Maximum size is ${maxMB} MB.`,
+            code: 'FILE_TOO_LARGE',
+          });
+        }
+        if (err.code === 'INVALID_FILE_TYPE') {
+          return res.status(400).json({
+            error: err.message,
+            code: err.code,
+          });
         }
         return next(err);
       }
       next();
     });
   },
-  // Step 2: Post-upload magic-byte validation
+
+  // Step 2: Post-upload MIME validation via magic bytes
   validateUpload,
-  // Step 3: Service orchestration
+
+  // Step 3: Orchestration — EXIF + thumbnails + DB
   async (req, res, next) => {
     try {
       const options = {
@@ -52,12 +59,11 @@ router.post(
         tags: req.body.tags
           ? Array.isArray(req.body.tags)
             ? req.body.tags
-            : req.body.tags.split(',').map((t) => t.trim()).filter(Boolean)
+            : req.body.tags.split(',')
           : [],
-        status: 'active',
       };
 
-      const image = await imageService.createImage(req.file, options);
+      const image = await createImage(req.file, options);
 
       return res.status(201).json({
         success: true,

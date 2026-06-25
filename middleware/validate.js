@@ -1,42 +1,48 @@
 const { fileTypeFromFile } = require('file-type');
 const { safeDelete } = require('../utils/fileHelpers');
 
-const ALLOWED_MIME_TYPES = new Set([
+const ALLOWED_MIME_TYPES = [
   'image/jpeg',
   'image/png',
   'image/webp',
   'image/tiff',
   'image/heic',
   'image/heif',
-]);
+];
 
 async function validateUpload(req, res, next) {
+  // Check that a file was actually attached
   if (!req.file) {
-    return next(Object.assign(new Error('No file was uploaded. Please attach an image.'), { status: 400 }));
+    const err = new Error('No file uploaded. Please attach an image with field name "image".');
+    err.status = 400;
+    err.code = 'NO_FILE';
+    return next(err);
   }
 
   const filePath = req.file.path;
 
   try {
+    // Re-validate MIME type using magic bytes (file-type reads actual file content)
     const detected = await fileTypeFromFile(filePath);
 
-    if (!detected || !ALLOWED_MIME_TYPES.has(detected.mime)) {
+    if (!detected || !ALLOWED_MIME_TYPES.includes(detected.mime)) {
       await safeDelete(filePath);
-      const mime = detected ? detected.mime : 'unknown';
-      return next(
-        Object.assign(
-          new Error(`File content validation failed. Detected MIME type '${mime}' is not allowed.`),
-          { status: 400, code: 'INVALID_FILE_CONTENT' }
-        )
+      const err = new Error(
+        `File content validation failed. Detected type: ${detected ? detected.mime : 'unknown'}. Allowed: JPEG, PNG, WebP, TIFF, HEIC`
       );
+      err.status = 400;
+      err.code = 'INVALID_FILE_CONTENT';
+      return next(err);
     }
 
-    // Update mimetype with the magic-byte-detected value for accuracy
-    req.file.detectedMime = detected.mime;
+    // Update req.file with the magic-byte-detected MIME type for downstream use
+    req.file.detectedMimeType = detected.mime;
     next();
   } catch (err) {
     await safeDelete(filePath);
-    next(Object.assign(new Error('File validation error: ' + err.message), { status: 500 }));
+    err.status = 500;
+    err.code = 'VALIDATION_ERROR';
+    next(err);
   }
 }
 
