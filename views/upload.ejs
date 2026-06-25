@@ -1,317 +1,608 @@
-<%- include('layouts/base', { title: title || 'Upload Image' }) %>
+<%- include('layouts/base', { title: title || 'Upload Image', body: `
 
-<% /* This file is the body content — base.ejs should include it via <%- body %> or similar */ %>
 <div class="upload-page">
-  <div class="container py-5">
-    <div class="row justify-content-center">
-      <div class="col-lg-8">
+  <div class="container">
+    <h1 class="page-title">Upload Image</h1>
 
-        <div class="card shadow-sm">
-          <div class="card-header bg-primary text-white">
-            <h4 class="mb-0">
-              <i class="bi bi-cloud-upload me-2"></i>Upload Image
-            </h4>
-          </div>
-
-          <div class="card-body p-4">
-
-            <% if (error) { %>
-              <div class="alert alert-danger alert-dismissible fade show" role="alert">
-                <i class="bi bi-exclamation-triangle me-2"></i><%= error %>
-                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-              </div>
-            <% } %>
-
-            <% if (success) { %>
-              <div class="alert alert-success alert-dismissible fade show" role="alert">
-                <i class="bi bi-check-circle me-2"></i><%= success %>
-                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-              </div>
-            <% } %>
-
-            <!-- Upload Form -->
-            <form
-              id="upload-form"
-              action="/api/upload"
-              method="POST"
-              enctype="multipart/form-data"
-              novalidate
-            >
-
-              <!-- Drag & Drop Zone -->
-              <div
-                id="drop-zone"
-                class="drop-zone border-2 border-dashed rounded-3 p-5 text-center mb-4"
-                role="button"
-                tabindex="0"
-                aria-label="Click or drag and drop an image here"
-              >
-                <div id="drop-zone-content">
-                  <i class="bi bi-image display-4 text-muted mb-3 d-block"></i>
-                  <h5 class="text-muted">Drag & drop your image here</h5>
-                  <p class="text-muted small mb-3">or click to browse</p>
-                  <p class="text-muted smaller">
-                    Supported formats: JPEG, PNG, WebP, TIFF, HEIC &bull; Max size: 20 MB
-                  </p>
-                </div>
-
-                <!-- File preview (hidden until file selected) -->
-                <div id="preview-container" class="d-none">
-                  <img
-                    id="image-preview"
-                    src=""
-                    alt="Preview"
-                    class="img-fluid rounded mb-3"
-                    style="max-height: 300px; object-fit: contain;"
-                  />
-                  <div id="file-info" class="text-muted small"></div>
-                </div>
-
-                <!-- Hidden file input -->
-                <input
-                  type="file"
-                  id="image-input"
-                  name="image"
-                  accept="image/jpeg,image/png,image/webp,image/tiff,image/heic"
-                  class="d-none"
-                  required
-                />
-              </div>
-
-              <!-- Tags Input -->
-              <div class="mb-4">
-                <label for="tags-input" class="form-label fw-semibold">
-                  Tags <span class="text-muted fw-normal">(optional, comma-separated)</span>
-                </label>
-                <input
-                  type="text"
-                  id="tags-input"
-                  name="tags"
-                  class="form-control"
-                  placeholder="e.g. nature, landscape, travel"
-                />
-                <div class="form-text">Add tags to help organise your images.</div>
-              </div>
-
-              <!-- Progress Bar (placeholder — wired up in Phase 5) -->
-              <div id="progress-container" class="mb-4 d-none">
-                <label class="form-label fw-semibold">Upload Progress</label>
-                <div class="progress" style="height: 8px;" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
-                  <div
-                    id="progress-bar"
-                    class="progress-bar progress-bar-striped progress-bar-animated bg-primary"
-                    style="width: 0%"
-                  ></div>
-                </div>
-                <div id="progress-text" class="form-text mt-1">Preparing upload...</div>
-              </div>
-
-              <!-- Action Buttons -->
-              <div class="d-flex gap-3 align-items-center">
-                <button
-                  type="submit"
-                  id="submit-btn"
-                  class="btn btn-primary btn-lg px-5"
-                  disabled
-                >
-                  <i class="bi bi-cloud-upload me-2"></i>
-                  <span id="submit-text">Upload Image</span>
-                  <span id="submit-spinner" class="spinner-border spinner-border-sm ms-2 d-none" role="status" aria-hidden="true"></span>
-                </button>
-
-                <button
-                  type="button"
-                  id="clear-btn"
-                  class="btn btn-outline-secondary btn-lg d-none"
-                >
-                  <i class="bi bi-x-circle me-1"></i>Clear
-                </button>
-              </div>
-
-            </form>
-          </div>
-        </div>
-
-        <!-- Upload Tips -->
-        <div class="card mt-4 border-0 bg-light">
-          <div class="card-body">
-            <h6 class="card-title text-muted">
-              <i class="bi bi-info-circle me-1"></i>Upload Tips
-            </h6>
-            <ul class="list-unstyled mb-0 small text-muted">
-              <li><i class="bi bi-check2 text-success me-1"></i>EXIF metadata (GPS, camera info) will be extracted automatically.</li>
-              <li><i class="bi bi-check2 text-success me-1"></i>Thumbnails are generated automatically at 400px and 1200px.</li>
-              <li><i class="bi bi-check2 text-success me-1"></i>Files are stored securely with unique filenames.</li>
-            </ul>
-          </div>
-        </div>
-
+    <% if (typeof error !== 'undefined' && error) { %>
+      <div class="alert alert-error" role="alert">
+        <span class="alert-icon">⚠️</span>
+        <%= error %>
       </div>
+    <% } %>
+
+    <% if (typeof success !== 'undefined' && success) { %>
+      <div class="alert alert-success" role="alert">
+        <span class="alert-icon">✅</span>
+        <%= success %>
+      </div>
+    <% } %>
+
+    <div class="upload-card">
+      <!-- Drag & Drop Zone -->
+      <div
+        id="dropZone"
+        class="drop-zone"
+        role="button"
+        tabindex="0"
+        aria-label="Click or drag and drop an image to upload"
+      >
+        <div class="drop-zone__icon" aria-hidden="true">📁</div>
+        <p class="drop-zone__primary">Drag &amp; drop your image here</p>
+        <p class="drop-zone__secondary">or <span class="link-text">click to browse</span></p>
+        <p class="drop-zone__hint">Supports: JPEG, PNG, WebP, TIFF, HEIC &mdash; Max 20 MB</p>
+      </div>
+
+      <!-- File Preview -->
+      <div id="previewArea" class="preview-area hidden">
+        <div class="preview-image-wrap">
+          <img id="previewImg" src="" alt="Image preview" class="preview-image" />
+          <button type="button" id="removeFile" class="remove-file-btn" aria-label="Remove selected file">✕</button>
+        </div>
+        <div id="fileInfo" class="file-info">
+          <span id="fileName" class="file-name"></span>
+          <span id="fileSize" class="file-size"></span>
+        </div>
+      </div>
+
+      <!-- Progress Bar (wired in Phase 5) -->
+      <div id="progressContainer" class="progress-container hidden" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
+        <div id="progressBar" class="progress-bar">
+          <div id="progressFill" class="progress-fill" style="width: 0%"></div>
+        </div>
+        <span id="progressText" class="progress-text">0%</span>
+      </div>
+
+      <!-- Upload Form -->
+      <form
+        id="uploadForm"
+        action="/api/upload"
+        method="POST"
+        enctype="multipart/form-data"
+        class="upload-form"
+        novalidate
+      >
+        <input
+          type="file"
+          id="fileInput"
+          name="image"
+          accept="image/jpeg,image/png,image/webp,image/tiff,image/heic"
+          class="file-input-hidden"
+          aria-hidden="true"
+        />
+
+        <div class="form-group">
+          <label for="title" class="form-label">Title <span class="optional">(optional)</span></label>
+          <input
+            type="text"
+            id="title"
+            name="title"
+            class="form-control"
+            placeholder="Enter a title for your image"
+            maxlength="255"
+          />
+        </div>
+
+        <div class="form-group">
+          <label for="description" class="form-label">Description <span class="optional">(optional)</span></label>
+          <textarea
+            id="description"
+            name="description"
+            class="form-control form-textarea"
+            placeholder="Add a description..."
+            rows="3"
+            maxlength="2000"
+          ></textarea>
+        </div>
+
+        <div class="form-group">
+          <label for="tags" class="form-label">Tags <span class="optional">(optional, comma-separated)</span></label>
+          <input
+            type="text"
+            id="tags"
+            name="tags"
+            class="form-control"
+            placeholder="e.g. nature, travel, portrait"
+          />
+        </div>
+
+        <div class="form-actions">
+          <button type="submit" id="submitBtn" class="btn btn-primary" disabled>
+            <span id="submitBtnText">Upload Image</span>
+            <span id="submitBtnSpinner" class="btn-spinner hidden" aria-hidden="true"></span>
+          </button>
+          <button type="button" id="cancelBtn" class="btn btn-secondary hidden">Cancel</button>
+        </div>
+
+        <p id="formError" class="form-error hidden" role="alert"></p>
+      </form>
     </div>
   </div>
 </div>
 
 <style>
-  .drop-zone {
-    border: 2px dashed #dee2e6;
-    background-color: #f8f9fa;
-    cursor: pointer;
-    transition: border-color 0.2s, background-color 0.2s;
-    min-height: 200px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
+.upload-page {
+  min-height: 80vh;
+  padding: 2rem 0;
+}
 
-  .drop-zone.drag-over {
-    border-color: #0d6efd;
-    background-color: #e7f0ff;
-  }
+.container {
+  max-width: 680px;
+  margin: 0 auto;
+  padding: 0 1rem;
+}
 
-  .drop-zone.has-file {
-    border-color: #198754;
-    background-color: #f0fff4;
-  }
+.page-title {
+  font-size: 1.75rem;
+  font-weight: 700;
+  margin-bottom: 1.5rem;
+  color: #1a1a2e;
+}
 
-  .smaller {
-    font-size: 0.8rem;
-  }
+.alert {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.875rem 1rem;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+}
+
+.alert-error {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #dc2626;
+}
+
+.alert-success {
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  color: #16a34a;
+}
+
+.upload-card {
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 2px 16px rgba(0,0,0,0.08);
+  padding: 2rem;
+}
+
+/* Drop Zone */
+.drop-zone {
+  border: 2px dashed #d1d5db;
+  border-radius: 10px;
+  padding: 3rem 1.5rem;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background: #f9fafb;
+  margin-bottom: 1.5rem;
+  outline: none;
+}
+
+.drop-zone:hover,
+.drop-zone:focus,
+.drop-zone.drag-over {
+  border-color: #6366f1;
+  background: #eef2ff;
+}
+
+.drop-zone__icon {
+  font-size: 2.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.drop-zone__primary {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #374151;
+  margin: 0 0 0.25rem;
+}
+
+.drop-zone__secondary {
+  font-size: 0.9rem;
+  color: #6b7280;
+  margin: 0 0 0.5rem;
+}
+
+.drop-zone__hint {
+  font-size: 0.8rem;
+  color: #9ca3af;
+  margin: 0;
+}
+
+.link-text {
+  color: #6366f1;
+  font-weight: 600;
+  text-decoration: underline;
+}
+
+/* Preview Area */
+.preview-area {
+  margin-bottom: 1.5rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #f9fafb;
+}
+
+.preview-image-wrap {
+  position: relative;
+  width: 100%;
+  max-height: 320px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #111;
+  overflow: hidden;
+}
+
+.preview-image {
+  max-width: 100%;
+  max-height: 320px;
+  object-fit: contain;
+  display: block;
+}
+
+.remove-file-btn {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  background: rgba(0,0,0,0.6);
+  color: #fff;
+  border: none;
+  border-radius: 50%;
+  width: 2rem;
+  height: 2rem;
+  cursor: pointer;
+  font-size: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s;
+}
+
+.remove-file-btn:hover {
+  background: rgba(220, 38, 38, 0.8);
+}
+
+.file-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.625rem 0.875rem;
+  font-size: 0.85rem;
+  color: #6b7280;
+}
+
+.file-name {
+  font-weight: 500;
+  color: #374151;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 70%;
+}
+
+/* Progress Bar */
+.progress-container {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+
+.progress-bar {
+  flex: 1;
+  height: 8px;
+  background: #e5e7eb;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #6366f1, #8b5cf6);
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+.progress-text {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #6366f1;
+  min-width: 2.5rem;
+  text-align: right;
+}
+
+/* Form */
+.upload-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.form-label {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #374151;
+}
+
+.optional {
+  font-weight: 400;
+  color: #9ca3af;
+}
+
+.form-control {
+  padding: 0.625rem 0.875rem;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  color: #111;
+  background: #fff;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.form-control:focus {
+  outline: none;
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+}
+
+.form-textarea {
+  resize: vertical;
+  min-height: 80px;
+}
+
+.form-actions {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  margin-top: 0.5rem;
+}
+
+.btn {
+  padding: 0.625rem 1.5rem;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: all 0.2s;
+}
+
+.btn-primary {
+  background: #6366f1;
+  color: #fff;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: #4f46e5;
+}
+
+.btn-primary:disabled {
+  background: #a5b4fc;
+  cursor: not-allowed;
+}
+
+.btn-secondary {
+  background: #f3f4f6;
+  color: #374151;
+  border: 1px solid #d1d5db;
+}
+
+.btn-secondary:hover {
+  background: #e5e7eb;
+}
+
+.btn-spinner {
+  width: 1rem;
+  height: 1rem;
+  border: 2px solid rgba(255,255,255,0.4);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.form-error {
+  color: #dc2626;
+  font-size: 0.875rem;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 6px;
+  padding: 0.625rem 0.875rem;
+  margin-top: 0.25rem;
+}
+
+/* Utilities */
+.hidden {
+  display: none !important;
+}
+
+.file-input-hidden {
+  display: none;
+}
 </style>
 
 <script>
-  (function () {
-    const dropZone = document.getElementById('drop-zone');
-    const fileInput = document.getElementById('image-input');
-    const previewContainer = document.getElementById('preview-container');
-    const dropZoneContent = document.getElementById('drop-zone-content');
-    const imagePreview = document.getElementById('image-preview');
-    const fileInfo = document.getElementById('file-info');
-    const submitBtn = document.getElementById('submit-btn');
-    const clearBtn = document.getElementById('clear-btn');
-    const uploadForm = document.getElementById('upload-form');
-    const submitText = document.getElementById('submit-text');
-    const submitSpinner = document.getElementById('submit-spinner');
-    const progressContainer = document.getElementById('progress-container');
+(function () {
+  const dropZone = document.getElementById('dropZone');
+  const fileInput = document.getElementById('fileInput');
+  const previewArea = document.getElementById('previewArea');
+  const previewImg = document.getElementById('previewImg');
+  const removeFileBtn = document.getElementById('removeFile');
+  const fileName = document.getElementById('fileName');
+  const fileSize = document.getElementById('fileSize');
+  const submitBtn = document.getElementById('submitBtn');
+  const submitBtnText = document.getElementById('submitBtnText');
+  const submitBtnSpinner = document.getElementById('submitBtnSpinner');
+  const cancelBtn = document.getElementById('cancelBtn');
+  const uploadForm = document.getElementById('uploadForm');
+  const formError = document.getElementById('formError');
+  const progressContainer = document.getElementById('progressContainer');
+  const progressFill = document.getElementById('progressFill');
+  const progressText = document.getElementById('progressText');
 
-    // ── Click to open file picker ──────────────────────────────────────────
-    dropZone.addEventListener('click', function (e) {
-      if (e.target !== clearBtn) {
-        fileInput.click();
-      }
-    });
+  const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/tiff', 'image/heic'];
+  const MAX_SIZE_BYTES = 20 * 1024 * 1024;
 
-    dropZone.addEventListener('keydown', function (e) {
-      if (e.key === 'Enter' || e.key === ' ') {
-        e.preventDefault();
-        fileInput.click();
-      }
-    });
+  function formatBytes(bytes) {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+  }
 
-    // ── Drag & Drop events ─────────────────────────────────────────────────
-    dropZone.addEventListener('dragenter', function (e) {
-      e.preventDefault();
-      dropZone.classList.add('drag-over');
-    });
+  function showError(msg) {
+    formError.textContent = msg;
+    formError.classList.remove('hidden');
+    setTimeout(() => formError.classList.add('hidden'), 6000);
+  }
 
-    dropZone.addEventListener('dragover', function (e) {
-      e.preventDefault();
-      dropZone.classList.add('drag-over');
-    });
+  function hideError() {
+    formError.classList.add('hidden');
+  }
 
-    dropZone.addEventListener('dragleave', function (e) {
-      if (!dropZone.contains(e.relatedTarget)) {
-        dropZone.classList.remove('drag-over');
-      }
-    });
+  function setFile(file) {
+    if (!file) return;
 
-    dropZone.addEventListener('drop', function (e) {
-      e.preventDefault();
-      dropZone.classList.remove('drag-over');
-
-      const files = e.dataTransfer.files;
-      if (files.length > 0) {
-        setFile(files[0]);
-      }
-    });
-
-    // ── File input change ──────────────────────────────────────────────────
-    fileInput.addEventListener('change', function () {
-      if (this.files.length > 0) {
-        setFile(this.files[0]);
-      }
-    });
-
-    // ── Set & preview file ─────────────────────────────────────────────────
-    function setFile(file) {
-      const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/tiff', 'image/heic', 'image/heif'];
-
-      if (!allowedTypes.includes(file.type) && !file.name.match(/\.(jpe?g|png|webp|tiff?|heic|heif)$/i)) {
-        showClientError('Unsupported file type. Please select a JPEG, PNG, WebP, TIFF, or HEIC image.');
-        return;
-      }
-
-      const maxBytes = 20 * 1024 * 1024;
-      if (file.size > maxBytes) {
-        showClientError('File is too large. Maximum allowed size is 20 MB.');
-        return;
-      }
-
-      // Update the file input via DataTransfer (for drag-and-drop compatibility)
-      const dt = new DataTransfer();
-      dt.items.add(file);
-      fileInput.files = dt.files;
-
-      // Show preview
-      const reader = new FileReader();
-      reader.onload = function (e) {
-        imagePreview.src = e.target.result;
-        previewContainer.classList.remove('d-none');
-        dropZoneContent.classList.add('d-none');
-        dropZone.classList.add('has-file');
-
-        const sizeKB = (file.size / 1024).toFixed(1);
-        const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
-        fileInfo.textContent = `${file.name} — ${sizeMB >= 1 ? sizeMB + ' MB' : sizeKB + ' KB'}`;
-      };
-      reader.readAsDataURL(file);
-
-      submitBtn.disabled = false;
-      clearBtn.classList.remove('d-none');
+    // Client-side validation
+    if (!ALLOWED_TYPES.includes(file.type) && file.type !== '') {
+      showError('Unsupported file type. Please upload a JPEG, PNG, WebP, TIFF, or HEIC image.');
+      return;
     }
 
-    // ── Clear selection ────────────────────────────────────────────────────
-    clearBtn.addEventListener('click', function (e) {
+    if (file.size > MAX_SIZE_BYTES) {
+      showError('File is too large. Maximum size is 20 MB.');
+      return;
+    }
+
+    hideError();
+
+    // Update file input
+    const dataTransfer = new DataTransfer();
+    dataTransfer.items.add(file);
+    fileInput.files = dataTransfer.files;
+
+    // Show preview
+    const reader = new FileReader();
+    reader.onload = function (e) {
+      previewImg.src = e.target.result;
+      previewArea.classList.remove('hidden');
+      dropZone.classList.add('hidden');
+    };
+    reader.readAsDataURL(file);
+
+    // Show file info
+    fileName.textContent = file.name;
+    fileSize.textContent = formatBytes(file.size);
+
+    // Enable submit
+    submitBtn.disabled = false;
+    cancelBtn.classList.remove('hidden');
+  }
+
+  function clearFile() {
+    fileInput.value = '';
+    previewImg.src = '';
+    previewArea.classList.add('hidden');
+    dropZone.classList.remove('hidden');
+    submitBtn.disabled = true;
+    cancelBtn.classList.add('hidden');
+    hideError();
+  }
+
+  // Drop zone click
+  dropZone.addEventListener('click', () => fileInput.click());
+  dropZone.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      fileInput.click();
+    }
+  });
+
+  // File input change
+  fileInput.addEventListener('change', () => {
+    if (fileInput.files && fileInput.files[0]) {
+      setFile(fileInput.files[0]);
+    }
+  });
+
+  // Remove file
+  removeFileBtn.addEventListener('click', clearFile);
+  cancelBtn.addEventListener('click', clearFile);
+
+  // Drag & Drop events
+  ['dragenter', 'dragover'].forEach((evt) => {
+    dropZone.addEventListener(evt, (e) => {
+      e.preventDefault();
       e.stopPropagation();
-      fileInput.value = '';
-      imagePreview.src = '';
-      previewContainer.classList.add('d-none');
-      dropZoneContent.classList.remove('d-none');
-      dropZone.classList.remove('has-file');
-      submitBtn.disabled = true;
-      clearBtn.classList.add('d-none');
+      dropZone.classList.add('drag-over');
     });
+  });
 
-    // ── Form submission (standard POST fallback with loading state) ────────
-    uploadForm.addEventListener('submit', function () {
-      submitBtn.disabled = true;
-      submitText.textContent = 'Uploading...';
-      submitSpinner.classList.remove('d-none');
-      progressContainer.classList.remove('d-none');
-      // Progress bar animation (Phase 5 will wire XHR progress events)
+  ['dragleave', 'dragend'].forEach((evt) => {
+    dropZone.addEventListener(evt, (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      dropZone.classList.remove('drag-over');
     });
+  });
 
-    // ── Client-side error helper ───────────────────────────────────────────
-    function showClientError(message) {
-      const existing = document.querySelector('.alert-danger');
-      if (existing) existing.remove();
+  dropZone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dropZone.classList.remove('drag-over');
+    const file = e.dataTransfer.files[0];
+    if (file) setFile(file);
+  });
 
-      const alert = document.createElement('div');
-      alert.className = 'alert alert-danger alert-dismissible fade show';
-      alert.innerHTML = `
-        <i class="bi bi-exclamation-triangle me-2"></i>${message}
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-      `;
-      uploadForm.prepend(alert);
+  // Form submission — falls back to standard POST if JS enhancement not needed
+  uploadForm.addEventListener('submit', function (e) {
+    if (!fileInput.files || !fileInput.files[0]) {
+      e.preventDefault();
+      showError('Please select an image to upload.');
+      return;
     }
-  })();
+
+    // Show loading state
+    submitBtn.disabled = true;
+    submitBtnText.textContent = 'Uploading...';
+    submitBtnSpinner.classList.remove('hidden');
+
+    // Progress bar placeholder (Phase 5 will wire up XHR progress events)
+    progressContainer.classList.remove('hidden');
+    progressContainer.removeAttribute('aria-valuenow');
+
+    // Animate placeholder progress
+    let fakeProgress = 0;
+    const fakeInterval = setInterval(() => {
+      fakeProgress = Math.min(fakeProgress + Math.random() * 8, 85);
+      progressFill.style.width = fakeProgress + '%';
+      progressText.textContent = Math.round(fakeProgress) + '%';
+      progressContainer.setAttribute('aria-valuenow', Math.round(fakeProgress));
+    }, 300);
+
+    // Store interval ID for cleanup (Phase 5 XHR will replace this)
+    uploadForm.dataset.fakeProgressInterval = fakeInterval;
+    // Allow the form to submit normally
+  });
+})();
 </script>
+
+` }) %>

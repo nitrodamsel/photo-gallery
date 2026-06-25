@@ -1,23 +1,23 @@
 /**
- * Format GPS coordinates to a human-readable string.
- * @param {{ lat: number, lng: number }} param0
- * @returns {string} e.g. '48.8566° N, 2.3522° E'
+ * Format GPS coordinates into a human-readable string.
+ * @param {{ lat: number, lng: number }} gps
+ * @returns {string} e.g. "48.8566° N, 2.3522° E"
  */
 function formatGPS({ lat, lng }) {
   if (lat == null || lng == null) return null;
 
-  const latDir = lat >= 0 ? 'N' : 'S';
-  const lngDir = lng >= 0 ? 'E' : 'W';
   const latAbs = Math.abs(lat).toFixed(4);
   const lngAbs = Math.abs(lng).toFixed(4);
+  const latDir = lat >= 0 ? 'N' : 'S';
+  const lngDir = lng >= 0 ? 'E' : 'W';
 
   return `${latAbs}° ${latDir}, ${lngAbs}° ${lngDir}`;
 }
 
 /**
- * Format a shutter speed value to a human-readable fraction string.
- * @param {number} value - Shutter speed in seconds (e.g. 0.004)
- * @returns {string} e.g. '1/250s'
+ * Format a shutter speed (decimal seconds) as a fraction string.
+ * @param {number} value - Shutter speed in seconds (e.g. 0.004 or 1/250)
+ * @returns {string} e.g. "1/250s" or "2s"
  */
 function formatShutter(value) {
   if (value == null) return null;
@@ -26,7 +26,7 @@ function formatShutter(value) {
     return `${value}s`;
   }
 
-  // Convert decimal to fraction: 1/x
+  // Convert decimal to nearest fraction
   const denominator = Math.round(1 / value);
   return `1/${denominator}s`;
 }
@@ -34,7 +34,7 @@ function formatShutter(value) {
 /**
  * Format an ISO date string or Date object to a locale-friendly string.
  * @param {string|Date} isoString
- * @returns {string} e.g. 'January 15, 2024, 3:45:00 PM'
+ * @returns {string} Locale date string
  */
 function formatDate(isoString) {
   if (!isoString) return null;
@@ -47,7 +47,7 @@ function formatDate(isoString) {
       year: 'numeric',
       month: 'long',
       day: 'numeric',
-      hour: 'numeric',
+      hour: '2-digit',
       minute: '2-digit',
       second: '2-digit',
     });

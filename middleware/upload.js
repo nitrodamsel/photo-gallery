@@ -30,8 +30,8 @@ const storage = multer.diskStorage({
   },
   filename: function (req, file, cb) {
     const ext = path.extname(file.originalname).toLowerCase() || '.jpg';
-    const filename = `${uuidv4()}${ext}`;
-    cb(null, filename);
+    const uniqueName = `${uuidv4()}${ext}`;
+    cb(null, uniqueName);
   },
 });
 
@@ -40,10 +40,10 @@ function fileFilter(req, file, cb) {
     cb(null, true);
   } else {
     const err = new Error(
-      `Unsupported file type: ${file.mimetype}. Allowed types: JPEG, PNG, WebP, TIFF, HEIC.`
+      `Unsupported file type: ${file.mimetype}. Allowed types: jpeg, png, webp, tiff, heic.`
     );
-    err.status = 415;
-    err.code = 'UNSUPPORTED_FILE_TYPE';
+    err.status = 400;
+    err.code = 'INVALID_FILE_TYPE';
     cb(err, false);
   }
 }
@@ -53,7 +53,6 @@ const upload = multer({
   fileFilter,
   limits: {
     fileSize: MAX_FILE_SIZE,
-    files: 1,
   },
 });
 

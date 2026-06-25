@@ -6,68 +6,54 @@ const THUMBNAILS_BASE = path.join(__dirname, '..', 'uploads', 'thumbnails');
 
 const THUMBNAIL_CONFIGS = [
   {
-    size: '400',
+    name: 'thumb400',
+    size: 400,
+    dir: '400',
     width: 400,
     height: 400,
     fit: 'cover',
-    position: 'centre',
   },
   {
-    size: '1200',
+    name: 'thumb1200',
+    size: 1200,
+    dir: '1200',
     width: 1200,
     height: 800,
     fit: 'inside',
-    withoutEnlargement: true,
   },
 ];
 
 /**
  * Generate WebP thumbnails for an uploaded image.
- * @param {string} filePath - Absolute path to the source image
- * @param {string|number} imageId - The image's DB id (used for output filename)
- * @returns {Promise<{ thumb400: string, thumb1200: string }>} Absolute paths to generated thumbnails
+ * @param {string} filePath - Absolute path to the source image.
+ * @param {string|number} imageId - The database ID of the image record.
+ * @returns {Promise<{ thumb400: string, thumb1200: string }>} Absolute paths to generated thumbnails.
  */
 async function generateThumbnails(filePath, imageId) {
   const results = {};
 
   for (const config of THUMBNAIL_CONFIGS) {
-    const thumbDir = path.join(THUMBNAILS_BASE, config.size);
-    await ensureDir(thumbDir);
-
-    const outputPath = path.join(thumbDir, `${imageId}.webp`);
+    const thumbDir = path.join(THUMBNAILS_BASE, config.dir);
+    const thumbFilename = `${imageId}.webp`;
+    const thumbPath = path.join(thumbDir, thumbFilename);
 
     try {
-      const resizeOptions = {
-        width: config.width,
-        height: config.height,
-        fit: config.fit,
-      };
-
-      if (config.position) {
-        resizeOptions.position = config.position;
-      }
-
-      if (config.withoutEnlargement) {
-        resizeOptions.withoutEnlargement = true;
-      }
+      await ensureDir(thumbDir);
 
       await sharp(filePath)
-        .rotate() // Auto-rotate based on EXIF orientation
-        .resize(resizeOptions)
-        .webp({
-          quality: 85,
-          effort: 4,
+        .resize(config.width, config.height, {
+          fit: config.fit,
+          withoutEnlargement: true,
         })
-        .toFile(outputPath);
+        .webp({ quality: 85 })
+        .toFile(thumbPath);
 
-      results[`thumb${config.size}`] = outputPath;
+      results[config.name] = thumbPath;
     } catch (err) {
       console.error(
-        `[thumbnailService] Failed to generate ${config.size}px thumbnail for image ${imageId}:`,
-        err.message
+        `[thumbnailService] Failed to generate ${config.name} thumbnail for image ${imageId}: ${err.message}`
       );
-      // Don't throw — partial failure is acceptable
-      results[`thumb${config.size}`] = null;
+      // Partial failure — log and continue, result key will be absent
     }
   }
 
@@ -75,12 +61,12 @@ async function generateThumbnails(filePath, imageId) {
 }
 
 /**
- * Delete all thumbnail files for a given image id.
- * @param {string|number} imageId
+ * Delete all thumbnails for a given image ID.
+ * @param {string|number} imageId - The database ID of the image.
  */
 async function deleteThumbnails(imageId) {
   for (const config of THUMBNAIL_CONFIGS) {
-    const thumbPath = path.join(THUMBNAILS_BASE, config.size, `${imageId}.webp`);
+    const thumbPath = path.join(THUMBNAILS_BASE, config.dir, `${imageId}.webp`);
     await safeDelete(thumbPath);
   }
 }
