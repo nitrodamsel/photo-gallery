@@ -1,30 +1,15 @@
-<%- include('layouts/base', { title: 'Error ' + status, body: `
-<div style="
-  min-height: calc(100vh - 64px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 2rem;
-">
-  <div style="text-align: center; max-width: 480px;">
-    <div style="font-size: 5rem; font-weight: 800; color: #e2e8f0; line-height: 1;">${status || 500}</div>
-    <h1 style="font-size: 1.5rem; color: #1e293b; margin: 0.5rem 0;">${message || 'Something went wrong'}</h1>
-    <p style="color: #64748b;">
-      ${status === 404
-        ? "The page you're looking for doesn't exist."
-        : 'An unexpected error occurred. Please try again.'}
-    </p>
-    <a href="/" style="
-      display: inline-block;
-      margin-top: 1.5rem;
-      background: #6366f1;
-      color: #fff;
-      padding: 0.625rem 1.5rem;
-      border-radius: 8px;
-      text-decoration: none;
-      font-weight: 600;
-    ">Go Home</a>
-    ${stack ? '<pre style="text-align:left;background:#f1f5f9;padding:1rem;border-radius:8px;font-size:0.75rem;overflow:auto;margin-top:2rem;">' + stack + '</pre>' : ''}
+<%- include('layouts/base', { title: 'Error ' + (status || 500), body: `
+<div style="min-height: calc(100vh - 64px); display: flex; align-items: center; justify-content: center; padding: 2rem; background: #f8fafc;">
+  <div style="max-width: 480px; text-align: center;">
+    <div style="font-size: 5rem; font-weight: 800; color: #e2e8f0; line-height: 1; margin-bottom: 1rem;">
+      ${status || 500}
+    </div>
+    <h1 style="font-size: 1.5rem; font-weight: 700; color: #1e293b; margin: 0 0 0.75rem;">${status === 404 ? 'Page Not Found' : 'Something Went Wrong'}</h1>
+    <p style="color: #64748b; margin: 0 0 2rem;">${message || 'An unexpected error occurred.'}</p>
+    <a href="/" style="display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.65rem 1.4rem; background: #6366f1; color: white; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 0.9rem;">
+      Go Home
+    </a>
+    ${stack ? '<pre style="margin-top: 2rem; text-align: left; background: #1e293b; color: #94a3b8; padding: 1.5rem; border-radius: 8px; overflow: auto; font-size: 0.75rem; line-height: 1.6;">' + stack + '</pre>' : ''}
   </div>
 </div>
 ` }) %>

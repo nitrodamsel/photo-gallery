@@ -1,47 +1,43 @@
 const { fileTypeFromFile } = require('file-type');
 const { safeDelete } = require('../utils/fileHelpers');
 
-const ALLOWED_MIME_TYPES = [
+const ALLOWED_MIME_TYPES = new Set([
   'image/jpeg',
   'image/png',
   'image/webp',
   'image/tiff',
   'image/heic',
   'image/heif',
-];
+]);
 
 async function validateUpload(req, res, next) {
-  // Check that a file was actually attached
   if (!req.file) {
     const err = new Error('No file uploaded. Please attach an image with field name "image".');
     err.status = 400;
-    err.code = 'NO_FILE';
     return next(err);
   }
 
-  const filePath = req.file.path;
-
   try {
-    // Re-validate MIME type using magic bytes (file-type reads actual file content)
-    const detected = await fileTypeFromFile(filePath);
+    const fileTypeResult = await fileTypeFromFile(req.file.path);
 
-    if (!detected || !ALLOWED_MIME_TYPES.includes(detected.mime)) {
-      await safeDelete(filePath);
+    if (!fileTypeResult || !ALLOWED_MIME_TYPES.has(fileTypeResult.mime)) {
+      await safeDelete(req.file.path);
       const err = new Error(
-        `File content validation failed. Detected type: ${detected ? detected.mime : 'unknown'}. Allowed: JPEG, PNG, WebP, TIFF, HEIC`
+        `Invalid file content. Magic bytes do not match an allowed image type. Detected: ${
+          fileTypeResult ? fileTypeResult.mime : 'unknown'
+        }`
       );
-      err.status = 400;
-      err.code = 'INVALID_FILE_CONTENT';
+      err.status = 415;
       return next(err);
     }
 
-    // Update req.file with the magic-byte-detected MIME type for downstream use
-    req.file.detectedMimeType = detected.mime;
+    // Attach the verified mime type to the file object
+    req.file.verifiedMimeType = fileTypeResult.mime;
     next();
-  } catch (err) {
-    await safeDelete(filePath);
+  } catch (error) {
+    await safeDelete(req.file.path);
+    const err = new Error(`Failed to validate file type: ${error.message}`);
     err.status = 500;
-    err.code = 'VALIDATION_ERROR';
     next(err);
   }
 }

@@ -1,53 +1,57 @@
 const express = require('express');
 const path = require('path');
-const morgan = require('morgan');
+const expressLayouts = require('express-ejs-layouts');
 
 const app = express();
 
-// View engine
+// View engine setup
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
+app.use(expressLayouts);
+app.set('layout', 'layouts/base');
 
-// Middleware
-app.use(morgan('dev'));
+// Body parsing
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Static files — serve uploads directory
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+// Static files
 app.use(express.static(path.join(__dirname, 'public')));
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Routes
-app.use('/', require('./routes/index'));
-app.use('/api/upload', require('./routes/upload'));
+const indexRouter = require('./routes/index');
+const uploadRouter = require('./routes/upload');
+
+app.use('/', indexRouter);
+app.use('/api/upload', uploadRouter);
 
 // 404 handler
 app.use((req, res, next) => {
-  res.status(404).render('error', {
-    title: '404 Not Found',
-    message: 'The page you are looking for does not exist.',
-    status: 404,
-  });
+  const err = new Error(`Not Found: ${req.originalUrl}`);
+  err.status = 404;
+  next(err);
 });
 
-// Global error handler
+// Error handler
 app.use((err, req, res, next) => {
-  console.error('[app] Error:', err.message);
-
   const status = err.status || 500;
-  const isApi = req.path.startsWith('/api/');
+  const isDev = process.env.NODE_ENV !== 'production';
 
-  if (isApi) {
+  // If request expects JSON, respond with JSON
+  if (req.xhr || req.headers.accept?.includes('application/json') ||
+      req.path.startsWith('/api/')) {
     return res.status(status).json({
-      error: err.message || 'Internal server error',
-      code: err.code || 'SERVER_ERROR',
+      success: false,
+      error: err.message || 'Internal Server Error',
+      ...(isDev && { stack: err.stack }),
     });
   }
 
   res.status(status).render('error', {
-    title: `${status} Error`,
-    message: err.message || 'An unexpected error occurred.',
+    title: `Error ${status}`,
     status,
+    message: err.message || 'Something went wrong.',
+    stack: isDev ? err.stack : null,
   });
 });
 

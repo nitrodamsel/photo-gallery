@@ -9,28 +9,36 @@ module.exports = (sequelize) => {
         primaryKey: true,
         autoIncrement: true,
       },
-      originalName: {
-        type: DataTypes.STRING(512),
+      filename: {
+        type: DataTypes.STRING,
         allowNull: false,
       },
-      filename: {
-        type: DataTypes.STRING(512),
-        allowNull: false,
+      originalFilename: {
+        type: DataTypes.STRING,
+        allowNull: true,
       },
       filePath: {
-        type: DataTypes.STRING(1024),
+        type: DataTypes.STRING,
         allowNull: false,
       },
       publicUrl: {
-        type: DataTypes.STRING(1024),
+        type: DataTypes.STRING,
         allowNull: true,
       },
       mimeType: {
-        type: DataTypes.STRING(100),
-        allowNull: false,
+        type: DataTypes.STRING,
+        allowNull: true,
       },
       fileSize: {
-        type: DataTypes.BIGINT,
+        type: DataTypes.INTEGER,
+        allowNull: true,
+      },
+      title: {
+        type: DataTypes.STRING,
+        allowNull: true,
+      },
+      description: {
+        type: DataTypes.TEXT,
         allowNull: true,
       },
       width: {
@@ -41,63 +49,78 @@ module.exports = (sequelize) => {
         type: DataTypes.INTEGER,
         allowNull: true,
       },
-      // Thumbnail paths
-      thumbnail400Path: {
-        type: DataTypes.STRING(1024),
+      thumbnailSmall: {
+        type: DataTypes.STRING,
         allowNull: true,
       },
-      thumbnail400Url: {
-        type: DataTypes.STRING(1024),
+      thumbnailLarge: {
+        type: DataTypes.STRING,
         allowNull: true,
       },
-      thumbnail1200Path: {
-        type: DataTypes.STRING(1024),
-        allowNull: true,
-      },
-      thumbnail1200Url: {
-        type: DataTypes.STRING(1024),
-        allowNull: true,
-      },
-      // EXIF data stored as JSON blob
       exifData: {
         type: DataTypes.JSON,
         allowNull: true,
       },
-      // Indexed EXIF fields for querying
+      cameraMake: {
+        type: DataTypes.STRING,
+        allowNull: true,
+      },
+      cameraModel: {
+        type: DataTypes.STRING,
+        allowNull: true,
+      },
+      lens: {
+        type: DataTypes.STRING,
+        allowNull: true,
+      },
+      focalLength: {
+        type: DataTypes.STRING,
+        allowNull: true,
+      },
+      aperture: {
+        type: DataTypes.STRING,
+        allowNull: true,
+      },
+      shutterSpeed: {
+        type: DataTypes.STRING,
+        allowNull: true,
+      },
+      iso: {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+      },
       dateTaken: {
         type: DataTypes.DATE,
         allowNull: true,
       },
-      cameraMake: {
-        type: DataTypes.STRING(255),
-        allowNull: true,
-      },
-      cameraModel: {
-        type: DataTypes.STRING(255),
-        allowNull: true,
-      },
       gpsLat: {
-        type: DataTypes.DECIMAL(10, 7),
+        type: DataTypes.FLOAT,
         allowNull: true,
       },
       gpsLng: {
-        type: DataTypes.DECIMAL(10, 7),
+        type: DataTypes.FLOAT,
+        allowNull: true,
+      },
+      colorSpace: {
+        type: DataTypes.STRING,
+        allowNull: true,
+      },
+      orientation: {
+        type: DataTypes.INTEGER,
         allowNull: true,
       },
     },
     {
       tableName: 'images',
       timestamps: true,
-      underscored: true,
     }
   );
 
-  Image.associate = function (models) {
+  Image.associate = (models) => {
     Image.belongsToMany(models.Tag, {
       through: models.ImageTag,
       foreignKey: 'imageId',
-      otherKey: 'tagId',
-      as: 'Tags',
+      as: 'tags',
     });
   };
 
