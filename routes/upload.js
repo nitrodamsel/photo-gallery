@@ -2,12 +2,11 @@ const express = require('express');
 const router = express.Router();
 const upload = require('../middleware/upload');
 const validateUpload = require('../middleware/validate');
-const { createImage } = require('../services/imageService');
-const { safeDelete } = require('../utils/fileHelpers');
+const imageService = require('../services/imageService');
 
 /**
  * GET /api/upload
- * Renders the upload form.
+ * Render the upload form view.
  */
 router.get('/', (req, res) => {
   res.render('upload', {
@@ -19,18 +18,22 @@ router.get('/', (req, res) => {
 /**
  * POST /api/upload
  * Accepts multipart/form-data with field 'image'.
- * Pipeline: multer → validate mime → extract EXIF → generate thumbnails → persist.
+ * Validates, extracts EXIF, generates thumbnails, persists to DB.
  */
 router.post(
   '/',
   (req, res, next) => {
+    // Handle Multer errors gracefully
     upload.single('image')(req, res, (err) => {
       if (err) {
-        // Multer errors
         if (err.code === 'LIMIT_FILE_SIZE') {
-          const maxMb = parseInt(process.env.MAX_FILE_SIZE_MB || '20', 10);
-          err.message = `File too large. Maximum allowed size is ${maxMb} MB.`;
+          const maxMB = parseInt(process.env.MAX_FILE_SIZE_MB || '20', 10);
+          err.message = `File too large. Maximum allowed size is ${maxMB} MB.`;
           err.status = 413;
+        } else if (err.code === 'UNSUPPORTED_FILE_TYPE') {
+          err.status = 400;
+        } else {
+          err.status = err.status || 400;
         }
         return next(err);
       }
@@ -41,27 +44,27 @@ router.post(
   async (req, res, next) => {
     try {
       const options = {
-        title: req.body.title || undefined,
-        description: req.body.description || undefined,
-        tags: req.body.tags
-          ? Array.isArray(req.body.tags)
-            ? req.body.tags
-            : req.body.tags.split(',').map((t) => t.trim()).filter(Boolean)
+        title: req.body.title || null,
+        description: req.body.description || null,
+        tagIds: req.body.tagIds
+          ? (Array.isArray(req.body.tagIds) ? req.body.tagIds : [req.body.tagIds])
           : [],
       };
 
-      const image = await createImage(req.file, options);
+      const image = await imageService.createImage(req.file, options);
 
-      res.status(201).json({
+      return res.status(201).json({
         success: true,
         message: 'Image uploaded successfully.',
         data: image,
       });
     } catch (err) {
-      // Clean up uploaded file on error
+      // Clean up uploaded file if something went wrong during service processing
       if (req.file && req.file.path) {
-        await safeDelete(req.file.path);
+        const { safeDelete } = require('../utils/fileHelpers');
+        await safeDelete(req.file.path).catch(() => {});
       }
+      err.status = err.status || 500;
       next(err);
     }
   }

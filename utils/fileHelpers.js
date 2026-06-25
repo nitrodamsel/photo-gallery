@@ -3,46 +3,49 @@ const fsp = require('fs').promises;
 const path = require('path');
 
 /**
- * Ensures a directory exists, creating it recursively if needed.
- * @param {string} dirPath - Absolute or relative path to the directory.
+ * Ensures a directory exists, creating it recursively if necessary.
+ * @param {string} dirPath - Absolute path to the directory.
  */
 async function ensureDir(dirPath) {
   await fsp.mkdir(dirPath, { recursive: true });
 }
 
 /**
- * Safely deletes a file, swallowing errors if the file doesn't exist.
- * @param {string} filePath - Path to the file to delete.
+ * Safely deletes a file, swallowing any errors (e.g. file not found).
+ * @param {string} filePath - Absolute path to the file.
  */
 async function safeDelete(filePath) {
   if (!filePath) return;
   try {
     await fsp.unlink(filePath);
   } catch (err) {
+    // Swallow errors — file may not exist or may already be deleted
     if (err.code !== 'ENOENT') {
-      console.warn(`[fileHelpers] safeDelete failed for "${filePath}":`, err.message);
+      console.warn(`[fileHelpers] safeDelete warning for "${filePath}": ${err.message}`);
     }
   }
 }
 
 /**
- * Converts an absolute file path to a public /uploads relative URL.
- * @param {string} filePath - Absolute path containing "uploads" directory.
- * @returns {string} Public URL path like /uploads/originals/2024-01/uuid.jpg
+ * Converts an absolute file path to a public URL relative to the uploads directory.
+ * @param {string} filePath - Absolute path to the file.
+ * @returns {string} URL path starting with /uploads/...
  */
 function getPublicUrl(filePath) {
   if (!filePath) return null;
+  // Normalize separators for cross-platform compatibility
   const normalized = filePath.replace(/\\/g, '/');
-  const uploadsIndex = normalized.lastIndexOf('/uploads/');
-  if (uploadsIndex === -1) {
-    // Fallback: just return filename
-    return `/uploads/${path.basename(filePath)}`;
+  const uploadsIndex = normalized.indexOf('/uploads/');
+  if (uploadsIndex !== -1) {
+    return normalized.slice(uploadsIndex);
   }
-  return normalized.substring(uploadsIndex);
+  // Fallback: try to find 'uploads' segment
+  const parts = normalized.split('/');
+  const idx = parts.lastIndexOf('uploads');
+  if (idx !== -1) {
+    return '/' + parts.slice(idx).join('/');
+  }
+  return '/' + path.basename(filePath);
 }
 
-module.exports = {
-  ensureDir,
-  safeDelete,
-  getPublicUrl,
-};
+module.exports = { ensureDir, safeDelete, getPublicUrl };

@@ -24,14 +24,14 @@ function getDateSubdir() {
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
     const subdir = getDateSubdir();
-    const dest = path.join(__dirname, '..', 'uploads', 'originals', subdir);
-    fs.mkdirSync(dest, { recursive: true });
-    cb(null, dest);
+    const destPath = path.join(__dirname, '..', 'uploads', 'originals', subdir);
+    fs.mkdirSync(destPath, { recursive: true });
+    cb(null, destPath);
   },
   filename: function (req, file, cb) {
     const ext = path.extname(file.originalname).toLowerCase() || '.jpg';
-    const filename = `${uuidv4()}${ext}`;
-    cb(null, filename);
+    const uniqueName = `${uuidv4()}${ext}`;
+    cb(null, uniqueName);
   },
 });
 
@@ -39,10 +39,9 @@ function fileFilter(req, file, cb) {
   if (ALLOWED_MIME_TYPES.includes(file.mimetype)) {
     cb(null, true);
   } else {
-    const err = new Error(
-      `Unsupported file type: ${file.mimetype}. Allowed types: jpeg, png, webp, tiff, heic.`
-    );
-    err.status = 415;
+    const err = new Error(`Unsupported file type: ${file.mimetype}. Allowed types: jpeg, png, webp, tiff, heic.`);
+    err.status = 400;
+    err.code = 'UNSUPPORTED_FILE_TYPE';
     cb(err, false);
   }
 }

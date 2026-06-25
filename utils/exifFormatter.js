@@ -1,40 +1,44 @@
 /**
- * Formats GPS coordinates into a human-readable string.
+ * Formats GPS coordinates to a human-readable string.
  * @param {{ lat: number, lng: number }} gps
- * @returns {string} e.g. "48.8566° N, 2.3522° E"
+ * @returns {string} e.g. '48.8566° N, 2.3522° E'
  */
 function formatGPS({ lat, lng }) {
   if (lat == null || lng == null) return null;
 
   const latDir = lat >= 0 ? 'N' : 'S';
   const lngDir = lng >= 0 ? 'E' : 'W';
-  const absLat = Math.abs(lat).toFixed(4);
-  const absLng = Math.abs(lng).toFixed(4);
+  const latAbs = Math.abs(lat).toFixed(4);
+  const lngAbs = Math.abs(lng).toFixed(4);
 
-  return `${absLat}° ${latDir}, ${absLng}° ${lngDir}`;
+  return `${latAbs}° ${latDir}, ${lngAbs}° ${lngDir}`;
 }
 
 /**
- * Formats a shutter speed decimal value into a fraction string.
+ * Formats a shutter speed value (in seconds) to a fraction string.
  * @param {number} value - Shutter speed in seconds (e.g. 0.004)
- * @returns {string} e.g. "1/250s"
+ * @returns {string} e.g. '1/250s'
  */
 function formatShutter(value) {
   if (value == null) return null;
+
   if (value >= 1) {
     return `${value}s`;
   }
+
+  // Convert to fraction
   const denominator = Math.round(1 / value);
   return `1/${denominator}s`;
 }
 
 /**
- * Formats an ISO date string or Date object into a locale-friendly string.
+ * Formats an ISO date string or Date object to a locale-friendly string.
  * @param {string|Date} isoString
- * @returns {string} e.g. "January 15, 2024, 10:30 AM"
+ * @returns {string} Locale date string
  */
 function formatDate(isoString) {
   if (!isoString) return null;
+
   try {
     const date = isoString instanceof Date ? isoString : new Date(isoString);
     if (isNaN(date.getTime())) return null;
@@ -44,14 +48,11 @@ function formatDate(isoString) {
       day: 'numeric',
       hour: '2-digit',
       minute: '2-digit',
+      second: '2-digit',
     });
   } catch {
     return null;
   }
 }
 
-module.exports = {
-  formatGPS,
-  formatShutter,
-  formatDate,
-};
+module.exports = { formatGPS, formatShutter, formatDate };
