@@ -1,46 +1,68 @@
-<article class="image-card" role="listitem">
-  <a href="/gallery/<%= image.id %>" class="image-card__link" aria-label="View details for <%= image.original_filename || ('Image #' + image.id) %>">
-    <div class="image-card__thumb-wrap">
+<%
+const storedFilename = image.stored_filename || '';
+const ext = storedFilename.includes('.') ? storedFilename.substring(storedFilename.lastIndexOf('.')) : '.jpg';
+const base = storedFilename.replace(ext, '');
+const thumbUrl = `/thumbnails/${base}_400${ext}`;
+
+const cameraInfo = [image.camera_make, image.camera_model].filter(Boolean).join(' ');
+const altText = [image.original_filename, cameraInfo].filter(Boolean).join(' — ');
+
+const tags = image.tags || [];
+const maxVisibleTags = 3;
+const visibleTags = tags.slice(0, maxVisibleTags);
+const overflowCount = tags.length - maxVisibleTags;
+
+let dateTaken = '';
+if (image.date_taken) {
+  try {
+    dateTaken = new Date(image.date_taken).toLocaleDateString('en-US', {
+      year: 'numeric', month: 'short', day: 'numeric'
+    });
+  } catch(e) { dateTaken = ''; }
+} else if (image.created_at) {
+  try {
+    dateTaken = new Date(image.created_at).toLocaleDateString('en-US', {
+      year: 'numeric', month: 'short', day: 'numeric'
+    });
+  } catch(e) { dateTaken = ''; }
+}
+%>
+<article class="image-card" aria-label="<%= image.original_filename || 'Photo' %>">
+  <a href="/gallery/<%= image.id %>" class="card-link" tabindex="0">
+    <div class="card-image-wrap">
       <img
-        src="<%= image.thumbnailUrl || image.file_path || '' %>"
-        alt="<%= (image.original_filename || 'Image') + (image.camera_make ? ' — taken with ' + image.camera_make + (image.camera_model ? ' ' + image.camera_model : '') : '') %>"
-        class="image-card__thumb"
+        src="<%= thumbUrl %>"
+        alt="<%= altText %>"
+        class="card-thumbnail"
         loading="lazy"
-        width="400"
+        onerror="this.onerror=null;this.src='/images/placeholder.jpg'"
       />
-      <div class="image-card__overlay" aria-hidden="true">
-        <span class="image-card__overlay-name"><%= image.original_filename || ('Image #' + image.id) %></span>
+      <div class="card-overlay">
+        <span class="card-filename"><%= image.original_filename || 'Untitled' %></span>
       </div>
     </div>
   </a>
 
-  <div class="image-card__body">
-    <p class="image-card__filename">
-      <a href="/gallery/<%= image.id %>"><%= image.original_filename || ('Image #' + image.id) %></a>
-    </p>
-
-    <% if (image.date_taken) { %>
-      <time class="image-card__date" datetime="<%= image.date_taken %>">
-        <%= new Date(image.date_taken).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) %>
-      </time>
-    <% } else if (image.created_at) { %>
-      <time class="image-card__date" datetime="<%= image.created_at %>">
-        <%= new Date(image.created_at).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) %>
-      </time>
+  <div class="card-body">
+    <% if (dateTaken) { %>
+    <time class="card-date" datetime="<%= image.date_taken || image.created_at %>">
+      <%= dateTaken %>
+    </time>
     <% } %>
 
-    <% if (image.tags && image.tags.length > 0) { %>
-      <div class="image-card__tags" aria-label="Tags">
-        <% var visibleTags = image.tags.slice(0, 3); %>
-        <% var overflowCount = image.tags.length - visibleTags.length; %>
-        <% visibleTags.forEach(function(t) { %>
-          <a href="/gallery?tag=<%= t.slug %>" class="tag-badge tag-badge--small"
-             aria-label="Filter by tag: <%= t.name %>"><%= t.name %></a>
-        <% }); %>
-        <% if (overflowCount > 0) { %>
-          <span class="tag-badge tag-badge--overflow" aria-label="<%= overflowCount %> more tags">+<%= overflowCount %></span>
-        <% } %>
-      </div>
+    <% if (tags.length > 0) { %>
+    <div class="card-tags" aria-label="Tags">
+      <% visibleTags.forEach(function(tag) { %>
+        <a href="/gallery?tag=<%= tag.slug %>" class="tag-badge tag-sm" title="Filter by <%= tag.name %>">
+          <%= tag.name %>
+        </a>
+      <% }); %>
+      <% if (overflowCount > 0) { %>
+        <span class="tag-badge tag-overflow" title="<%= tags.slice(maxVisibleTags).map(t => t.name).join(', ') %>">
+          +<%= overflowCount %> more
+        </span>
+      <% } %>
+    </div>
     <% } %>
   </div>
 </article>

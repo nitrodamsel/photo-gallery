@@ -1,157 +1,172 @@
-<%- include('layouts/base', { title: title, body: `
+<%
+const exifData = image.exif_data || {};
+const hasGps = image.gps_latitude != null && image.gps_longitude != null;
+const cameraModel = image.camera_model || '';
+const cameraMake = image.camera_make || '';
+const cameraInfo = [cameraMake, cameraModel].filter(Boolean).join(' ');
+const altText = [image.original_filename, cameraInfo].filter(Boolean).join(' — ');
 
+// Build thumbnail URLs
+const storedFilename = image.stored_filename || '';
+const ext = storedFilename.includes('.') ? storedFilename.substring(storedFilename.lastIndexOf('.')) : '.jpg';
+const base = storedFilename.replace(ext, '');
+const thumb1200 = `/thumbnails/${base}_1200${ext}`;
+const thumb400 = `/thumbnails/${base}_400${ext}`;
+%>
+<%- include('layouts/base', { title: title, body: `
 <div class="detail-page">
-  <!-- Breadcrumb navigation -->
-  <nav class="breadcrumb" aria-label="Breadcrumb">
-    <a href="/gallery">← Gallery</a>
-    <span class="breadcrumb-sep" aria-hidden="true">/</span>
-    <span class="breadcrumb-current"><%= image.original_filename || ('Image #' + image.id) %></span>
+
+  <nav class="detail-nav breadcrumb">
+    <a href="/gallery">&larr; Back to Gallery</a>
+    <% if (image.original_filename) { %>
+      <span class="breadcrumb-sep">/</span>
+      <span class="breadcrumb-current"><%= image.original_filename %></span>
+    <% } %>
   </nav>
 
-  <!-- Prev / Next navigation -->
-  <div class="detail-nav" role="navigation" aria-label="Image navigation">
-    <% if (prev) { %>
-      <a href="/gallery/<%= prev.id %>" class="nav-btn nav-btn--prev" aria-label="Previous image: <%= prev.original_filename || ('Image #' + prev.id) %>">
-        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"></polyline></svg>
-        Prev
-      </a>
-    <% } else { %>
-      <span class="nav-btn nav-btn--disabled" aria-disabled="true">
-        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"></polyline></svg>
-        Prev
-      </span>
-    <% } %>
-
-    <% if (next) { %>
-      <a href="/gallery/<%= next.id %>" class="nav-btn nav-btn--next" aria-label="Next image: <%= next.original_filename || ('Image #' + next.id) %>">
-        Next
-        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"></polyline></svg>
-      </a>
-    <% } else { %>
-      <span class="nav-btn nav-btn--disabled" aria-disabled="true">
-        Next
-        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"></polyline></svg>
-      </span>
-    <% } %>
-  </div>
-
   <div class="detail-layout">
+
     <!-- Left column: image -->
     <div class="detail-image-col">
-      <figure class="detail-figure">
-        <a href="<%= image.thumbnailUrl || image.file_path || '#' %>"
-           class="lightbox-trigger"
-           data-lightbox="image-<%= image.id %>"
-           aria-label="View full-size image">
-          <img
-            src="<%= image.thumbnailUrl || image.file_path || '' %>"
-            alt="<%= (image.original_filename || 'Image') + (image.camera_make ? ' — ' + image.camera_make + (image.camera_model ? ' ' + image.camera_model : '') : '') %>"
-            class="detail-image"
-            loading="eager"
-          />
-        </a>
-        <figcaption class="detail-caption">
-          <%= image.original_filename || ('Image #' + image.id) %>
-        </figcaption>
-      </figure>
+      <div class="detail-image-wrap lightbox-trigger" data-src="<%= thumb1200 %>">
+        <img
+          src="<%= thumb1200 %>"
+          alt="<%= altText %>"
+          class="detail-image"
+          onerror="this.onerror=null;this.src='<%= thumb400 %>'"
+        />
+        <div class="lightbox-hint" aria-hidden="true">🔍 Click to enlarge</div>
+      </div>
+
+      <!-- Prev / Next navigation -->
+      <div class="prev-next-nav">
+        <% if (prevImage) { %>
+          <a href="/gallery/<%= prevImage.id %>" class="btn btn-outline prev-btn">
+            &larr; Previous
+          </a>
+        <% } else { %>
+          <span class="btn btn-outline prev-btn disabled" aria-disabled="true">&larr; Previous</span>
+        <% } %>
+
+        <a href="/gallery" class="btn btn-outline">All Photos</a>
+
+        <% if (nextImage) { %>
+          <a href="/gallery/<%= nextImage.id %>" class="btn btn-outline next-btn">
+            Next &rarr;
+          </a>
+        <% } else { %>
+          <span class="btn btn-outline next-btn disabled" aria-disabled="true">Next &rarr;</span>
+        <% } %>
+      </div>
     </div>
 
-    <!-- Right column: metadata panel -->
+    <!-- Right column: metadata -->
     <div class="detail-meta-col">
 
+      <h1 class="detail-filename"><%= image.original_filename || 'Untitled' %></h1>
+
       <!-- Tags section -->
-      <section class="meta-section" aria-labelledby="tags-heading">
-        <h2 id="tags-heading" class="meta-section__title">Tags</h2>
-        <div class="tag-list">
+      <section class="meta-section tags-section" aria-label="Image tags">
+        <h2 class="meta-section-title">Tags</h2>
+        <div class="tags-list">
           <% if (image.tags && image.tags.length > 0) { %>
             <% image.tags.forEach(function(tag) { %>
-              <span class="tag-item">
-                <a href="/gallery?tag=<%= tag.slug %>" class="tag-badge"><%= tag.name %></a>
-                <form method="POST" action="/gallery/<%= image.id %>/tags/<%= tag.id %>/remove" class="tag-remove-form" style="display:inline">
-                  <button type="submit" class="tag-remove-btn" aria-label="Remove tag <%= tag.name %>">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-                  </button>
-                </form>
+              <span class="tag-badge">
+                <a href="/gallery?tag=<%= tag.slug %>" class="tag-link"><%= tag.name %></a>
+                <button
+                  class="tag-remove-btn"
+                  data-image-id="<%= image.id %>"
+                  data-tag-id="<%= tag.id %>"
+                  aria-label="Remove tag <%= tag.name %>"
+                  title="Remove tag"
+                >&times;</button>
               </span>
             <% }); %>
           <% } else { %>
-            <p class="no-tags">No tags assigned.</p>
+            <span class="no-tags">No tags yet</span>
           <% } %>
-        </div>
-        <!-- Add tag scaffold -->
-        <form method="POST" action="/gallery/<%= image.id %>/tags" class="add-tag-form">
-          <label for="tag-select-<%= image.id %>" class="sr-only">Add a tag</label>
-          <select id="tag-select-<%= image.id %>" name="tagId" class="tag-select">
-            <option value="">Select a tag...</option>
-          </select>
-          <button type="submit" class="btn btn--small btn--secondary">Add Tag</button>
-        </form>
-      </section>
-
-      <!-- EXIF accordion -->
-      <section class="meta-section" aria-labelledby="exif-heading">
-        <h2 id="exif-heading" class="meta-section__title">
-          <button class="accordion-toggle" aria-expanded="true" aria-controls="exif-panel">
-            EXIF Data
-            <svg class="accordion-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
-          </button>
-        </h2>
-        <div id="exif-panel" class="accordion-panel">
-          <%- include('partials/exif-table', { image: image }) %>
+          <!-- Add tag UI scaffold -->
+          <div class="add-tag-form" style="margin-top: 0.5rem;">
+            <input
+              type="text"
+              id="new-tag-input"
+              class="tag-input"
+              placeholder="Add a tag…"
+              aria-label="Add new tag"
+              autocomplete="off"
+            />
+            <button class="btn btn-sm btn-primary" id="add-tag-btn" data-image-id="<%= image.id %>">Add</button>
+          </div>
         </div>
       </section>
 
-      <!-- GPS Map -->
-      <% if (image.hasGPS) { %>
-        <section class="meta-section" aria-labelledby="map-heading">
-          <h2 id="map-heading" class="meta-section__title">Location</h2>
-          <%- include('partials/map', { lat: image.gps_latitude, lng: image.gps_longitude, image: image }) %>
-        </section>
-      <% } %>
-
-      <!-- File info section -->
-      <section class="meta-section" aria-labelledby="fileinfo-heading">
-        <h2 id="fileinfo-heading" class="meta-section__title">File Info</h2>
-        <dl class="file-info-list">
-          <% if (image.original_filename) { %>
-            <dt>Filename</dt>
-            <dd><%= image.original_filename %></dd>
-          <% } %>
+      <!-- File Info section -->
+      <section class="meta-section file-info-section" aria-label="File information">
+        <h2 class="meta-section-title">File Info</h2>
+        <dl class="info-list">
           <% if (image.file_size) { %>
+          <div class="info-row">
             <dt>File Size</dt>
-            <dd><%= formatFileSize(image.file_size) %></dd>
+            <dd><%= (image.file_size / (1024 * 1024)).toFixed(2) %> MB</dd>
+          </div>
           <% } %>
           <% if (image.width && image.height) { %>
+          <div class="info-row">
             <dt>Dimensions</dt>
-            <dd><%= image.width %> × <%= image.height %> px</dd>
+            <dd><%= image.width %> &times; <%= image.height %> px</dd>
+          </div>
           <% } %>
           <% if (image.mime_type) { %>
+          <div class="info-row">
             <dt>Type</dt>
             <dd><%= image.mime_type %></dd>
+          </div>
           <% } %>
           <% if (image.created_at) { %>
+          <div class="info-row">
             <dt>Uploaded</dt>
-            <dd><%= new Date(image.created_at).toLocaleString() %></dd>
+            <dd><%= new Date(image.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) %></dd>
+          </div>
+          <% } %>
+          <% if (image.date_taken) { %>
+          <div class="info-row">
+            <dt>Date Taken</dt>
+            <dd><%= new Date(image.date_taken).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' }) %></dd>
+          </div>
           <% } %>
         </dl>
       </section>
+
+      <!-- EXIF Data section -->
+      <section class="meta-section exif-section" aria-label="EXIF metadata">
+        <h2 class="meta-section-title">
+          <button class="accordion-toggle" aria-expanded="true" aria-controls="exif-panel">
+            EXIF Data <span class="accordion-icon">▾</span>
+          </button>
+        </h2>
+        <div id="exif-panel" class="accordion-panel">
+          <%- include('partials/exif-table', { image: image, exifData: exifData }) %>
+        </div>
+      </section>
+
+      <!-- GPS Map section -->
+      <% if (hasGps) { %>
+      <section class="meta-section map-section" aria-label="GPS location">
+        <h2 class="meta-section-title">Location</h2>
+        <%- include('partials/map', {
+          lat: image.gps_latitude,
+          lng: image.gps_longitude
+        }) %>
+      </section>
+      <% } %>
 
     </div>
   </div>
 </div>
 
-<script>
-// Accordion toggle
-document.querySelectorAll('.accordion-toggle').forEach(function(btn) {
-  btn.addEventListener('click', function() {
-    var expanded = this.getAttribute('aria-expanded') === 'true';
-    this.setAttribute('aria-expanded', !expanded);
-    var panel = document.getElementById(this.getAttribute('aria-controls'));
-    if (panel) {
-      panel.style.display = expanded ? 'none' : '';
-    }
-  });
-});
-</script>
-
+<!-- Lightbox overlay -->
+<div class="lightbox-overlay" id="lightbox" role="dialog" aria-modal="true" aria-label="Image lightbox" hidden>
+  <button class="lightbox-close" id="lightbox-close" aria-label="Close lightbox">&times;</button>
+  <img class="lightbox-img" id="lightbox-img" src="" alt="<%= altText %>" />
+</div>
 ` }) %>

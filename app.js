@@ -1,45 +1,35 @@
 const express = require('express');
 const path = require('path');
+const morgan = require('morgan');
+
 const app = express();
 
 // View engine
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 
-// Body parsing
-app.use(express.urlencoded({ extended: true }));
+// Middleware
+app.use(morgan('dev'));
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 // Static files
 app.use(express.static(path.join(__dirname, 'public')));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
-
-// Template helpers
-app.locals.formatFileSize = function(bytes) {
-  if (!bytes) return 'Unknown';
-  const sizes = ['B', 'KB', 'MB', 'GB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(1024));
-  return (bytes / Math.pow(1024, i)).toFixed(1) + ' ' + sizes[i];
-};
+app.use('/thumbnails', express.static(path.join(__dirname, 'thumbnails')));
 
 // Routes
 const indexRouter = require('./routes/index');
-const uploadRouter = require('./routes/upload');
 const galleryRouter = require('./routes/gallery');
+const uploadRouter = require('./routes/upload');
 
 app.use('/', indexRouter);
-app.use('/upload', uploadRouter);
 app.use('/gallery', galleryRouter);
+app.use('/upload', uploadRouter);
 
-// 404 handler — must come after all routes
-app.use(function(req, res, next) {
-  const err = new Error('Page not found');
-  err.status = 404;
-  next(err);
-});
-
-// Error handler — must be last
-const errorHandler = require('./middleware/errorHandler');
+// Error handling
+const { errorHandler, notFoundHandler } = require('./middleware/errorHandler');
+app.use(notFoundHandler);
 app.use(errorHandler);
 
 module.exports = app;

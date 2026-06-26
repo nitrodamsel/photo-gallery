@@ -1,59 +1,73 @@
 <%
-  var mapLat = parseFloat(lat);
-  var mapLng = parseFloat(lng);
-  var validCoords = !isNaN(mapLat) && !isNaN(mapLng);
-  var mapId = 'map-' + (image ? image.id : Math.random().toString(36).slice(2));
+const mapLat = parseFloat(lat);
+const mapLng = parseFloat(lng);
+const isValid = !isNaN(mapLat) && !isNaN(mapLng);
+const mapId = 'leaflet-map-' + Math.random().toString(36).substr(2, 9);
 %>
+<% if (isValid) { %>
+<link
+  rel="stylesheet"
+  href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+  integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+  crossorigin=""
+/>
+<script
+  src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+  integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV/XN/WPeE="
+  crossorigin=""
+></script>
 
-<% if (validCoords) { %>
-  <link
-    rel="stylesheet"
-    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
-    crossorigin=""
-  />
+<div
+  id="<%= mapId %>"
+  class="leaflet-map"
+  data-lat="<%= mapLat %>"
+  data-lng="<%= mapLng %>"
+  role="region"
+  aria-label="Map showing photo location"
+  style="height: 300px; width: 100%; border-radius: 8px; overflow: hidden;"
+></div>
 
-  <div
-    id="<%= mapId %>"
-    class="leaflet-map"
-    data-lat="<%= mapLat %>"
-    data-lng="<%= mapLng %>"
-    aria-label="Map showing image location at coordinates <%= mapLat.toFixed(6) %>, <%= mapLng.toFixed(6) %>"
-    role="img"
-    style="height: 280px; width: 100%; border-radius: 8px; z-index: 0;"
-  ></div>
+<p class="map-coords">
+  <strong>GPS:</strong>
+  <%= Math.abs(mapLat).toFixed(6) %>&deg;<%= mapLat >= 0 ? 'N' : 'S' %>,
+  <%= Math.abs(mapLng).toFixed(6) %>&deg;<%= mapLng >= 0 ? 'E' : 'W' %>
+  &mdash;
+  <a
+    href="https://www.openstreetmap.org/?mlat=<%= mapLat %>&mlon=<%= mapLng %>&zoom=15"
+    target="_blank"
+    rel="noopener noreferrer"
+    class="map-osm-link"
+  >View on OpenStreetMap &nearr;</a>
+</p>
 
-  <p class="map-coords">
-    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
-    <%= mapLat.toFixed(6) %>, <%= mapLng.toFixed(6) %>
-  </p>
+<script>
+(function() {
+  var mapEl = document.getElementById('<%= mapId %>');
+  if (!mapEl || typeof L === 'undefined') return;
 
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV/XN/WPeE="
-    crossorigin=""></script>
-  <script>
-    (function() {
-      var el = document.getElementById('<%= mapId %>');
-      if (!el) return;
-      var lat = parseFloat(el.getAttribute('data-lat'));
-      var lng = parseFloat(el.getAttribute('data-lng'));
-      if (isNaN(lat) || isNaN(lng)) return;
+  var lat = parseFloat(mapEl.getAttribute('data-lat'));
+  var lng = parseFloat(mapEl.getAttribute('data-lng'));
 
-      var map = L.map('<%= mapId %>', { scrollWheelZoom: false }).setView([lat, lng], 13);
+  if (isNaN(lat) || isNaN(lng)) return;
 
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-        maxZoom: 19,
-      }).addTo(map);
+  var map = L.map('<%= mapId %>', {
+    center: [lat, lng],
+    zoom: 13,
+    scrollWheelZoom: false,
+  });
 
-      L.marker([lat, lng])
-        .addTo(map)
-        .bindPopup(
-          '<strong>Photo Location</strong><br>' +
-          'Lat: ' + lat.toFixed(6) + '<br>' +
-          'Lng: ' + lng.toFixed(6)
-        )
-        .openPopup();
-    })();
-  </script>
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+    maxZoom: 19,
+  }).addTo(map);
+
+  var formattedLat = Math.abs(lat).toFixed(6) + '\u00b0' + (lat >= 0 ? 'N' : 'S');
+  var formattedLng = Math.abs(lng).toFixed(6) + '\u00b0' + (lng >= 0 ? 'E' : 'W');
+
+  L.marker([lat, lng])
+    .addTo(map)
+    .bindPopup('<strong>Photo taken here</strong><br>' + formattedLat + ', ' + formattedLng)
+    .openPopup();
+})();
+</script>
 <% } %>

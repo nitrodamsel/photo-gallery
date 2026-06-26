@@ -1,20 +1,20 @@
 <%- include('layouts/base', { title: '404 — Page Not Found', body: `
-
-<div class="error-page error-page--404">
-  <div class="error-page__inner">
-    <div class="error-page__icon" aria-hidden="true">
-      <svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="11" y1="8" x2="11" y2="11"></line><line x1="11" y1="14" x2="11.01" y2="14"></line></svg>
-    </div>
-    <h1 class="error-page__code">404</h1>
-    <h2 class="error-page__title">Page Not Found</h2>
-    <p class="error-page__message">
-      <%= typeof message !== 'undefined' ? message : "Sorry, we couldn't find the page you were looking for." %>
+<div class="error-page not-found-page">
+  <div class="error-content">
+    <div class="error-code">404</div>
+    <h1 class="error-title">Page Not Found</h1>
+    <p class="error-message">
+      Oops! The page you're looking for doesn't exist or has been moved.
     </p>
-    <div class="error-page__actions">
-      <a href="/gallery" class="btn btn--primary">Browse Gallery</a>
-      <a href="/" class="btn btn--secondary">Go Home</a>
+    <div class="error-actions">
+      <a href="/gallery" class="btn btn-primary">
+        &larr; Back to Gallery
+      </a>
+      <a href="/" class="btn btn-outline">
+        Home
+      </a>
     </div>
+    <div class="error-illustration" aria-hidden="true">📷</div>
   </div>
 </div>
-
 ` }) %>
