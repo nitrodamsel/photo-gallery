@@ -1,0 +1,75 @@
+<%
+  function buildHref(pageNum) {
+    var params = Object.assign({}, query || {});
+    params.page = pageNum;
+    var qs = Object.keys(params)
+      .filter(function(k) { return params[k] !== undefined && params[k] !== null && params[k] !== ''; })
+      .map(function(k) { return encodeURIComponent(k) + '=' + encodeURIComponent(params[k]); })
+      .join('&');
+    return qs ? '?' + qs : '?page=' + pageNum;
+  }
+
+  var showPagination = totalPages > 1;
+  var maxPageLinks = 7;
+  var halfLinks = Math.floor(maxPageLinks / 2);
+  var startPage = Math.max(1, page - halfLinks);
+  var endPage = Math.min(totalPages, startPage + maxPageLinks - 1);
+  if (endPage - startPage < maxPageLinks - 1) {
+    startPage = Math.max(1, endPage - maxPageLinks + 1);
+  }
+%>
+
+<% if (showPagination) { %>
+  <nav class="pagination" aria-label="Page navigation">
+    <!-- Prev button -->
+    <% if (page > 1) { %>
+      <a href="<%= buildHref(page - 1) %>" class="pagination__btn pagination__btn--prev" aria-label="Previous page" rel="prev">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"></polyline></svg>
+        Previous
+      </a>
+    <% } else { %>
+      <span class="pagination__btn pagination__btn--prev pagination__btn--disabled" aria-disabled="true">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"></polyline></svg>
+        Previous
+      </span>
+    <% } %>
+
+    <!-- Page number links -->
+    <div class="pagination__pages" role="list">
+      <% if (startPage > 1) { %>
+        <a href="<%= buildHref(1) %>" class="pagination__page" aria-label="Page 1" role="listitem">1</a>
+        <% if (startPage > 2) { %>
+          <span class="pagination__ellipsis" aria-hidden="true">…</span>
+        <% } %>
+      <% } %>
+
+      <% for (var p = startPage; p <= endPage; p++) { %>
+        <% if (p === page) { %>
+          <span class="pagination__page pagination__page--current" aria-current="page" role="listitem"><%= p %></span>
+        <% } else { %>
+          <a href="<%= buildHref(p) %>" class="pagination__page" aria-label="Page <%= p %>" role="listitem"><%= p %></a>
+        <% } %>
+      <% } %>
+
+      <% if (endPage < totalPages) { %>
+        <% if (endPage < totalPages - 1) { %>
+          <span class="pagination__ellipsis" aria-hidden="true">…</span>
+        <% } %>
+        <a href="<%= buildHref(totalPages) %>" class="pagination__page" aria-label="Page <%= totalPages %>" role="listitem"><%= totalPages %></a>
+      <% } %>
+    </div>
+
+    <!-- Next button -->
+    <% if (page < totalPages) { %>
+      <a href="<%= buildHref(page + 1) %>" class="pagination__btn pagination__btn--next" aria-label="Next page" rel="next">
+        Next
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"></polyline></svg>
+      </a>
+    <% } else { %>
+      <span class="pagination__btn pagination__btn--next pagination__btn--disabled" aria-disabled="true">
+        Next
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"></polyline></svg>
+      </span>
+    <% } %>
+  </nav>
+<% } %>

@@ -1,0 +1,43 @@
+<%- include('layouts/base', { title: title, body: `
+
+<div class="gallery-page">
+  <div class="gallery-header">
+    <h1 class="gallery-title">Photo Gallery</h1>
+    <% if (tag) { %>
+      <div class="active-filter">
+        <span class="filter-label">Filtered by tag:</span>
+        <span class="tag-badge tag-badge--active"><%= tag %></span>
+        <a href="/gallery" class="clear-filter" aria-label="Clear tag filter">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+          Clear filter
+        </a>
+      </div>
+    <% } %>
+    <p class="gallery-count">
+      <% if (total === 0) { %>
+        No images found<% if (tag) { %> for tag "<%= tag %>"<% } %>
+      <% } else { %>
+        Showing <%= Math.min((page - 1) * limit + 1, total) %>–<%= Math.min(page * limit, total) %> of <%= total %> image<%= total !== 1 ? 's' : '' %>
+        <% if (tag) { %> tagged "<%= tag %>"<% } %>
+      <% } %>
+    </p>
+  </div>
+
+  <% if (images && images.length > 0) { %>
+    <div class="gallery-grid" role="list">
+      <% images.forEach(function(image) { %>
+        <%- include('partials/image-card', { image: image, tag: tag }) %>
+      <% }); %>
+    </div>
+  <% } else { %>
+    <div class="gallery-empty">
+      <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+      <p>No images found<% if (tag) { %> for tag "<strong><%= tag %></strong>"<% } %>.</p>
+      <a href="/gallery" class="btn btn--primary">View all images</a>
+    </div>
+  <% } %>
+
+  <%- include('partials/pagination', { page: page, totalPages: totalPages, limit: limit, query: query }) %>
+</div>
+
+` }) %>

@@ -1,169 +1,183 @@
+const db = require('../config/database');
+const thumbnailService = require('./thumbnailService');
+const exifService = require('./exifService');
 const path = require('path');
-const { Image, Tag, ImageTag } = require('../models');
-const { Op } = require('sequelize');
-const { extractExif } = require('./exifService');
-const { generateThumbnails, deleteThumbnails } = require('./thumbnailService');
-const { safeDelete, getPublicUrl } = require('../utils/fileHelpers');
+const fs = require('fs');
 
 /**
- * Creates a new Image record, extracting EXIF and generating thumbnails.
- * @param {Express.Multer.File} file - The uploaded file object from Multer.
- * @param {Object} options - Additional options (tags, title, description, etc.)
- * @returns {Promise<Image>} The created Image model instance.
+ * Get a paginated list of images with optional tag filter.
  */
-async function createImage(file, options = {}) {
-  const filePath = file.path;
-  const originalName = file.originalname;
-  const mimeType = file.verifiedMimeType || file.mimetype;
-  const fileSize = file.size;
-  const filename = file.filename;
+async function getImages({ limit = 12, offset = 0, tag = null } = {}) {
+  let query;
+  let countQuery;
+  let params;
+  let countParams;
 
-  // 1. Extract EXIF metadata
-  let exifData = {};
-  try {
-    exifData = await extractExif(filePath);
-  } catch (err) {
-    console.warn(`[imageService] EXIF extraction failed: ${err.message}`);
+  if (tag) {
+    query = `
+      SELECT i.*
+      FROM images i
+      INNER JOIN image_tags it ON it.image_id = i.id
+      INNER JOIN tags t ON t.id = it.tag_id
+      WHERE t.slug = ?
+      ORDER BY i.id DESC
+      LIMIT ? OFFSET ?
+    `;
+    countQuery = `
+      SELECT COUNT(DISTINCT i.id) as total
+      FROM images i
+      INNER JOIN image_tags it ON it.image_id = i.id
+      INNER JOIN tags t ON t.id = it.tag_id
+      WHERE t.slug = ?
+    `;
+    params = [tag, limit, offset];
+    countParams = [tag];
+  } else {
+    query = `
+      SELECT i.*
+      FROM images i
+      ORDER BY i.id DESC
+      LIMIT ? OFFSET ?
+    `;
+    countQuery = `SELECT COUNT(*) as total FROM images`;
+    params = [limit, offset];
+    countParams = [];
   }
 
-  // 2. Build the Image record (before thumbnails so we have an ID)
-  const imageData = {
-    filename,
-    originalName,
-    mimeType,
-    fileSize,
-    filePath,
-    publicUrl: getPublicUrl(filePath),
-    title: options.title || originalName,
-    description: options.description || null,
-    exifData: Object.keys(exifData).length > 0 ? exifData : null,
-    dateTaken: exifData.dateTaken || null,
-    cameraMake: exifData.cameraMake || null,
-    cameraModel: exifData.cameraModel || null,
-    gpsLat: exifData.gps ? exifData.gps.lat : null,
-    gpsLng: exifData.gps ? exifData.gps.lng : null,
-    width: exifData.imageWidth || null,
-    height: exifData.imageHeight || null,
-    status: 'active',
+  const [images, countResult] = await Promise.all([
+    db.all(query, params),
+    db.get(countQuery, countParams),
+  ]);
+
+  // Attach tags to each image
+  for (const image of images) {
+    image.tags = await getImageTags(image.id);
+    image.thumbnailUrl = getThumbnailUrl(image, 400);
+  }
+
+  return {
+    images,
+    total: countResult ? countResult.total : 0,
   };
+}
 
-  const image = await Image.create(imageData);
+/**
+ * Get a single image by ID with full metadata.
+ */
+async function getImageById(id) {
+  const image = await db.get('SELECT * FROM images WHERE id = ?', [id]);
+  if (!image) return null;
 
-  // 3. Generate thumbnails (non-fatal failure)
-  try {
-    const thumbs = await generateThumbnails(filePath, image.id);
-    await image.update({
-      thumbnailUrl: getPublicUrl(thumbs.thumb400),
-      largeUrl: getPublicUrl(thumbs.thumb1200),
-    });
-  } catch (thumbErr) {
-    console.error(`[imageService] Thumbnail generation failed for image ${image.id}: ${thumbErr.message}`);
-    // Continue — original is still saved
-  }
+  image.tags = await getImageTags(image.id);
+  image.thumbnailUrl = getThumbnailUrl(image, 1200);
+  image.thumbnailUrl400 = getThumbnailUrl(image, 400);
 
-  // 4. Associate tags if provided
-  if (options.tagIds && Array.isArray(options.tagIds) && options.tagIds.length > 0) {
+  // Parse EXIF data if stored as JSON string
+  if (image.exif_data && typeof image.exif_data === 'string') {
     try {
-      const tags = await Tag.findAll({ where: { id: options.tagIds } });
-      await image.setTags(tags);
-    } catch (tagErr) {
-      console.warn(`[imageService] Failed to associate tags: ${tagErr.message}`);
+      image.exif_data = JSON.parse(image.exif_data);
+    } catch (e) {
+      image.exif_data = null;
     }
   }
 
-  // 5. Return full record with tags
-  const fullImage = await Image.findByPk(image.id, {
-    include: [{ model: Tag, through: { attributes: [] } }],
-  });
-
-  return fullImage;
-}
-
-/**
- * Retrieves a paginated list of images with optional tag filtering.
- * @param {Object} filters - { page, limit, tagIds, search }
- * @returns {Promise<{ images: Image[], total: number, page: number, limit: number }>}
- */
-async function getImages(filters = {}) {
-  const page = Math.max(1, parseInt(filters.page, 10) || 1);
-  const limit = Math.min(100, Math.max(1, parseInt(filters.limit, 10) || 20));
-  const offset = (page - 1) * limit;
-
-  const where = { status: 'active' };
-
-  if (filters.search) {
-    where[Op.or] = [
-      { title: { [Op.like]: `%${filters.search}%` } },
-      { description: { [Op.like]: `%${filters.search}%` } },
-      { originalName: { [Op.like]: `%${filters.search}%` } },
-    ];
+  // Parse GPS data
+  if (image.gps_latitude && image.gps_longitude) {
+    image.hasGPS = true;
+  } else if (image.exif_data) {
+    const exif = image.exif_data;
+    image.gps_latitude = image.gps_latitude || exif.GPSLatitude || exif.gps_latitude || null;
+    image.gps_longitude = image.gps_longitude || exif.GPSLongitude || exif.gps_longitude || null;
+    image.hasGPS = !!(image.gps_latitude && image.gps_longitude);
   }
 
-  const queryOptions = {
-    where,
-    limit,
-    offset,
-    order: [['createdAt', 'DESC']],
-    include: [{ model: Tag, through: { attributes: [] } }],
-  };
+  return image;
+}
 
-  // Filter by tags using subquery
-  if (filters.tagIds && filters.tagIds.length > 0) {
-    const tagIdList = Array.isArray(filters.tagIds)
-      ? filters.tagIds.map(Number)
-      : [Number(filters.tagIds)];
+/**
+ * Get the previous image (lower id) relative to given id.
+ */
+async function getPrevImage(id) {
+  return db.get('SELECT id, original_filename FROM images WHERE id < ? ORDER BY id DESC LIMIT 1', [id]);
+}
 
-    queryOptions.include = [
-      {
-        model: Tag,
-        through: { attributes: [] },
-        where: { id: tagIdList },
-        required: true,
-      },
-    ];
+/**
+ * Get the next image (higher id) relative to given id.
+ */
+async function getNextImage(id) {
+  return db.get('SELECT id, original_filename FROM images WHERE id > ? ORDER BY id ASC LIMIT 1', [id]);
+}
+
+/**
+ * Get tags for an image.
+ */
+async function getImageTags(imageId) {
+  return db.all(
+    `SELECT t.id, t.name, t.slug
+     FROM tags t
+     INNER JOIN image_tags it ON it.tag_id = t.id
+     WHERE it.image_id = ?
+     ORDER BY t.name ASC`,
+    [imageId]
+  );
+}
+
+/**
+ * Build a thumbnail URL for an image at a given size.
+ */
+function getThumbnailUrl(image, size) {
+  if (!image) return null;
+  // Try to return a path based on known filename
+  const filename = image.filename || image.original_filename;
+  if (!filename) return null;
+
+  // Check for stored thumbnail path
+  if (size <= 400 && image.thumbnail_path) {
+    return '/' + image.thumbnail_path.replace(/\\/g, '/');
   }
 
-  const { count, rows } = await Image.findAndCountAll(queryOptions);
+  // Fallback: use original upload
+  if (image.file_path) {
+    return '/' + image.file_path.replace(/\\/g, '/');
+  }
 
-  return {
-    images: rows,
-    total: count,
-    page,
-    limit,
-    totalPages: Math.ceil(count / limit),
-  };
+  return `/uploads/${filename}`;
 }
 
 /**
- * Retrieves a single image by ID with eager-loaded tags.
- * @param {number} id
- * @returns {Promise<Image|null>}
+ * Add a tag to an image.
  */
-async function getImageById(id) {
-  return Image.findByPk(id, {
-    include: [{ model: Tag, through: { attributes: [] } }],
-  });
+async function addTagToImage(imageId, tagId) {
+  await db.run(
+    'INSERT OR IGNORE INTO image_tags (image_id, tag_id) VALUES (?, ?)',
+    [imageId, tagId]
+  );
 }
 
 /**
- * Deletes an image record and all associated files.
- * @param {number} id
- * @returns {Promise<boolean>} true if deleted, false if not found.
+ * Remove a tag from an image.
  */
-async function deleteImage(id) {
-  const image = await Image.findByPk(id);
-  if (!image) return false;
-
-  // Delete original file
-  await safeDelete(image.filePath);
-
-  // Delete thumbnails
-  await deleteThumbnails(id);
-
-  // Remove DB record (cascades to image_tags)
-  await image.destroy();
-
-  return true;
+async function removeTagFromImage(imageId, tagId) {
+  await db.run(
+    'DELETE FROM image_tags WHERE image_id = ? AND tag_id = ?',
+    [imageId, tagId]
+  );
 }
 
-module.exports = { createImage, getImages, getImageById, deleteImage };
+/**
+ * Get all available tags.
+ */
+async function getAllTags() {
+  return db.all('SELECT * FROM tags ORDER BY name ASC');
+}
+
+module.exports = {
+  getImages,
+  getImageById,
+  getPrevImage,
+  getNextImage,
+  getImageTags,
+  addTagToImage,
+  removeTagFromImage,
+  getAllTags,
+};

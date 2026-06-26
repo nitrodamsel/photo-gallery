@@ -1,0 +1,157 @@
+<%- include('layouts/base', { title: title, body: `
+
+<div class="detail-page">
+  <!-- Breadcrumb navigation -->
+  <nav class="breadcrumb" aria-label="Breadcrumb">
+    <a href="/gallery">← Gallery</a>
+    <span class="breadcrumb-sep" aria-hidden="true">/</span>
+    <span class="breadcrumb-current"><%= image.original_filename || ('Image #' + image.id) %></span>
+  </nav>
+
+  <!-- Prev / Next navigation -->
+  <div class="detail-nav" role="navigation" aria-label="Image navigation">
+    <% if (prev) { %>
+      <a href="/gallery/<%= prev.id %>" class="nav-btn nav-btn--prev" aria-label="Previous image: <%= prev.original_filename || ('Image #' + prev.id) %>">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"></polyline></svg>
+        Prev
+      </a>
+    <% } else { %>
+      <span class="nav-btn nav-btn--disabled" aria-disabled="true">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"></polyline></svg>
+        Prev
+      </span>
+    <% } %>
+
+    <% if (next) { %>
+      <a href="/gallery/<%= next.id %>" class="nav-btn nav-btn--next" aria-label="Next image: <%= next.original_filename || ('Image #' + next.id) %>">
+        Next
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"></polyline></svg>
+      </a>
+    <% } else { %>
+      <span class="nav-btn nav-btn--disabled" aria-disabled="true">
+        Next
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"></polyline></svg>
+      </span>
+    <% } %>
+  </div>
+
+  <div class="detail-layout">
+    <!-- Left column: image -->
+    <div class="detail-image-col">
+      <figure class="detail-figure">
+        <a href="<%= image.thumbnailUrl || image.file_path || '#' %>"
+           class="lightbox-trigger"
+           data-lightbox="image-<%= image.id %>"
+           aria-label="View full-size image">
+          <img
+            src="<%= image.thumbnailUrl || image.file_path || '' %>"
+            alt="<%= (image.original_filename || 'Image') + (image.camera_make ? ' — ' + image.camera_make + (image.camera_model ? ' ' + image.camera_model : '') : '') %>"
+            class="detail-image"
+            loading="eager"
+          />
+        </a>
+        <figcaption class="detail-caption">
+          <%= image.original_filename || ('Image #' + image.id) %>
+        </figcaption>
+      </figure>
+    </div>
+
+    <!-- Right column: metadata panel -->
+    <div class="detail-meta-col">
+
+      <!-- Tags section -->
+      <section class="meta-section" aria-labelledby="tags-heading">
+        <h2 id="tags-heading" class="meta-section__title">Tags</h2>
+        <div class="tag-list">
+          <% if (image.tags && image.tags.length > 0) { %>
+            <% image.tags.forEach(function(tag) { %>
+              <span class="tag-item">
+                <a href="/gallery?tag=<%= tag.slug %>" class="tag-badge"><%= tag.name %></a>
+                <form method="POST" action="/gallery/<%= image.id %>/tags/<%= tag.id %>/remove" class="tag-remove-form" style="display:inline">
+                  <button type="submit" class="tag-remove-btn" aria-label="Remove tag <%= tag.name %>">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                  </button>
+                </form>
+              </span>
+            <% }); %>
+          <% } else { %>
+            <p class="no-tags">No tags assigned.</p>
+          <% } %>
+        </div>
+        <!-- Add tag scaffold -->
+        <form method="POST" action="/gallery/<%= image.id %>/tags" class="add-tag-form">
+          <label for="tag-select-<%= image.id %>" class="sr-only">Add a tag</label>
+          <select id="tag-select-<%= image.id %>" name="tagId" class="tag-select">
+            <option value="">Select a tag...</option>
+          </select>
+          <button type="submit" class="btn btn--small btn--secondary">Add Tag</button>
+        </form>
+      </section>
+
+      <!-- EXIF accordion -->
+      <section class="meta-section" aria-labelledby="exif-heading">
+        <h2 id="exif-heading" class="meta-section__title">
+          <button class="accordion-toggle" aria-expanded="true" aria-controls="exif-panel">
+            EXIF Data
+            <svg class="accordion-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
+          </button>
+        </h2>
+        <div id="exif-panel" class="accordion-panel">
+          <%- include('partials/exif-table', { image: image }) %>
+        </div>
+      </section>
+
+      <!-- GPS Map -->
+      <% if (image.hasGPS) { %>
+        <section class="meta-section" aria-labelledby="map-heading">
+          <h2 id="map-heading" class="meta-section__title">Location</h2>
+          <%- include('partials/map', { lat: image.gps_latitude, lng: image.gps_longitude, image: image }) %>
+        </section>
+      <% } %>
+
+      <!-- File info section -->
+      <section class="meta-section" aria-labelledby="fileinfo-heading">
+        <h2 id="fileinfo-heading" class="meta-section__title">File Info</h2>
+        <dl class="file-info-list">
+          <% if (image.original_filename) { %>
+            <dt>Filename</dt>
+            <dd><%= image.original_filename %></dd>
+          <% } %>
+          <% if (image.file_size) { %>
+            <dt>File Size</dt>
+            <dd><%= formatFileSize(image.file_size) %></dd>
+          <% } %>
+          <% if (image.width && image.height) { %>
+            <dt>Dimensions</dt>
+            <dd><%= image.width %> × <%= image.height %> px</dd>
+          <% } %>
+          <% if (image.mime_type) { %>
+            <dt>Type</dt>
+            <dd><%= image.mime_type %></dd>
+          <% } %>
+          <% if (image.created_at) { %>
+            <dt>Uploaded</dt>
+            <dd><%= new Date(image.created_at).toLocaleString() %></dd>
+          <% } %>
+        </dl>
+      </section>
+
+    </div>
+  </div>
+</div>
+
+<script>
+// Accordion toggle
+document.querySelectorAll('.accordion-toggle').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    var expanded = this.getAttribute('aria-expanded') === 'true';
+    this.setAttribute('aria-expanded', !expanded);
+    var panel = document.getElementById(this.getAttribute('aria-controls'));
+    if (panel) {
+      panel.style.display = expanded ? 'none' : '';
+    }
+  });
+});
+</script>
+
+` }) %>

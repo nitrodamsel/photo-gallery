@@ -1,0 +1,114 @@
+<%
+  var exif = image.exif_data || {};
+  var fmt = locals.exifFormatter || {};
+
+  function val(v) {
+    return v !== null && v !== undefined && v !== '' ? v : null;
+  }
+
+  function fmtExposure(v) {
+    if (!v) return null;
+    // Already formatted like "1/250"
+    if (typeof v === 'string') return v;
+    if (v < 1) return '1/' + Math.round(1 / v);
+    return v + 's';
+  }
+
+  function fmtFNumber(v) {
+    if (!v) return null;
+    return 'f/' + parseFloat(v).toFixed(1);
+  }
+
+  function fmtFocalLength(v) {
+    if (!v) return null;
+    return parseFloat(v).toFixed(0) + ' mm';
+  }
+
+  function fmtGPS(lat, lng) {
+    if (!lat || !lng) return null;
+    var latF = parseFloat(lat).toFixed(6);
+    var lngF = parseFloat(lng).toFixed(6);
+    return latF + ', ' + lngF;
+  }
+
+  // Extract fields from both top-level image fields and exif_data
+  var camera = {
+    make: val(image.camera_make) || val(exif.Make) || val(exif.make),
+    model: val(image.camera_model) || val(exif.Model) || val(exif.model),
+    lens: val(image.lens_model) || val(exif.LensModel) || val(exif.lens_model),
+    software: val(exif.Software) || val(exif.software),
+  };
+
+  var exposure = {
+    iso: val(image.iso) || val(exif.ISO) || val(exif.ISOSpeedRatings),
+    shutterSpeed: fmtExposure(val(image.shutter_speed) || val(exif.ExposureTime) || val(exif.shutter_speed)),
+    aperture: fmtFNumber(val(image.aperture) || val(exif.FNumber) || val(exif.aperture)),
+    focalLength: fmtFocalLength(val(image.focal_length) || val(exif.FocalLength) || val(exif.focal_length)),
+    exposureMode: val(exif.ExposureMode) || val(exif.ExposureProgram),
+    whiteBalance: val(exif.WhiteBalance),
+    flash: val(exif.Flash),
+    meteringMode: val(exif.MeteringMode),
+    dateTaken: val(image.date_taken) || val(exif.DateTimeOriginal) || val(exif.DateTime),
+  };
+
+  var location = {
+    lat: val(image.gps_latitude) || val(exif.GPSLatitude),
+    lng: val(image.gps_longitude) || val(exif.GPSLongitude),
+    altitude: val(exif.GPSAltitude),
+  };
+
+  var hasCamera = Object.values(camera).some(Boolean);
+  var hasExposure = Object.values(exposure).some(Boolean);
+  var hasLocation = Object.values(location).some(Boolean);
+%>
+
+<% if (!hasCamera && !hasExposure && !hasLocation) { %>
+  <p class="exif-empty">No EXIF data available for this image.</p>
+<% } else { %>
+
+  <% if (hasCamera) { %>
+    <div class="exif-group">
+      <h3 class="exif-group__title">Camera</h3>
+      <dl class="exif-list">
+        <% if (camera.make) { %><dt>Make</dt><dd><%= camera.make %></dd><% } %>
+        <% if (camera.model) { %><dt>Model</dt><dd><%= camera.model %></dd><% } %>
+        <% if (camera.lens) { %><dt>Lens</dt><dd><%= camera.lens %></dd><% } %>
+        <% if (camera.software) { %><dt>Software</dt><dd><%= camera.software %></dd><% } %>
+      </dl>
+    </div>
+  <% } %>
+
+  <% if (hasExposure) { %>
+    <div class="exif-group">
+      <h3 class="exif-group__title">Exposure</h3>
+      <dl class="exif-list">
+        <% if (exposure.shutterSpeed) { %><dt>Shutter Speed</dt><dd><%= exposure.shutterSpeed %></dd><% } %>
+        <% if (exposure.aperture) { %><dt>Aperture</dt><dd><%= exposure.aperture %></dd><% } %>
+        <% if (exposure.iso) { %><dt>ISO</dt><dd><%= exposure.iso %></dd><% } %>
+        <% if (exposure.focalLength) { %><dt>Focal Length</dt><dd><%= exposure.focalLength %></dd><% } %>
+        <% if (exposure.exposureMode !== null && exposure.exposureMode !== undefined) { %><dt>Exposure Mode</dt><dd><%= exposure.exposureMode %></dd><% } %>
+        <% if (exposure.whiteBalance !== null && exposure.whiteBalance !== undefined) { %><dt>White Balance</dt><dd><%= exposure.whiteBalance %></dd><% } %>
+        <% if (exposure.flash !== null && exposure.flash !== undefined) { %><dt>Flash</dt><dd><%= exposure.flash %></dd><% } %>
+        <% if (exposure.meteringMode) { %><dt>Metering</dt><dd><%= exposure.meteringMode %></dd><% } %>
+        <% if (exposure.dateTaken) { %><dt>Date Taken</dt><dd><%= new Date(exposure.dateTaken).toLocaleString() %></dd><% } %>
+      </dl>
+    </div>
+  <% } %>
+
+  <% if (hasLocation) { %>
+    <div class="exif-group">
+      <h3 class="exif-group__title">Location</h3>
+      <dl class="exif-list">
+        <% if (location.lat && location.lng) { %>
+          <dt>Coordinates</dt>
+          <dd><%= fmtGPS(location.lat, location.lng) %></dd>
+        <% } %>
+        <% if (location.altitude) { %>
+          <dt>Altitude</dt>
+          <dd><%= parseFloat(location.altitude).toFixed(1) %> m</dd>
+        <% } %>
+      </dl>
+    </div>
+  <% } %>
+
+<% } %>

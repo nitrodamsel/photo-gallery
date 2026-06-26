@@ -1,15 +1,28 @@
-<%- include('layouts/base', { title: 'Error ' + (status || 500), body: `
-<div style="min-height: calc(100vh - 64px); display: flex; align-items: center; justify-content: center; padding: 2rem; background: #f8fafc;">
-  <div style="max-width: 480px; text-align: center;">
-    <div style="font-size: 5rem; font-weight: 800; color: #e2e8f0; line-height: 1; margin-bottom: 1rem;">
-      ${status || 500}
+<%- include('layouts/base', { title: (typeof status !== 'undefined' ? status + ' — ' : '') + 'Error', body: `
+
+<div class="error-page error-page--generic">
+  <div class="error-page__inner">
+    <div class="error-page__icon" aria-hidden="true">
+      <svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
     </div>
-    <h1 style="font-size: 1.5rem; font-weight: 700; color: #1e293b; margin: 0 0 0.75rem;">${status === 404 ? 'Page Not Found' : 'Something Went Wrong'}</h1>
-    <p style="color: #64748b; margin: 0 0 2rem;">${message || 'An unexpected error occurred.'}</p>
-    <a href="/" style="display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.65rem 1.4rem; background: #6366f1; color: white; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 0.9rem;">
-      Go Home
-    </a>
-    ${stack ? '<pre style="margin-top: 2rem; text-align: left; background: #1e293b; color: #94a3b8; padding: 1.5rem; border-radius: 8px; overflow: auto; font-size: 0.75rem; line-height: 1.6;">' + stack + '</pre>' : ''}
+    <% if (typeof status !== 'undefined') { %>
+      <h1 class="error-page__code"><%= status %></h1>
+    <% } %>
+    <h2 class="error-page__title">Something went wrong</h2>
+    <p class="error-page__message">
+      <%= typeof message !== 'undefined' ? message : 'An unexpected error occurred.' %>
+    </p>
+    <% if (typeof stack !== 'undefined' && stack) { %>
+      <details class="error-page__stack">
+        <summary>Stack trace</summary>
+        <pre><%= stack %></pre>
+      </details>
+    <% } %>
+    <div class="error-page__actions">
+      <a href="/gallery" class="btn btn--primary">Browse Gallery</a>
+      <a href="/" class="btn btn--secondary">Go Home</a>
+    </div>
   </div>
 </div>
+
 ` }) %>

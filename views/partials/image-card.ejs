@@ -1,0 +1,46 @@
+<article class="image-card" role="listitem">
+  <a href="/gallery/<%= image.id %>" class="image-card__link" aria-label="View details for <%= image.original_filename || ('Image #' + image.id) %>">
+    <div class="image-card__thumb-wrap">
+      <img
+        src="<%= image.thumbnailUrl || image.file_path || '' %>"
+        alt="<%= (image.original_filename || 'Image') + (image.camera_make ? ' — taken with ' + image.camera_make + (image.camera_model ? ' ' + image.camera_model : '') : '') %>"
+        class="image-card__thumb"
+        loading="lazy"
+        width="400"
+      />
+      <div class="image-card__overlay" aria-hidden="true">
+        <span class="image-card__overlay-name"><%= image.original_filename || ('Image #' + image.id) %></span>
+      </div>
+    </div>
+  </a>
+
+  <div class="image-card__body">
+    <p class="image-card__filename">
+      <a href="/gallery/<%= image.id %>"><%= image.original_filename || ('Image #' + image.id) %></a>
+    </p>
+
+    <% if (image.date_taken) { %>
+      <time class="image-card__date" datetime="<%= image.date_taken %>">
+        <%= new Date(image.date_taken).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) %>
+      </time>
+    <% } else if (image.created_at) { %>
+      <time class="image-card__date" datetime="<%= image.created_at %>">
+        <%= new Date(image.created_at).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) %>
+      </time>
+    <% } %>
+
+    <% if (image.tags && image.tags.length > 0) { %>
+      <div class="image-card__tags" aria-label="Tags">
+        <% var visibleTags = image.tags.slice(0, 3); %>
+        <% var overflowCount = image.tags.length - visibleTags.length; %>
+        <% visibleTags.forEach(function(t) { %>
+          <a href="/gallery?tag=<%= t.slug %>" class="tag-badge tag-badge--small"
+             aria-label="Filter by tag: <%= t.name %>"><%= t.name %></a>
+        <% }); %>
+        <% if (overflowCount > 0) { %>
+          <span class="tag-badge tag-badge--overflow" aria-label="<%= overflowCount %> more tags">+<%= overflowCount %></span>
+        <% } %>
+      </div>
+    <% } %>
+  </div>
+</article>
