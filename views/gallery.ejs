@@ -1,48 +1,43 @@
-<%- include('layouts/base', { title: title, body: `
+<% layout = 'layouts/base' %>
+
 <div class="gallery-page">
-  <div class="container">
-    <div class="gallery-header">
-      <h1 class="page-title">Photo Gallery</h1>
+  <div class="gallery-header">
+    <h1 class="gallery-title">Photo Gallery</h1>
+
+    <% if (typeof activeTag !== 'undefined' && activeTag) { %>
+      <div class="active-filter">
+        <span class="filter-label">Filtered by tag:</span>
+        <span class="tag-badge tag-active"><%= activeTag %></span>
+        <a href="/gallery" class="clear-filter" aria-label="Clear tag filter">&#10005; Clear filter</a>
+      </div>
+    <% } %>
+
+    <div class="gallery-meta">
+      <span class="image-count">
+        <%= pagination.total %> image<%= pagination.total !== 1 ? 's' : '' %>
+      </span>
+    </div>
+  </div>
+
+  <% if (images.length === 0) { %>
+    <div class="empty-state">
+      <div class="empty-icon">📷</div>
+      <h2>No images found</h2>
       <% if (activeTag) { %>
-        <div class="active-filter">
-          <span class="filter-label">Filtered by tag:</span>
-          <span class="tag-badge tag-active"><%= activeTag %></span>
-          <a href="/gallery" class="clear-filter" aria-label="Clear tag filter">
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-            Clear filter
-          </a>
-        </div>
+        <p>No images tagged with "<strong><%= activeTag %></strong>".</p>
+        <a href="/gallery" class="btn btn-primary">View all images</a>
+      <% } else { %>
+        <p>No images have been uploaded yet.</p>
+        <a href="/upload" class="btn btn-primary">Upload your first image</a>
       <% } %>
     </div>
+  <% } else { %>
+    <div class="image-grid">
+      <% images.forEach(function(image) { %>
+        <%- include('partials/image-card', { image: image, activeTag: activeTag }) %>
+      <% }) %>
+    </div>
 
-    <% if (images.length === 0) { %>
-      <div class="empty-state">
-        <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-        <h2>No images found</h2>
-        <% if (activeTag) { %>
-          <p>No images with tag "<strong><%= activeTag %></strong>" were found.</p>
-          <a href="/gallery" class="btn btn-primary">View all images</a>
-        <% } else { %>
-          <p>No images have been uploaded yet.</p>
-          <a href="/upload" class="btn btn-primary">Upload your first image</a>
-        <% } %>
-      </div>
-    <% } else { %>
-      <div class="gallery-stats">
-        <span><%= pagination.total %> image<%= pagination.total !== 1 ? 's' : '' %></span>
-        <% if (pagination.totalPages > 1) { %>
-          <span>Page <%= pagination.page %> of <%= pagination.totalPages %></span>
-        <% } %>
-      </div>
-
-      <div class="image-grid">
-        <% images.forEach(function(image) { %>
-          <%- include('partials/image-card', { image: image }) %>
-        <% }); %>
-      </div>
-
-      <%- include('partials/pagination', { pagination: pagination, query: query }) %>
-    <% } %>
-  </div>
+    <%- include('partials/pagination', { pagination: pagination, query: query }) %>
+  <% } %>
 </div>
-` }) %>

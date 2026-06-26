@@ -3,21 +3,22 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description" content="Photo Gallery — browse and manage your image collection" />
-  <title><%= locals.title ? locals.title + ' | Photo Gallery' : 'Photo Gallery' %></title>
+  <title><%= typeof title !== 'undefined' ? title + ' | PhotoGallery' : 'PhotoGallery' %></title>
   <link rel="stylesheet" href="/css/main.css" />
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📷</text></svg>" />
 </head>
 <body>
   <%- include('../partials/navbar') %>
-  <main id="main-content">
+
+  <main class="main-content" id="main-content">
     <%- body %>
   </main>
+
   <footer class="site-footer">
     <div class="container">
-      <p>Photo Gallery &copy; <%= new Date().getFullYear() %></p>
+      <p>&copy; <%= new Date().getFullYear() %> PhotoGallery. All rights reserved.</p>
     </div>
   </footer>
-  <script src="/js/main.js" defer></script>
+
+  <script src="/js/main.js"></script>
 </body>
 </html>

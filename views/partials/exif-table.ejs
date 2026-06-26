@@ -1,101 +1,143 @@
 <%
-// Helper to check if a value is worth displaying
-function hasValue(v) {
-  return v !== null && v !== undefined && v !== '' && v !== 'Unknown';
-}
-
-// Group definitions
-var groups = [
-  {
-    label: 'Camera',
-    fields: [
-      { key: 'camera', label: 'Camera' },
-      { key: 'make', label: 'Make' },
-      { key: 'model', label: 'Model' },
-      { key: 'lens', label: 'Lens' },
-      { key: 'lensModel', label: 'Lens Model' },
-      { key: 'software', label: 'Software' },
-    ]
-  },
-  {
-    label: 'Exposure',
-    fields: [
-      { key: 'exposureTime', label: 'Shutter Speed' },
-      { key: 'fNumber', label: 'Aperture' },
-      { key: 'iso', label: 'ISO' },
-      { key: 'focalLength', label: 'Focal Length' },
-      { key: 'focalLength35mm', label: 'Focal Length (35mm)' },
-      { key: 'exposureMode', label: 'Exposure Mode' },
-      { key: 'exposureProgram', label: 'Exposure Program' },
-      { key: 'meteringMode', label: 'Metering Mode' },
-      { key: 'flash', label: 'Flash' },
-      { key: 'whiteBalance', label: 'White Balance' },
-      { key: 'dateTaken', label: 'Date Taken' },
-    ]
-  },
-  {
-    label: 'Location',
-    fields: [
-      { key: 'latitude', label: 'Latitude' },
-      { key: 'longitude', label: 'Longitude' },
-      { key: 'altitude', label: 'Altitude' },
-    ]
+  // Helper: only render if value is non-null/undefined/empty
+  function hasVal(v) {
+    return v !== null && v !== undefined && v !== '';
   }
-];
 %>
-
 <div class="exif-table">
-  <% groups.forEach(function(group) { %>
-    <%
-      var groupFields = group.fields.filter(function(f) {
-        return hasValue(exif[f.key]);
-      });
-    %>
-    <% if (groupFields.length > 0) { %>
-      <div class="exif-group">
-        <h3 class="exif-group-label"><%= group.label %></h3>
-        <dl class="exif-dl">
-          <% groupFields.forEach(function(field) { %>
-            <div class="exif-row">
-              <dt class="exif-key"><%= field.label %></dt>
-              <dd class="exif-val">
-                <%
-                  var val = exif[field.key];
-                  var displayVal = val;
 
-                  if (field.key === 'fNumber' && typeof val === 'number') {
-                    displayVal = 'f/' + val;
-                  } else if (field.key === 'exposureTime' && typeof val === 'number') {
-                    if (val < 1) {
-                      var denom = Math.round(1 / val);
-                      displayVal = '1/' + denom + 's';
-                    } else {
-                      displayVal = val + 's';
-                    }
-                  } else if (field.key === 'focalLength' && typeof val === 'number') {
-                    displayVal = val + 'mm';
-                  } else if (field.key === 'focalLength35mm' && typeof val === 'number') {
-                    displayVal = val + 'mm';
-                  } else if (field.key === 'iso') {
-                    displayVal = 'ISO ' + val;
-                  } else if (field.key === 'altitude' && typeof val === 'number') {
-                    displayVal = val.toFixed(1) + 'm';
-                  } else if ((field.key === 'latitude' || field.key === 'longitude') && typeof val === 'number') {
-                    displayVal = val.toFixed(6) + '°';
-                  } else if (field.key === 'dateTaken') {
-                    try {
-                      displayVal = new Date(val).toLocaleString();
-                    } catch(e) {
-                      displayVal = val;
-                    }
-                  }
-                %>
-                <%= displayVal %>
-              </dd>
-            </div>
-          <% }); %>
-        </dl>
-      </div>
-    <% } %>
-  <% }); %>
+  <!-- Camera section -->
+  <% if (hasVal(image.camera_make) || hasVal(image.camera_model) || hasVal(image.lens_model) || hasVal(image.software)) { %>
+  <section class="exif-group" aria-labelledby="exif-camera">
+    <h3 id="exif-camera" class="exif-group-title">Camera</h3>
+    <dl class="exif-list">
+      <% if (hasVal(image.camera_make)) { %>
+        <dt>Make</dt>
+        <dd><%= image.camera_make %></dd>
+      <% } %>
+      <% if (hasVal(image.camera_model)) { %>
+        <dt>Model</dt>
+        <dd><%= image.camera_model %></dd>
+      <% } %>
+      <% if (hasVal(image.lens_model)) { %>
+        <dt>Lens</dt>
+        <dd><%= image.lens_model %></dd>
+      <% } %>
+      <% if (hasVal(image.software)) { %>
+        <dt>Software</dt>
+        <dd><%= image.software %></dd>
+      <% } %>
+    </dl>
+  </section>
+  <% } %>
+
+  <!-- Exposure section -->
+  <% if (hasVal(image.exposure_time) || hasVal(image.f_number) || hasVal(image.iso_speed) || hasVal(image.focal_length) || hasVal(image.exposure_mode) || hasVal(image.white_balance) || hasVal(image.flash)) { %>
+  <section class="exif-group" aria-labelledby="exif-exposure">
+    <h3 id="exif-exposure" class="exif-group-title">Exposure</h3>
+    <dl class="exif-list">
+      <% if (hasVal(image.exposure_time)) { %>
+        <dt>Shutter Speed</dt>
+        <dd>
+          <% 
+            var et = parseFloat(image.exposure_time);
+            if (et < 1) {
+              var denom = Math.round(1 / et);
+              %><%= '1/' + denom + 's' %><%
+            } else {
+              %><%= et + 's' %><%
+            }
+          %>
+        </dd>
+      <% } %>
+      <% if (hasVal(image.f_number)) { %>
+        <dt>Aperture</dt>
+        <dd>f/<%= parseFloat(image.f_number).toFixed(1) %></dd>
+      <% } %>
+      <% if (hasVal(image.iso_speed)) { %>
+        <dt>ISO</dt>
+        <dd><%= image.iso_speed %></dd>
+      <% } %>
+      <% if (hasVal(image.focal_length)) { %>
+        <dt>Focal Length</dt>
+        <dd><%= parseFloat(image.focal_length).toFixed(0) %>mm</dd>
+      <% } %>
+      <% if (hasVal(image.exposure_mode)) { %>
+        <dt>Exposure Mode</dt>
+        <dd><%= image.exposure_mode %></dd>
+      <% } %>
+      <% if (hasVal(image.white_balance)) { %>
+        <dt>White Balance</dt>
+        <dd><%= image.white_balance %></dd>
+      <% } %>
+      <% if (hasVal(image.flash)) { %>
+        <dt>Flash</dt>
+        <dd><%= image.flash %></dd>
+      <% } %>
+    </dl>
+  </section>
+  <% } %>
+
+  <!-- Location section -->
+  <% if (hasVal(image.gps_latitude) || hasVal(image.gps_longitude) || hasVal(image.gps_altitude)) { %>
+  <section class="exif-group" aria-labelledby="exif-location">
+    <h3 id="exif-location" class="exif-group-title">Location</h3>
+    <dl class="exif-list">
+      <% if (hasVal(image.gps_latitude) && hasVal(image.gps_longitude)) { %>
+        <dt>Coordinates</dt>
+        <dd>
+          <%= parseFloat(image.gps_latitude).toFixed(6) %>&deg;, 
+          <%= parseFloat(image.gps_longitude).toFixed(6) %>&deg;
+        </dd>
+      <% } %>
+      <% if (hasVal(image.gps_altitude)) { %>
+        <dt>Altitude</dt>
+        <dd><%= parseFloat(image.gps_altitude).toFixed(1) %>m</dd>
+      <% } %>
+    </dl>
+  </section>
+  <% } %>
+
+  <!-- Dimensions section -->
+  <% if (hasVal(image.image_width) || hasVal(image.image_height) || hasVal(image.color_space)) { %>
+  <section class="exif-group" aria-labelledby="exif-dims">
+    <h3 id="exif-dims" class="exif-group-title">Image</h3>
+    <dl class="exif-list">
+      <% if (hasVal(image.image_width) && hasVal(image.image_height)) { %>
+        <dt>Dimensions</dt>
+        <dd><%= image.image_width %> &times; <%= image.image_height %> px</dd>
+      <% } %>
+      <% if (hasVal(image.color_space)) { %>
+        <dt>Color Space</dt>
+        <dd><%= image.color_space %></dd>
+      <% } %>
+      <% if (hasVal(image.file_size)) { %>
+        <dt>File Size</dt>
+        <dd>
+          <%
+            var bytes = parseInt(image.file_size);
+            var sizeStr;
+            if (bytes >= 1024 * 1024) {
+              sizeStr = (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+            } else if (bytes >= 1024) {
+              sizeStr = (bytes / 1024).toFixed(1) + ' KB';
+            } else {
+              sizeStr = bytes + ' B';
+            }
+          %><%= sizeStr %>
+        </dd>
+      <% } %>
+    </dl>
+  </section>
+  <% } %>
+
+  <% 
+    var hasAny = hasVal(image.camera_make) || hasVal(image.camera_model) || hasVal(image.lens_model) ||
+      hasVal(image.exposure_time) || hasVal(image.f_number) || hasVal(image.iso_speed) || hasVal(image.focal_length) ||
+      hasVal(image.gps_latitude) || hasVal(image.gps_longitude) || hasVal(image.image_width);
+  %>
+  <% if (!hasAny) { %>
+    <p class="no-exif">No EXIF data available for this image.</p>
+  <% } %>
+
 </div>

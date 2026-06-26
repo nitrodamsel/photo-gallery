@@ -1,46 +1,51 @@
+<%
+  var ext = image.original_filename ? image.original_filename.split('.').pop() : 'jpg';
+  var base = image.stored_filename ? image.stored_filename.replace(/\.[^.]+$/, '') : (image.original_filename ? image.original_filename.replace(/\.[^.]+$/, '') : ('image_' + image.id));
+  var thumb400 = '/uploads/thumbnails/' + base + '_400.' + ext;
+  var altText = (image.original_filename || 'Image') + (image.camera_make ? ' shot with ' + image.camera_make + (image.camera_model ? ' ' + image.camera_model : '') : '');
+  var displayDate = '';
+  if (image.date_taken) {
+    displayDate = new Date(image.date_taken).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+  } else if (image.created_at) {
+    displayDate = new Date(image.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+  }
+  var tags = image.tags || [];
+  var maxTagsShown = 3;
+  var visibleTags = tags.slice(0, maxTagsShown);
+  var overflowCount = tags.length - maxTagsShown;
+%>
 <article class="image-card">
-  <a href="/gallery/<%= image.id %>" class="image-card-link" aria-label="View details for <%= image.original_filename || ('Image #' + image.id) %>">
-    <div class="image-card-thumb">
-      <img
-        src="<%= image.thumbnailUrl || ('/uploads/' + image.filename) %>"
-        alt="<%= (image.original_filename || 'Photo') + (image.exif_data && image.exif_data.camera ? ' — taken with ' + image.exif_data.camera : '') %>"
-        class="card-img"
+  <a href="/gallery/<%= image.id %>" class="card-link" aria-label="View details for <%= image.original_filename || ('Image #' + image.id) %>">
+    <div class="card-image-wrapper">
+      <img 
+        src="<%= thumb400 %>" 
+        alt="<%= altText %>"
+        class="card-image"
         loading="lazy"
-        width="400"
+        onerror="this.src='/uploads/<%= image.stored_filename || image.original_filename %>'"
       />
-      <div class="image-card-overlay">
-        <span class="overlay-text"><%= image.original_filename || ('Image #' + image.id) %></span>
+      <div class="card-overlay" aria-hidden="true">
+        <span class="card-filename"><%= image.original_filename || ('Image #' + image.id) %></span>
       </div>
     </div>
   </a>
 
-  <div class="image-card-body">
-    <p class="card-filename" title="<%= image.original_filename %>">
-      <%= image.original_filename ? (image.original_filename.length > 30 ? image.original_filename.substring(0, 28) + '…' : image.original_filename) : ('Image #' + image.id) %>
-    </p>
-
-    <% 
-      var dateTaken = null;
-      if (image.exif_data && image.exif_data.dateTaken) {
-        dateTaken = new Date(image.exif_data.dateTaken);
-      } else if (image.created_at) {
-        dateTaken = new Date(image.created_at);
-      }
-    %>
-    <% if (dateTaken && !isNaN(dateTaken)) { %>
-      <p class="card-date"><%= dateTaken.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) %></p>
+  <div class="card-body">
+    <% if (displayDate) { %>
+      <time class="card-date" datetime="<%= image.date_taken || image.created_at %>"><%= displayDate %></time>
     <% } %>
 
-    <% if (image.tags && image.tags.length > 0) { %>
-      <div class="card-tags">
-        <% var maxTags = 3; %>
-        <% image.tags.slice(0, maxTags).forEach(function(tag) { %>
-          <a href="/gallery?tag=<%= tag.slug %>" class="tag-badge tag-small" onclick="event.stopPropagation()">
-            <%= tag.name %>
-          </a>
-        <% }); %>
-        <% if (image.tags.length > maxTags) { %>
-          <span class="tag-overflow">+<%= image.tags.length - maxTags %></span>
+    <% if (tags.length > 0) { %>
+      <div class="card-tags" aria-label="Tags">
+        <% visibleTags.forEach(function(tag) { %>
+          <a 
+            href="/gallery?tag=<%= tag.slug %>" 
+            class="tag-badge<%= (typeof activeTag !== 'undefined' && activeTag === tag.slug) ? ' tag-active' : '' %>"
+            aria-label="Filter by tag <%= tag.name %>"
+          ><%= tag.name %></a>
+        <% }) %>
+        <% if (overflowCount > 0) { %>
+          <span class="tag-overflow" aria-label="<%= overflowCount %> more tags">+<%= overflowCount %></span>
         <% } %>
       </div>
     <% } %>

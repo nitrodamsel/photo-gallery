@@ -1,68 +1,98 @@
-<% if (pagination.totalPages > 1) { %>
+<%
+  var currentPage = pagination.page;
+  var totalPages = pagination.totalPages;
+  var limit = pagination.limit;
+
+  // Build query string preserving existing params except 'page'
+  function buildHref(pageNum) {
+    var params = Object.assign({}, query || {});
+    params.page = pageNum;
+    var parts = [];
+    Object.keys(params).forEach(function(k) {
+      if (params[k] !== undefined && params[k] !== null && params[k] !== '') {
+        parts.push(encodeURIComponent(k) + '=' + encodeURIComponent(params[k]));
+      }
+    });
+    return '/gallery?' + parts.join('&');
+  }
+
+  // Determine page range to display (max 5 pages shown)
+  var windowSize = 5;
+  var startPage = Math.max(1, currentPage - Math.floor(windowSize / 2));
+  var endPage = Math.min(totalPages, startPage + windowSize - 1);
+  if (endPage - startPage + 1 < windowSize) {
+    startPage = Math.max(1, endPage - windowSize + 1);
+  }
+%>
+
+<% if (totalPages > 1) { %>
 <nav class="pagination" aria-label="Gallery pagination">
-  <%
-    // Build base query string preserving existing params except page
-    var baseParams = Object.assign({}, query);
-    delete baseParams.page;
-    var baseQs = Object.keys(baseParams).length > 0
-      ? '&' + Object.keys(baseParams).map(function(k) { return encodeURIComponent(k) + '=' + encodeURIComponent(baseParams[k]); }).join('&')
-      : '';
-  %>
+  <ul class="pagination-list">
 
-  <!-- Previous -->
-  <% if (pagination.page > 1) { %>
-    <a href="?page=<%= pagination.page - 1 %><%= baseQs %>" class="pagination-btn" aria-label="Previous page">
-      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"></polyline></svg>
-      Prev
-    </a>
-  <% } else { %>
-    <span class="pagination-btn disabled" aria-disabled="true">
-      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"></polyline></svg>
-      Prev
-    </span>
-  <% } %>
-
-  <!-- Page Numbers -->
-  <div class="pagination-pages">
-    <%
-      var startPage = Math.max(1, pagination.page - 2);
-      var endPage = Math.min(pagination.totalPages, pagination.page + 2);
-    %>
-
-    <% if (startPage > 1) { %>
-      <a href="?page=1<%= baseQs %>" class="pagination-page">1</a>
-      <% if (startPage > 2) { %>
-        <span class="pagination-ellipsis">…</span>
-      <% } %>
-    <% } %>
-
-    <% for (var p = startPage; p <= endPage; p++) { %>
-      <% if (p === pagination.page) { %>
-        <span class="pagination-page active" aria-current="page"><%= p %></span>
+    <!-- Previous -->
+    <li class="pagination-item">
+      <% if (currentPage > 1) { %>
+        <a href="<%= buildHref(currentPage - 1) %>" class="pagination-btn pagination-prev" rel="prev" aria-label="Go to previous page">
+          &#8592; Prev
+        </a>
       <% } else { %>
-        <a href="?page=<%= p %><%= baseQs %>" class="pagination-page"><%= p %></a>
+        <span class="pagination-btn pagination-prev disabled" aria-disabled="true">&#8592; Prev</span>
+      <% } %>
+    </li>
+
+    <!-- First page + ellipsis -->
+    <% if (startPage > 1) { %>
+      <li class="pagination-item">
+        <a href="<%= buildHref(1) %>" class="pagination-btn" aria-label="Go to page 1">1</a>
+      </li>
+      <% if (startPage > 2) { %>
+        <li class="pagination-item pagination-ellipsis" aria-hidden="true"><span>…</span></li>
       <% } %>
     <% } %>
 
-    <% if (endPage < pagination.totalPages) { %>
-      <% if (endPage < pagination.totalPages - 1) { %>
-        <span class="pagination-ellipsis">…</span>
-      <% } %>
-      <a href="?page=<%= pagination.totalPages %><%= baseQs %>" class="pagination-page"><%= pagination.totalPages %></a>
+    <!-- Page numbers -->
+    <% for (var p = startPage; p <= endPage; p++) { %>
+      <li class="pagination-item">
+        <% if (p === currentPage) { %>
+          <span class="pagination-btn pagination-current" aria-current="page" aria-label="Page <%= p %>, current">
+            <%= p %>
+          </span>
+        <% } else { %>
+          <a href="<%= buildHref(p) %>" class="pagination-btn" aria-label="Go to page <%= p %>">
+            <%= p %>
+          </a>
+        <% } %>
+      </li>
     <% } %>
-  </div>
 
-  <!-- Next -->
-  <% if (pagination.page < pagination.totalPages) { %>
-    <a href="?page=<%= pagination.page + 1 %><%= baseQs %>" class="pagination-btn" aria-label="Next page">
-      Next
-      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg>
-    </a>
-  <% } else { %>
-    <span class="pagination-btn disabled" aria-disabled="true">
-      Next
-      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg>
-    </span>
-  <% } %>
+    <!-- Ellipsis + Last page -->
+    <% if (endPage < totalPages) { %>
+      <% if (endPage < totalPages - 1) { %>
+        <li class="pagination-item pagination-ellipsis" aria-hidden="true"><span>…</span></li>
+      <% } %>
+      <li class="pagination-item">
+        <a href="<%= buildHref(totalPages) %>" class="pagination-btn" aria-label="Go to page <%= totalPages %>">
+          <%= totalPages %>
+        </a>
+      </li>
+    <% } %>
+
+    <!-- Next -->
+    <li class="pagination-item">
+      <% if (currentPage < totalPages) { %>
+        <a href="<%= buildHref(currentPage + 1) %>" class="pagination-btn pagination-next" rel="next" aria-label="Go to next page">
+          Next &#8594;
+        </a>
+      <% } else { %>
+        <span class="pagination-btn pagination-next disabled" aria-disabled="true">Next &#8594;</span>
+      <% } %>
+    </li>
+
+  </ul>
+
+  <p class="pagination-info" aria-live="polite">
+    Page <%= currentPage %> of <%= totalPages %>
+    (<%= pagination.total %> image<%= pagination.total !== 1 ? 's' : '' %> total)
+  </p>
 </nav>
 <% } %>
