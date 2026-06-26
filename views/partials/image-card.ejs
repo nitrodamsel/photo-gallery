@@ -1,68 +1,48 @@
-<%
-const storedFilename = image.stored_filename || '';
-const ext = storedFilename.includes('.') ? storedFilename.substring(storedFilename.lastIndexOf('.')) : '.jpg';
-const base = storedFilename.replace(ext, '');
-const thumbUrl = `/thumbnails/${base}_400${ext}`;
-
-const cameraInfo = [image.camera_make, image.camera_model].filter(Boolean).join(' ');
-const altText = [image.original_filename, cameraInfo].filter(Boolean).join(' — ');
-
-const tags = image.tags || [];
-const maxVisibleTags = 3;
-const visibleTags = tags.slice(0, maxVisibleTags);
-const overflowCount = tags.length - maxVisibleTags;
-
-let dateTaken = '';
-if (image.date_taken) {
-  try {
-    dateTaken = new Date(image.date_taken).toLocaleDateString('en-US', {
-      year: 'numeric', month: 'short', day: 'numeric'
-    });
-  } catch(e) { dateTaken = ''; }
-} else if (image.created_at) {
-  try {
-    dateTaken = new Date(image.created_at).toLocaleDateString('en-US', {
-      year: 'numeric', month: 'short', day: 'numeric'
-    });
-  } catch(e) { dateTaken = ''; }
-}
-%>
-<article class="image-card" aria-label="<%= image.original_filename || 'Photo' %>">
-  <a href="/gallery/<%= image.id %>" class="card-link" tabindex="0">
-    <div class="card-image-wrap">
+<article class="image-card">
+  <a href="/gallery/<%= image.id %>" class="image-card-link" aria-label="View details for <%= image.original_filename || ('Image #' + image.id) %>">
+    <div class="image-card-thumb">
       <img
-        src="<%= thumbUrl %>"
-        alt="<%= altText %>"
-        class="card-thumbnail"
+        src="<%= image.thumbnailUrl || ('/uploads/' + image.filename) %>"
+        alt="<%= (image.original_filename || 'Photo') + (image.exif_data && image.exif_data.camera ? ' — taken with ' + image.exif_data.camera : '') %>"
+        class="card-img"
         loading="lazy"
-        onerror="this.onerror=null;this.src='/images/placeholder.jpg'"
+        width="400"
       />
-      <div class="card-overlay">
-        <span class="card-filename"><%= image.original_filename || 'Untitled' %></span>
+      <div class="image-card-overlay">
+        <span class="overlay-text"><%= image.original_filename || ('Image #' + image.id) %></span>
       </div>
     </div>
   </a>
 
-  <div class="card-body">
-    <% if (dateTaken) { %>
-    <time class="card-date" datetime="<%= image.date_taken || image.created_at %>">
-      <%= dateTaken %>
-    </time>
+  <div class="image-card-body">
+    <p class="card-filename" title="<%= image.original_filename %>">
+      <%= image.original_filename ? (image.original_filename.length > 30 ? image.original_filename.substring(0, 28) + '…' : image.original_filename) : ('Image #' + image.id) %>
+    </p>
+
+    <% 
+      var dateTaken = null;
+      if (image.exif_data && image.exif_data.dateTaken) {
+        dateTaken = new Date(image.exif_data.dateTaken);
+      } else if (image.created_at) {
+        dateTaken = new Date(image.created_at);
+      }
+    %>
+    <% if (dateTaken && !isNaN(dateTaken)) { %>
+      <p class="card-date"><%= dateTaken.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) %></p>
     <% } %>
 
-    <% if (tags.length > 0) { %>
-    <div class="card-tags" aria-label="Tags">
-      <% visibleTags.forEach(function(tag) { %>
-        <a href="/gallery?tag=<%= tag.slug %>" class="tag-badge tag-sm" title="Filter by <%= tag.name %>">
-          <%= tag.name %>
-        </a>
-      <% }); %>
-      <% if (overflowCount > 0) { %>
-        <span class="tag-badge tag-overflow" title="<%= tags.slice(maxVisibleTags).map(t => t.name).join(', ') %>">
-          +<%= overflowCount %> more
-        </span>
-      <% } %>
-    </div>
+    <% if (image.tags && image.tags.length > 0) { %>
+      <div class="card-tags">
+        <% var maxTags = 3; %>
+        <% image.tags.slice(0, maxTags).forEach(function(tag) { %>
+          <a href="/gallery?tag=<%= tag.slug %>" class="tag-badge tag-small" onclick="event.stopPropagation()">
+            <%= tag.name %>
+          </a>
+        <% }); %>
+        <% if (image.tags.length > maxTags) { %>
+          <span class="tag-overflow">+<%= image.tags.length - maxTags %></span>
+        <% } %>
+      </div>
     <% } %>
   </div>
 </article>

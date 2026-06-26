@@ -1,96 +1,68 @@
-<%
-// Build query string preserving existing params except 'page'
-function buildQuery(params, newPage) {
-  const q = Object.assign({}, params, { page: newPage });
-  // Remove undefined/null values
-  Object.keys(q).forEach(k => { if (!q[k] || q[k] === '1' && k === 'page') {} });
-  const parts = [];
-  Object.keys(q).forEach(function(k) {
-    if (q[k] != null && q[k] !== '') {
-      parts.push(encodeURIComponent(k) + '=' + encodeURIComponent(q[k]));
-    }
-  });
-  return parts.length ? '?' + parts.join('&') : '';
-}
-
-const basePath = basePath || '/gallery';
-const currentPage = page || 1;
-const tp = totalPages || 1;
-
-// Calculate page window
-const delta = 2;
-const rangeStart = Math.max(1, currentPage - delta);
-const rangeEnd = Math.min(tp, currentPage + delta);
-const pages = [];
-for (let i = rangeStart; i <= rangeEnd; i++) {
-  pages.push(i);
-}
-%>
-<% if (tp > 1) { %>
+<% if (pagination.totalPages > 1) { %>
 <nav class="pagination" aria-label="Gallery pagination">
-  <ul class="pagination-list">
+  <%
+    // Build base query string preserving existing params except page
+    var baseParams = Object.assign({}, query);
+    delete baseParams.page;
+    var baseQs = Object.keys(baseParams).length > 0
+      ? '&' + Object.keys(baseParams).map(function(k) { return encodeURIComponent(k) + '=' + encodeURIComponent(baseParams[k]); }).join('&')
+      : '';
+  %>
 
-    <!-- Previous -->
-    <li class="pagination-item">
-      <% if (currentPage > 1) { %>
-        <a
-          href="<%= basePath %><%= buildQuery(query, currentPage - 1) %>"
-          class="pagination-btn"
-          aria-label="Previous page"
-        >&larr; Prev</a>
-      <% } else { %>
-        <span class="pagination-btn disabled" aria-disabled="true">&larr; Prev</span>
-      <% } %>
-    </li>
+  <!-- Previous -->
+  <% if (pagination.page > 1) { %>
+    <a href="?page=<%= pagination.page - 1 %><%= baseQs %>" class="pagination-btn" aria-label="Previous page">
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"></polyline></svg>
+      Prev
+    </a>
+  <% } else { %>
+    <span class="pagination-btn disabled" aria-disabled="true">
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"></polyline></svg>
+      Prev
+    </span>
+  <% } %>
 
-    <!-- First page + ellipsis -->
-    <% if (rangeStart > 1) { %>
-      <li class="pagination-item">
-        <a href="<%= basePath %><%= buildQuery(query, 1) %>" class="pagination-btn">1</a>
-      </li>
-      <% if (rangeStart > 2) { %>
-        <li class="pagination-item pagination-ellipsis" aria-hidden="true">…</li>
+  <!-- Page Numbers -->
+  <div class="pagination-pages">
+    <%
+      var startPage = Math.max(1, pagination.page - 2);
+      var endPage = Math.min(pagination.totalPages, pagination.page + 2);
+    %>
+
+    <% if (startPage > 1) { %>
+      <a href="?page=1<%= baseQs %>" class="pagination-page">1</a>
+      <% if (startPage > 2) { %>
+        <span class="pagination-ellipsis">…</span>
       <% } %>
     <% } %>
 
-    <!-- Page numbers -->
-    <% pages.forEach(function(p) { %>
-      <li class="pagination-item">
-        <% if (p === currentPage) { %>
-          <span class="pagination-btn active" aria-current="page"><%= p %></span>
-        <% } else { %>
-          <a href="<%= basePath %><%= buildQuery(query, p) %>" class="pagination-btn"><%= p %></a>
-        <% } %>
-      </li>
-    <% }); %>
-
-    <!-- Last page + ellipsis -->
-    <% if (rangeEnd < tp) { %>
-      <% if (rangeEnd < tp - 1) { %>
-        <li class="pagination-item pagination-ellipsis" aria-hidden="true">…</li>
+    <% for (var p = startPage; p <= endPage; p++) { %>
+      <% if (p === pagination.page) { %>
+        <span class="pagination-page active" aria-current="page"><%= p %></span>
+      <% } else { %>
+        <a href="?page=<%= p %><%= baseQs %>" class="pagination-page"><%= p %></a>
       <% } %>
-      <li class="pagination-item">
-        <a href="<%= basePath %><%= buildQuery(query, tp) %>" class="pagination-btn"><%= tp %></a>
-      </li>
     <% } %>
 
-    <!-- Next -->
-    <li class="pagination-item">
-      <% if (currentPage < tp) { %>
-        <a
-          href="<%= basePath %><%= buildQuery(query, currentPage + 1) %>"
-          class="pagination-btn"
-          aria-label="Next page"
-        >Next &rarr;</a>
-      <% } else { %>
-        <span class="pagination-btn disabled" aria-disabled="true">Next &rarr;</span>
+    <% if (endPage < pagination.totalPages) { %>
+      <% if (endPage < pagination.totalPages - 1) { %>
+        <span class="pagination-ellipsis">…</span>
       <% } %>
-    </li>
+      <a href="?page=<%= pagination.totalPages %><%= baseQs %>" class="pagination-page"><%= pagination.totalPages %></a>
+    <% } %>
+  </div>
 
-  </ul>
-
-  <p class="pagination-info">
-    Page <%= currentPage %> of <%= tp %>
-  </p>
+  <!-- Next -->
+  <% if (pagination.page < pagination.totalPages) { %>
+    <a href="?page=<%= pagination.page + 1 %><%= baseQs %>" class="pagination-btn" aria-label="Next page">
+      Next
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg>
+    </a>
+  <% } else { %>
+    <span class="pagination-btn disabled" aria-disabled="true">
+      Next
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg>
+    </span>
+  <% } %>
 </nav>
 <% } %>

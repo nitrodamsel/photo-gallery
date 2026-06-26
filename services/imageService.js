@@ -3,10 +3,9 @@ const fs = require('fs');
 const { Image, Tag, ImageTag } = require('../models');
 const { Op } = require('sequelize');
 const thumbnailService = require('./thumbnailService');
-const exifService = require('./exifService');
 
 /**
- * Get paginated images with optional tag filter
+ * Get paginated list of images, optionally filtered by tag slug
  */
 async function getImages({ page = 1, limit = 12, tag = null } = {}) {
   const offset = (page - 1) * limit;
@@ -17,6 +16,8 @@ async function getImages({ page = 1, limit = 12, tag = null } = {}) {
         model: Tag,
         as: 'tags',
         through: { attributes: [] },
+        required: tag ? true : false,
+        where: tag ? { slug: tag } : undefined,
       },
     ],
     order: [['created_at', 'DESC']],
@@ -25,21 +26,20 @@ async function getImages({ page = 1, limit = 12, tag = null } = {}) {
     distinct: true,
   };
 
-  if (tag) {
-    queryOptions.include[0].where = { slug: tag };
-    queryOptions.include[0].required = true;
-  }
-
   const { count, rows } = await Image.findAndCountAll(queryOptions);
 
-  return {
-    images: rows,
-    total: count,
-  };
+  // Attach thumbnail URLs
+  const images = rows.map((img) => {
+    const plain = img.toJSON();
+    plain.thumbnailUrl = getThumbnailUrl(plain, 400);
+    return plain;
+  });
+
+  return { images, total: count };
 }
 
 /**
- * Get a single image by ID with all associations
+ * Get a single image by ID with all tags
  */
 async function getImageById(id) {
   const image = await Image.findByPk(id, {
@@ -52,111 +52,60 @@ async function getImageById(id) {
     ],
   });
 
-  return image;
+  if (!image) return null;
+
+  const plain = image.toJSON();
+  plain.thumbnailUrl = getThumbnailUrl(plain, 1200);
+  plain.thumbnailSmallUrl = getThumbnailUrl(plain, 400);
+
+  return plain;
 }
 
 /**
- * Get previous image (uploaded before this one)
+ * Get adjacent image (prev/next) by id based on upload order
  */
-async function getPrevImage(id) {
-  const image = await Image.findOne({
-    where: { id: { [Op.lt]: id } },
-    order: [['id', 'DESC']],
-    attributes: ['id', 'original_filename'],
+async function getAdjacentImage(id, direction) {
+  const current = await Image.findByPk(id);
+  if (!current) return null;
+
+  const op = direction === 'prev' ? Op.gt : Op.lt;
+  const order = direction === 'prev' ? 'ASC' : 'DESC';
+
+  const adjacent = await Image.findOne({
+    where: {
+      id: { [op]: id },
+    },
+    order: [['id', order]],
   });
-  return image;
+
+  if (!adjacent) return null;
+
+  const plain = adjacent.toJSON();
+  plain.thumbnailUrl = getThumbnailUrl(plain, 400);
+  return plain;
 }
 
 /**
- * Get next image (uploaded after this one)
+ * Build a thumbnail URL for a given image and size
  */
-async function getNextImage(id) {
-  const image = await Image.findOne({
-    where: { id: { [Op.gt]: id } },
-    order: [['id', 'ASC']],
-    attributes: ['id', 'original_filename'],
-  });
-  return image;
-}
+function getThumbnailUrl(image, size) {
+  if (!image.filename) return '/images/placeholder.png';
+  const ext = path.extname(image.filename);
+  const base = path.basename(image.filename, ext);
+  const thumbFilename = `${base}_${size}${ext}`;
+  const thumbPath = path.join(__dirname, '..', 'uploads', 'thumbnails', thumbFilename);
 
-/**
- * Upload a new image
- */
-async function uploadImage(file, metadata = {}) {
-  const { exifData, gpsData } = await exifService.extractExif(file.path);
-
-  const imageData = {
-    original_filename: file.originalname,
-    stored_filename: file.filename,
-    file_path: file.path,
-    file_size: file.size,
-    mime_type: file.mimetype,
-    width: metadata.width || null,
-    height: metadata.height || null,
-    exif_data: exifData || null,
-    gps_latitude: gpsData?.latitude || null,
-    gps_longitude: gpsData?.longitude || null,
-    camera_make: exifData?.Make || null,
-    camera_model: exifData?.Model || null,
-    lens_model: exifData?.LensModel || null,
-    date_taken: exifData?.DateTimeOriginal || null,
-    iso: exifData?.ISO || null,
-    aperture: exifData?.FNumber || null,
-    shutter_speed: exifData?.ExposureTime || null,
-    focal_length: exifData?.FocalLength || null,
-  };
-
-  const image = await Image.create(imageData);
-
-  // Generate thumbnails
-  try {
-    await thumbnailService.generateThumbnails(file.path, image.id);
-  } catch (err) {
-    console.error('Thumbnail generation failed:', err);
+  if (fs.existsSync(thumbPath)) {
+    return `/uploads/thumbnails/${thumbFilename}`;
   }
 
-  return image;
-}
-
-/**
- * Delete an image and its files
- */
-async function deleteImage(id) {
-  const image = await Image.findByPk(id);
-  if (!image) return false;
-
-  // Delete files
-  try {
-    if (fs.existsSync(image.file_path)) {
-      fs.unlinkSync(image.file_path);
-    }
-  } catch (err) {
-    console.error('Failed to delete image file:', err);
-  }
-
-  await image.destroy();
-  return true;
-}
-
-/**
- * Get thumbnail URL for an image
- */
-function getThumbnailUrl(image, size = 400) {
-  if (!image) return '/images/placeholder.jpg';
-  // Try to build thumbnail path
-  const filename = image.stored_filename;
-  if (!filename) return '/images/placeholder.jpg';
-  const ext = path.extname(filename);
-  const base = path.basename(filename, ext);
-  return `/thumbnails/${base}_${size}${ext}`;
+  // Fall back to original
+  return `/uploads/${image.filename}`;
 }
 
 module.exports = {
   getImages,
   getImageById,
-  getPrevImage,
-  getNextImage,
-  uploadImage,
-  deleteImage,
+  getAdjacentImage,
   getThumbnailUrl,
 };

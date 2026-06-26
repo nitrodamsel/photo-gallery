@@ -3,32 +3,21 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description" content="Photo Gallery — Browse and manage your images" />
-  <title><%= title ? title + ' | PhotoGallery' : 'PhotoGallery' %></title>
-
-  <!-- Fonts -->
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link
-    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap"
-    rel="stylesheet"
-  />
-
-  <!-- App CSS -->
+  <meta name="description" content="Photo Gallery — browse and manage your image collection" />
+  <title><%= locals.title ? locals.title + ' | Photo Gallery' : 'Photo Gallery' %></title>
   <link rel="stylesheet" href="/css/main.css" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📷</text></svg>" />
 </head>
 <body>
-
   <%- include('../partials/navbar') %>
-
-  <main>
+  <main id="main-content">
     <%- body %>
   </main>
-
-  <footer style="padding: 2rem 1.5rem; text-align: center; color: var(--color-text-muted); font-size: 0.8rem; border-top: 1px solid var(--color-border); margin-top: 3rem;">
-    &copy; <%= new Date().getFullYear() %> PhotoGallery
+  <footer class="site-footer">
+    <div class="container">
+      <p>Photo Gallery &copy; <%= new Date().getFullYear() %></p>
+    </div>
   </footer>
-
-  <!-- App JS -->
-  <script src="/js/main.js"></script>
+  <script src="/js/main.js" defer></script>
 </body>
 </html>

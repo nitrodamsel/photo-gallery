@@ -1,165 +1,101 @@
 <%
-const { formatAperture, formatShutterSpeed, formatFocalLength, formatGps } = require('../../utils/exifFormatter');
+// Helper to check if a value is worth displaying
+function hasValue(v) {
+  return v !== null && v !== undefined && v !== '' && v !== 'Unknown';
+}
 
-// Helper to safely get a value
-function val(v) { return (v !== null && v !== undefined && v !== '') ? v : null; }
-
-// Camera section
-const cameraMake = val(image.camera_make);
-const cameraModel = val(image.camera_model);
-const lensModel = val(image.lens_model);
-const cameraSerial = val(exifData.SerialNumber || exifData.CameraSerialNumber);
-const software = val(exifData.Software);
-
-// Exposure section
-const iso = val(image.iso || exifData.ISO || exifData.ISOSpeedRatings);
-const apertureRaw = val(image.aperture || exifData.FNumber || exifData.ApertureValue);
-const shutterRaw = val(image.shutter_speed || exifData.ExposureTime || exifData.ShutterSpeedValue);
-const focalLengthRaw = val(image.focal_length || exifData.FocalLength);
-const focalLength35 = val(exifData.FocalLengthIn35mmFormat || exifData.FocalLengthIn35mmFilm);
-const exposureMode = val(exifData.ExposureMode);
-const exposureProgram = val(exifData.ExposureProgram);
-const meteringMode = val(exifData.MeteringMode);
-const flash = val(exifData.Flash);
-const whiteBalance = val(exifData.WhiteBalance);
-
-// Location section
-const lat = val(image.gps_latitude);
-const lng = val(image.gps_longitude);
-const altitude = val(exifData.GPSAltitude);
-
-const hasCamera = cameraMake || cameraModel || lensModel || cameraSerial || software;
-const hasExposure = iso || apertureRaw || shutterRaw || focalLengthRaw || exposureMode || meteringMode || flash || whiteBalance;
-const hasLocation = lat || lng || altitude;
+// Group definitions
+var groups = [
+  {
+    label: 'Camera',
+    fields: [
+      { key: 'camera', label: 'Camera' },
+      { key: 'make', label: 'Make' },
+      { key: 'model', label: 'Model' },
+      { key: 'lens', label: 'Lens' },
+      { key: 'lensModel', label: 'Lens Model' },
+      { key: 'software', label: 'Software' },
+    ]
+  },
+  {
+    label: 'Exposure',
+    fields: [
+      { key: 'exposureTime', label: 'Shutter Speed' },
+      { key: 'fNumber', label: 'Aperture' },
+      { key: 'iso', label: 'ISO' },
+      { key: 'focalLength', label: 'Focal Length' },
+      { key: 'focalLength35mm', label: 'Focal Length (35mm)' },
+      { key: 'exposureMode', label: 'Exposure Mode' },
+      { key: 'exposureProgram', label: 'Exposure Program' },
+      { key: 'meteringMode', label: 'Metering Mode' },
+      { key: 'flash', label: 'Flash' },
+      { key: 'whiteBalance', label: 'White Balance' },
+      { key: 'dateTaken', label: 'Date Taken' },
+    ]
+  },
+  {
+    label: 'Location',
+    fields: [
+      { key: 'latitude', label: 'Latitude' },
+      { key: 'longitude', label: 'Longitude' },
+      { key: 'altitude', label: 'Altitude' },
+    ]
+  }
+];
 %>
 
-<% if (!hasCamera && !hasExposure && !hasLocation) { %>
-  <p class="exif-empty">No EXIF data available for this image.</p>
-<% } else { %>
-
 <div class="exif-table">
+  <% groups.forEach(function(group) { %>
+    <%
+      var groupFields = group.fields.filter(function(f) {
+        return hasValue(exif[f.key]);
+      });
+    %>
+    <% if (groupFields.length > 0) { %>
+      <div class="exif-group">
+        <h3 class="exif-group-label"><%= group.label %></h3>
+        <dl class="exif-dl">
+          <% groupFields.forEach(function(field) { %>
+            <div class="exif-row">
+              <dt class="exif-key"><%= field.label %></dt>
+              <dd class="exif-val">
+                <%
+                  var val = exif[field.key];
+                  var displayVal = val;
 
-  <% if (hasCamera) { %>
-  <div class="exif-group">
-    <h3 class="exif-group-title">Camera</h3>
-    <dl class="exif-dl">
-      <% if (cameraMake) { %>
-      <div class="exif-row">
-        <dt class="exif-label">Make</dt>
-        <dd class="exif-value"><%= cameraMake %></dd>
+                  if (field.key === 'fNumber' && typeof val === 'number') {
+                    displayVal = 'f/' + val;
+                  } else if (field.key === 'exposureTime' && typeof val === 'number') {
+                    if (val < 1) {
+                      var denom = Math.round(1 / val);
+                      displayVal = '1/' + denom + 's';
+                    } else {
+                      displayVal = val + 's';
+                    }
+                  } else if (field.key === 'focalLength' && typeof val === 'number') {
+                    displayVal = val + 'mm';
+                  } else if (field.key === 'focalLength35mm' && typeof val === 'number') {
+                    displayVal = val + 'mm';
+                  } else if (field.key === 'iso') {
+                    displayVal = 'ISO ' + val;
+                  } else if (field.key === 'altitude' && typeof val === 'number') {
+                    displayVal = val.toFixed(1) + 'm';
+                  } else if ((field.key === 'latitude' || field.key === 'longitude') && typeof val === 'number') {
+                    displayVal = val.toFixed(6) + '°';
+                  } else if (field.key === 'dateTaken') {
+                    try {
+                      displayVal = new Date(val).toLocaleString();
+                    } catch(e) {
+                      displayVal = val;
+                    }
+                  }
+                %>
+                <%= displayVal %>
+              </dd>
+            </div>
+          <% }); %>
+        </dl>
       </div>
-      <% } %>
-      <% if (cameraModel) { %>
-      <div class="exif-row">
-        <dt class="exif-label">Model</dt>
-        <dd class="exif-value"><%= cameraModel %></dd>
-      </div>
-      <% } %>
-      <% if (lensModel) { %>
-      <div class="exif-row">
-        <dt class="exif-label">Lens</dt>
-        <dd class="exif-value"><%= lensModel %></dd>
-      </div>
-      <% } %>
-      <% if (cameraSerial) { %>
-      <div class="exif-row">
-        <dt class="exif-label">Serial No.</dt>
-        <dd class="exif-value"><%= cameraSerial %></dd>
-      </div>
-      <% } %>
-      <% if (software) { %>
-      <div class="exif-row">
-        <dt class="exif-label">Software</dt>
-        <dd class="exif-value"><%= software %></dd>
-      </div>
-      <% } %>
-    </dl>
-  </div>
-  <% } %>
-
-  <% if (hasExposure) { %>
-  <div class="exif-group">
-    <h3 class="exif-group-title">Exposure</h3>
-    <dl class="exif-dl">
-      <% if (apertureRaw) { %>
-      <div class="exif-row">
-        <dt class="exif-label">Aperture</dt>
-        <dd class="exif-value"><%= formatAperture(apertureRaw) %></dd>
-      </div>
-      <% } %>
-      <% if (shutterRaw) { %>
-      <div class="exif-row">
-        <dt class="exif-label">Shutter Speed</dt>
-        <dd class="exif-value"><%= formatShutterSpeed(shutterRaw) %></dd>
-      </div>
-      <% } %>
-      <% if (iso) { %>
-      <div class="exif-row">
-        <dt class="exif-label">ISO</dt>
-        <dd class="exif-value">ISO <%= iso %></dd>
-      </div>
-      <% } %>
-      <% if (focalLengthRaw) { %>
-      <div class="exif-row">
-        <dt class="exif-label">Focal Length</dt>
-        <dd class="exif-value"><%= formatFocalLength(focalLengthRaw) %><% if (focalLength35) { %> (<%= focalLength35 %>mm equiv.)<% } %></dd>
-      </div>
-      <% } %>
-      <% if (exposureMode !== null) { %>
-      <div class="exif-row">
-        <dt class="exif-label">Exposure Mode</dt>
-        <dd class="exif-value"><%= exposureMode %></dd>
-      </div>
-      <% } %>
-      <% if (meteringMode) { %>
-      <div class="exif-row">
-        <dt class="exif-label">Metering</dt>
-        <dd class="exif-value"><%= meteringMode %></dd>
-      </div>
-      <% } %>
-      <% if (flash !== null) { %>
-      <div class="exif-row">
-        <dt class="exif-label">Flash</dt>
-        <dd class="exif-value"><%= flash %></dd>
-      </div>
-      <% } %>
-      <% if (whiteBalance !== null) { %>
-      <div class="exif-row">
-        <dt class="exif-label">White Balance</dt>
-        <dd class="exif-value"><%= whiteBalance %></dd>
-      </div>
-      <% } %>
-    </dl>
-  </div>
-  <% } %>
-
-  <% if (hasLocation) { %>
-  <div class="exif-group">
-    <h3 class="exif-group-title">Location</h3>
-    <dl class="exif-dl">
-      <% if (lat && lng) { %>
-      <div class="exif-row">
-        <dt class="exif-label">Coordinates</dt>
-        <dd class="exif-value"><%= formatGps(lat, lng) %></dd>
-      </div>
-      <div class="exif-row">
-        <dt class="exif-label">Latitude</dt>
-        <dd class="exif-value"><%= parseFloat(lat).toFixed(6) %>&deg;</dd>
-      </div>
-      <div class="exif-row">
-        <dt class="exif-label">Longitude</dt>
-        <dd class="exif-value"><%= parseFloat(lng).toFixed(6) %>&deg;</dd>
-      </div>
-      <% } %>
-      <% if (altitude) { %>
-      <div class="exif-row">
-        <dt class="exif-label">Altitude</dt>
-        <dd class="exif-value"><%= parseFloat(altitude).toFixed(1) %> m</dd>
-      </div>
-      <% } %>
-    </dl>
-  </div>
-  <% } %>
-
+    <% } %>
+  <% }); %>
 </div>
-<% } %>

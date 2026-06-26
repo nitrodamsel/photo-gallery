@@ -1,23 +1,15 @@
-<nav class="navbar" role="navigation" aria-label="Main navigation">
-  <div class="navbar-inner">
-    <a href="/" class="navbar-brand" aria-label="PhotoGallery Home">
-      📷 PhotoGallery
-    </a>
-    <ul class="navbar-links" role="list">
-      <li>
-        <a
-          href="/gallery"
-          class="<%= typeof title !== 'undefined' && title === 'Gallery' ? 'active' : '' %>"
-          aria-current="<%= typeof title !== 'undefined' && title === 'Gallery' ? 'page' : 'false' %>"
-        >Gallery</a>
-      </li>
-      <li>
-        <a
-          href="/upload"
-          class="<%= typeof title !== 'undefined' && title === 'Upload' ? 'active' : '' %>"
-          aria-current="<%= typeof title !== 'undefined' && title === 'Upload' ? 'page' : 'false' %>"
-        >Upload</a>
-      </li>
-    </ul>
-  </div>
-</nav>
+<header class="site-header">
+  <nav class="navbar" aria-label="Main navigation">
+    <div class="container navbar-inner">
+      <a href="/" class="navbar-brand" aria-label="Photo Gallery Home">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
+        <span>Photo Gallery</span>
+      </a>
+      <ul class="navbar-links">
+        <li><a href="/" class="nav-link">Home</a></li>
+        <li><a href="/gallery" class="nav-link">Gallery</a></li>
+        <li><a href="/upload" class="nav-link nav-link-upload">Upload</a></li>
+      </ul>
+    </div>
+  </nav>
+</header>
