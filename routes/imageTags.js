@@ -3,26 +3,23 @@ const router = express.Router({ mergeParams: true });
 const tagService = require('../services/tagService');
 const { Image } = require('../models');
 
-// POST /api/images/:id/tags - assign tag to image
+// POST /api/images/:id/tags - Assign tag to image
 router.post('/', async (req, res, next) => {
   try {
-    const imageId = parseInt(req.params.id, 10);
+    const imageId = req.params.id;
     const { tagName } = req.body;
 
-    if (!tagName || !tagName.trim()) {
+    if (!tagName) {
       return res.status(400).json({ error: 'tagName is required' });
     }
 
-    // Check image exists
+    // Verify image exists
     const image = await Image.findByPk(imageId);
     if (!image) {
       return res.status(404).json({ error: 'Image not found' });
     }
 
-    await tagService.assignTag(imageId, tagName.trim());
-
-    // Return updated tags
-    const updatedTags = await tagService.getTagsForImage(imageId);
+    const updatedTags = await tagService.assignTag(imageId, tagName);
     res.json({ tags: updatedTags });
   } catch (err) {
     if (err.message && err.message.includes('Invalid')) {
@@ -32,22 +29,19 @@ router.post('/', async (req, res, next) => {
   }
 });
 
-// DELETE /api/images/:id/tags/:tagId - remove tag from image
+// DELETE /api/images/:id/tags/:tagId - Remove tag from image
 router.delete('/:tagId', async (req, res, next) => {
   try {
-    const imageId = parseInt(req.params.id, 10);
-    const tagId = parseInt(req.params.tagId, 10);
+    const imageId = req.params.id;
+    const tagId = req.params.tagId;
 
-    // Check image exists
+    // Verify image exists
     const image = await Image.findByPk(imageId);
     if (!image) {
       return res.status(404).json({ error: 'Image not found' });
     }
 
-    await tagService.removeTag(imageId, tagId);
-
-    // Return updated tags
-    const updatedTags = await tagService.getTagsForImage(imageId);
+    const updatedTags = await tagService.removeTagFromImage(imageId, tagId);
     res.json({ tags: updatedTags });
   } catch (err) {
     next(err);

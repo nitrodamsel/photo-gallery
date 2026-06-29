@@ -1,182 +1,177 @@
-/* =============================================
-   Photo Gallery - Main Styles
-   ============================================= */
+/* ═══════════════════════════════════════════════════════════════
+   Main Styles — Photo Gallery
+   ═══════════════════════════════════════════════════════════════ */
 
-/* General */
+/* ─── Base ───────────────────────────────────────────────────── */
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
   background-color: #f8f9fa;
-  color: #333;
+  color: #212529;
 }
 
-/* =============================================
-   Navbar
-   ============================================= */
-.navbar {
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+/* ─── Navbar ─────────────────────────────────────────────────── */
+.navbar-brand {
+  font-weight: 700;
+  font-size: 1.3rem;
 }
 
-/* =============================================
-   Image Cards
-   ============================================= */
+/* ─── Cards ──────────────────────────────────────────────────── */
+.card {
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  transition: box-shadow 0.2s ease;
+}
+
+.card:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* ─── Image Cards (Gallery) ──────────────────────────────────── */
 .image-card {
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-  cursor: pointer;
+  overflow: hidden;
 }
 
-.image-card:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15) !important;
-}
-
-.image-card img {
+.image-card .card-img-top {
+  height: 150px;
   object-fit: cover;
-  width: 100%;
-  height: 200px;
+  transition: transform 0.2s ease;
 }
 
-/* =============================================
-   Tag Cloud
-   ============================================= */
+.image-card:hover .card-img-top {
+  transform: scale(1.03);
+}
+
+/* ─── Tag Cloud ──────────────────────────────────────────────── */
 .tag-cloud {
   line-height: 1.8;
 }
 
 .tag-cloud-item {
   display: inline-block;
-  padding: 2px 4px;
-  margin: 2px;
-  border-radius: 3px;
-  transition: opacity 0.2s ease, transform 0.2s ease;
+  transition: opacity 0.15s ease, transform 0.15s ease;
 }
 
 .tag-cloud-item:hover {
-  opacity: 0.8;
-  transform: scale(1.05);
-  text-decoration: underline !important;
+  opacity: 0.85;
+  transform: translateY(-1px);
 }
 
-/* =============================================
-   Tag Badges
-   ============================================= */
+/* ─── Tag Badges ─────────────────────────────────────────────── */
 .tag-badge {
+  display: inline-flex;
+  align-items: center;
   cursor: default;
+  user-select: none;
 }
 
 .tag-badge .btn-close {
-  cursor: pointer;
+  padding: 0;
+  opacity: 0.7;
 }
 
-/* =============================================
-   Tag Management Page
-   ============================================= */
-.tag-color-swatch {
-  cursor: pointer;
-  transition: transform 0.2s ease;
+.tag-badge .btn-close:hover {
+  opacity: 1;
 }
 
-.tag-color-swatch:hover {
-  transform: scale(1.2);
-}
-
-/* =============================================
-   Upload / Drop Zone
-   ============================================= */
+/* ─── Drop Zone (Upload) ─────────────────────────────────────── */
 #dropZone {
-  border: 2px dashed #ced4da;
-  border-radius: 12px;
+  border: 2px dashed #6c757d;
+  border-radius: 8px;
   padding: 3rem 2rem;
   text-align: center;
-  transition: all 0.3s ease;
   cursor: pointer;
-  background: #fff;
-  min-height: 200px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  transition: border-color 0.2s ease, background-color 0.2s ease;
+  background-color: #fff;
 }
 
 #dropZone:hover,
-#dropZone.drag-over {
+#dropZone.drag-active {
   border-color: #0d6efd;
-  background-color: #f0f5ff;
-  box-shadow: 0 0 0 4px rgba(13, 110, 253, 0.1);
+  background-color: #f0f4ff;
 }
 
-#dropZone.drag-over {
-  transform: scale(1.01);
+#dropZone .bi {
+  color: #6c757d;
+  transition: color 0.2s ease;
 }
 
-.preview-item {
-  border-radius: 6px;
-  overflow: hidden;
+#dropZone.drag-active .bi {
+  color: #0d6efd;
 }
 
-/* =============================================
-   Progress Bar
-   ============================================= */
+/* ─── Progress Bar ───────────────────────────────────────────── */
 #progressContainer {
   transition: opacity 0.3s ease;
 }
 
-/* =============================================
-   Image Detail Page
-   ============================================= */
-#tagsContainer {
-  min-height: 30px;
+/* ─── Preview Cards ──────────────────────────────────────────── */
+.preview-card {
+  transition: transform 0.2s ease;
 }
 
-.min-height-30 {
-  min-height: 30px;
+.preview-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
-/* =============================================
-   Table Enhancements
-   ============================================= */
-#tagsTable th {
-  font-weight: 600;
-  font-size: 0.85em;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+/* ─── Tags Management Page ───────────────────────────────────── */
+#tagsTable td {
+  vertical-align: middle;
 }
 
-/* =============================================
-   Animations
-   ============================================= */
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
+.color-swatch {
+  display: inline-block;
+  cursor: default;
 }
 
-.alert {
-  animation: fadeIn 0.3s ease;
+.tag-edit-form .input-group {
+  flex-wrap: nowrap;
 }
 
-tr[data-tag-id] {
-  animation: fadeIn 0.3s ease;
+/* ─── Image Detail Page ──────────────────────────────────────── */
+.remove-tag-btn {
+  background: transparent;
+  border: none;
+  padding: 0 0 0 4px;
+  cursor: pointer;
+  line-height: 1;
 }
 
-/* =============================================
-   Responsive Adjustments
-   ============================================= */
+/* ─── Pagination ─────────────────────────────────────────────── */
+.pagination .page-link {
+  color: #0d6efd;
+}
+
+.pagination .page-item.active .page-link {
+  background-color: #0d6efd;
+  border-color: #0d6efd;
+}
+
+/* ─── EXIF Table ─────────────────────────────────────────────── */
+.exif-table td:first-child {
+  white-space: nowrap;
+  font-weight: 500;
+  color: #6c757d;
+  width: 40%;
+}
+
+/* ─── Responsive ─────────────────────────────────────────────── */
 @media (max-width: 768px) {
+  .image-card .card-img-top {
+    height: 120px;
+  }
+
   #dropZone {
     padding: 2rem 1rem;
-    min-height: 150px;
-  }
-
-  .image-card img {
-    height: 160px;
   }
 }
 
-/* =============================================
-   Utility
-   ============================================= */
+/* ─── Utilities ──────────────────────────────────────────────── */
 .cursor-pointer {
   cursor: pointer;
 }
 
-.object-fit-cover {
-  object-fit: cover;
+.text-truncate-2 {
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
 }
