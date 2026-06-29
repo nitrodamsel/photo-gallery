@@ -1,28 +1,32 @@
 const express = require('express');
 const router = express.Router();
-const { getImages } = require('../services/imageService');
 
-/**
- * GET /
- * Home / gallery page
- */
+// GET / - home page
 router.get('/', async (req, res, next) => {
   try {
-    const page = parseInt(req.query.page, 10) || 1;
-    const limit = parseInt(req.query.limit, 10) || 24;
-    const search = req.query.search || null;
-    const tags = req.query.tags ? req.query.tags.split(',').map(t => t.trim()).filter(Boolean) : [];
+    const { Image, Tag, ImageTag, sequelize } = require('../models');
+    const tagService = require('../services/tagService');
 
-    const { rows: images, count, totalPages } = await getImages({ page, limit, search, tags });
+    // Get recent images
+    const recentImages = await Image.findAll({
+      limit: 8,
+      order: [['createdAt', 'DESC']],
+      include: [
+        {
+          model: Tag,
+          through: { attributes: [] }
+        }
+      ]
+    });
+
+    // Get tags with counts for tag cloud
+    const tags = await tagService.getAllTagsWithCounts();
 
     res.render('home', {
-      title: 'Gallery',
-      images,
-      count,
-      page,
-      totalPages,
-      search,
+      title: 'Photo Gallery',
+      recentImages,
       tags,
+      currentPage: 'home'
     });
   } catch (err) {
     next(err);

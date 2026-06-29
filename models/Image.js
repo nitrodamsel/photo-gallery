@@ -1,126 +1,61 @@
-const { DataTypes } = require('sequelize');
+'use strict';
 
-module.exports = (sequelize) => {
-  const Image = sequelize.define(
-    'Image',
-    {
-      id: {
-        type: DataTypes.INTEGER,
-        primaryKey: true,
-        autoIncrement: true,
-      },
-      filename: {
-        type: DataTypes.STRING,
-        allowNull: false,
-      },
-      originalFilename: {
-        type: DataTypes.STRING,
-        allowNull: true,
-      },
-      filePath: {
-        type: DataTypes.STRING,
-        allowNull: false,
-      },
-      publicUrl: {
-        type: DataTypes.STRING,
-        allowNull: true,
-      },
-      mimeType: {
-        type: DataTypes.STRING,
-        allowNull: true,
-      },
-      fileSize: {
-        type: DataTypes.INTEGER,
-        allowNull: true,
-      },
-      title: {
-        type: DataTypes.STRING,
-        allowNull: true,
-      },
-      description: {
-        type: DataTypes.TEXT,
-        allowNull: true,
-      },
-      width: {
-        type: DataTypes.INTEGER,
-        allowNull: true,
-      },
-      height: {
-        type: DataTypes.INTEGER,
-        allowNull: true,
-      },
-      thumbnailSmall: {
-        type: DataTypes.STRING,
-        allowNull: true,
-      },
-      thumbnailLarge: {
-        type: DataTypes.STRING,
-        allowNull: true,
-      },
-      exifData: {
-        type: DataTypes.JSON,
-        allowNull: true,
-      },
-      cameraMake: {
-        type: DataTypes.STRING,
-        allowNull: true,
-      },
-      cameraModel: {
-        type: DataTypes.STRING,
-        allowNull: true,
-      },
-      lens: {
-        type: DataTypes.STRING,
-        allowNull: true,
-      },
-      focalLength: {
-        type: DataTypes.STRING,
-        allowNull: true,
-      },
-      aperture: {
-        type: DataTypes.STRING,
-        allowNull: true,
-      },
-      shutterSpeed: {
-        type: DataTypes.STRING,
-        allowNull: true,
-      },
-      iso: {
-        type: DataTypes.INTEGER,
-        allowNull: true,
-      },
-      dateTaken: {
-        type: DataTypes.DATE,
-        allowNull: true,
-      },
-      gpsLat: {
-        type: DataTypes.FLOAT,
-        allowNull: true,
-      },
-      gpsLng: {
-        type: DataTypes.FLOAT,
-        allowNull: true,
-      },
-      colorSpace: {
-        type: DataTypes.STRING,
-        allowNull: true,
-      },
-      orientation: {
-        type: DataTypes.INTEGER,
-        allowNull: true,
-      },
+module.exports = (sequelize, DataTypes) => {
+  const Image = sequelize.define('Image', {
+    id: {
+      type: DataTypes.INTEGER,
+      primaryKey: true,
+      autoIncrement: true
     },
-    {
-      tableName: 'images',
-      timestamps: true,
+    filename: {
+      type: DataTypes.STRING(255),
+      allowNull: false
+    },
+    originalName: {
+      type: DataTypes.STRING(255),
+      allowNull: true
+    },
+    title: {
+      type: DataTypes.STRING(255),
+      allowNull: true
+    },
+    description: {
+      type: DataTypes.TEXT,
+      allowNull: true
+    },
+    mimeType: {
+      type: DataTypes.STRING(100),
+      allowNull: true
+    },
+    fileSize: {
+      type: DataTypes.INTEGER,
+      allowNull: true
+    },
+    width: {
+      type: DataTypes.INTEGER,
+      allowNull: true
+    },
+    height: {
+      type: DataTypes.INTEGER,
+      allowNull: true
+    },
+    isPublic: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: true
     }
-  );
+  }, {
+    tableName: 'Images',
+    timestamps: true
+  });
 
-  Image.associate = (models) => {
+  Image.associate = function (models) {
     Image.belongsToMany(models.Tag, {
       through: models.ImageTag,
       foreignKey: 'imageId',
-      as: 'tags',
+      otherKey: 'tagId'
+    });
+    Image.hasMany(models.ImageTag, {
+      foreignKey: 'imageId'
     });
   };
 

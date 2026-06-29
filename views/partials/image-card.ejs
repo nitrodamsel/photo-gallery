@@ -1,53 +1,42 @@
-<%
-  var ext = image.original_filename ? image.original_filename.split('.').pop() : 'jpg';
-  var base = image.stored_filename ? image.stored_filename.replace(/\.[^.]+$/, '') : (image.original_filename ? image.original_filename.replace(/\.[^.]+$/, '') : ('image_' + image.id));
-  var thumb400 = '/uploads/thumbnails/' + base + '_400.' + ext;
-  var altText = (image.original_filename || 'Image') + (image.camera_make ? ' shot with ' + image.camera_make + (image.camera_model ? ' ' + image.camera_model : '') : '');
-  var displayDate = '';
-  if (image.date_taken) {
-    displayDate = new Date(image.date_taken).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
-  } else if (image.created_at) {
-    displayDate = new Date(image.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
-  }
-  var tags = image.tags || [];
-  var maxTagsShown = 3;
-  var visibleTags = tags.slice(0, maxTagsShown);
-  var overflowCount = tags.length - maxTagsShown;
-%>
-<article class="image-card">
-  <a href="/gallery/<%= image.id %>" class="card-link" aria-label="View details for <%= image.original_filename || ('Image #' + image.id) %>">
-    <div class="card-image-wrapper">
-      <img 
-        src="<%= thumb400 %>" 
-        alt="<%= altText %>"
-        class="card-image"
-        loading="lazy"
-        onerror="this.src='/uploads/<%= image.stored_filename || image.original_filename %>'"
-      />
-      <div class="card-overlay" aria-hidden="true">
-        <span class="card-filename"><%= image.original_filename || ('Image #' + image.id) %></span>
-      </div>
+<div class="card h-100 shadow-sm image-card">
+  <a href="/gallery/images/<%= image.id %>" class="text-decoration-none">
+    <div class="overflow-hidden" style="height: 200px;">
+      <img src="/uploads/<%= image.filename %>" 
+           alt="<%= image.title || image.originalName || 'Photo' %>"
+           class="card-img-top"
+           style="width: 100%; height: 100%; object-fit: cover;"
+           loading="lazy"
+           onerror="this.src='https://via.placeholder.com/300x200?text=Image+Not+Found'">
     </div>
   </a>
-
-  <div class="card-body">
-    <% if (displayDate) { %>
-      <time class="card-date" datetime="<%= image.date_taken || image.created_at %>"><%= displayDate %></time>
+  <div class="card-body p-2">
+    <% if (image.title) { %>
+    <h6 class="card-title mb-1 text-truncate" title="<%= image.title %>">
+      <a href="/gallery/images/<%= image.id %>" class="text-decoration-none text-dark">
+        <%= image.title %>
+      </a>
+    </h6>
     <% } %>
-
-    <% if (tags.length > 0) { %>
-      <div class="card-tags" aria-label="Tags">
-        <% visibleTags.forEach(function(tag) { %>
-          <a 
-            href="/gallery?tag=<%= tag.slug %>" 
-            class="tag-badge<%= (typeof activeTag !== 'undefined' && activeTag === tag.slug) ? ' tag-active' : '' %>"
-            aria-label="Filter by tag <%= tag.name %>"
-          ><%= tag.name %></a>
-        <% }) %>
-        <% if (overflowCount > 0) { %>
-          <span class="tag-overflow" aria-label="<%= overflowCount %> more tags">+<%= overflowCount %></span>
-        <% } %>
-      </div>
+    
+    <!-- Tags -->
+    <% if (image.Tags && image.Tags.length > 0) { %>
+    <div class="mt-1">
+      <% image.Tags.slice(0, 3).forEach(function(tag) { %>
+      <a href="/gallery?tag=<%= tag.slug %>" 
+         class="badge text-decoration-none me-1"
+         style="background-color: <%= tag.color || '#6c757d' %>; font-size: 0.7em;">
+        <%= tag.name %>
+      </a>
+      <% }) %>
+      <% if (image.Tags.length > 3) { %>
+      <span class="badge bg-secondary" style="font-size: 0.7em;">+<%= image.Tags.length - 3 %></span>
+      <% } %>
+    </div>
     <% } %>
   </div>
-</article>
+  <div class="card-footer bg-transparent border-top-0 p-2">
+    <small class="text-muted">
+      <i class="bi bi-calendar3 me-1"></i><%= new Date(image.createdAt).toLocaleDateString() %>
+    </small>
+  </div>
+</div>

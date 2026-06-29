@@ -1,47 +1,74 @@
-<%- include('layouts/base', { title: 'Gallery', body: `
-<div style="padding: 2rem 0 4rem;">
-  <div class="container">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:2rem;">
-      <h1 style="margin:0;font-size:1.75rem;font-weight:700;">Photo Gallery</h1>
-      <a href="/api/upload" style="
-        background: #6366f1;
-        color: #fff;
-        padding: 0.5rem 1.25rem;
-        border-radius: 8px;
-        text-decoration: none;
-        font-weight: 600;
-      ">+ Upload</a>
+<div class="container-fluid mt-4">
+  <div class="row">
+    <!-- Main Content -->
+    <div class="col-lg-9">
+      <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+          <h1 class="mb-1"><i class="bi bi-camera2 me-2"></i>Photo Gallery</h1>
+          <p class="text-muted mb-0">Your personal photo collection</p>
+        </div>
+        <a href="/upload" class="btn btn-primary">
+          <i class="bi bi-upload me-1"></i>Upload Photos
+        </a>
+      </div>
+
+      <% if (typeof recentImages !== 'undefined' && recentImages.length > 0) { %>
+      <h5 class="mb-3 text-muted">Recent Uploads</h5>
+      <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-xl-4 g-3 mb-4">
+        <% recentImages.forEach(function(image) { %>
+          <div class="col">
+            <%- include('partials/image-card', { image: image }) %>
+          </div>
+        <% }) %>
+      </div>
+      <div class="text-center">
+        <a href="/gallery" class="btn btn-outline-primary">
+          <i class="bi bi-grid3x3-gap me-1"></i>View All Photos
+        </a>
+      </div>
+      <% } else { %>
+      <div class="text-center py-5">
+        <i class="bi bi-images fs-1 text-muted d-block mb-3"></i>
+        <h3 class="text-muted">No photos yet</h3>
+        <p class="text-muted">Start by uploading your first photo!</p>
+        <a href="/upload" class="btn btn-primary btn-lg">
+          <i class="bi bi-upload me-2"></i>Upload Your First Photo
+        </a>
+      </div>
+      <% } %>
     </div>
 
-    <div id="gallery-grid" style="
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-      gap: 1rem;
-    ">
-      <div style="
-        grid-column: 1 / -1;
-        text-align: center;
-        padding: 4rem 2rem;
-        color: #94a3b8;
-        border: 2px dashed #e2e8f0;
-        border-radius: 12px;
-      ">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="48" height="48" style="margin-bottom:1rem;opacity:0.4;">
-          <path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/>
-        </svg>
-        <p style="margin:0;font-size:1.1rem;font-weight:500;">No images yet</p>
-        <p style="margin:0.25rem 0 1.5rem;font-size:0.9rem;">Upload your first image to get started.</p>
-        <a href="/api/upload" style="
-          background: #6366f1;
-          color: #fff;
-          padding: 0.5rem 1.25rem;
-          border-radius: 8px;
-          text-decoration: none;
-          font-weight: 600;
-          font-size: 0.9rem;
-        ">Upload Image</a>
+    <!-- Sidebar -->
+    <div class="col-lg-3">
+      <div class="sticky-top" style="top: 80px;">
+        <!-- Quick Stats -->
+        <div class="card mb-3 shadow-sm">
+          <div class="card-header">
+            <h6 class="mb-0"><i class="bi bi-bar-chart me-1"></i>Quick Stats</h6>
+          </div>
+          <div class="card-body">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <span class="text-muted small">Total Photos</span>
+              <span class="badge bg-primary"><%= typeof recentImages !== 'undefined' ? recentImages.length : 0 %>+</span>
+            </div>
+            <div class="d-flex justify-content-between align-items-center">
+              <span class="text-muted small">Total Tags</span>
+              <span class="badge bg-secondary"><%= typeof tags !== 'undefined' ? tags.length : 0 %></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tag Cloud -->
+        <div class="card shadow-sm">
+          <div class="card-header d-flex justify-content-between align-items-center">
+            <h6 class="mb-0"><i class="bi bi-tags me-1"></i>Tag Cloud</h6>
+            <a href="/tags" class="btn btn-outline-secondary btn-sm">Manage</a>
+          </div>
+          <div class="card-body">
+            <%- include('partials/tag-cloud', { tags: tags }) %>
+          </div>
+        </div>
       </div>
     </div>
   </div>
 </div>
-` }) %>

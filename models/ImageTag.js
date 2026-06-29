@@ -1,36 +1,37 @@
-const { DataTypes } = require('sequelize');
+'use strict';
 
-module.exports = (sequelize) => {
-  const ImageTag = sequelize.define(
-    'ImageTag',
-    {
-      imageId: {
-        type: DataTypes.INTEGER,
-        allowNull: false,
-        references: {
-          model: 'images',
-          key: 'id',
-        },
-        onDelete: 'CASCADE',
-        onUpdate: 'CASCADE',
-      },
-      tagId: {
-        type: DataTypes.INTEGER,
-        allowNull: false,
-        references: {
-          model: 'tags',
-          key: 'id',
-        },
-        onDelete: 'CASCADE',
-        onUpdate: 'CASCADE',
-      },
+module.exports = (sequelize, DataTypes) => {
+  const ImageTag = sequelize.define('ImageTag', {
+    id: {
+      type: DataTypes.INTEGER,
+      primaryKey: true,
+      autoIncrement: true
     },
-    {
-      tableName: 'image_tags',
-      timestamps: false,
-      underscored: true,
+    imageId: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      references: {
+        model: 'Images',
+        key: 'id'
+      }
+    },
+    tagId: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      references: {
+        model: 'Tags',
+        key: 'id'
+      }
     }
-  );
+  }, {
+    tableName: 'ImageTags',
+    timestamps: true
+  });
+
+  ImageTag.associate = function (models) {
+    ImageTag.belongsTo(models.Image, { foreignKey: 'imageId' });
+    ImageTag.belongsTo(models.Tag, { foreignKey: 'tagId' });
+  };
 
   return ImageTag;
 };

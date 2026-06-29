@@ -1,25 +1,34 @@
-<header class="navbar">
-  <nav class="navbar-inner" aria-label="Main navigation">
-    <a href="/" class="navbar-brand" aria-label="PhotoGallery home">
-      📷 PhotoGallery
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark sticky-top">
+  <div class="container-fluid">
+    <a class="navbar-brand fw-bold" href="/">
+      <i class="bi bi-camera2 me-1"></i>Photo Gallery
     </a>
-    <ul class="navbar-nav" role="list">
-      <li>
-        <a 
-          href="/gallery" 
-          class="nav-link<% if (typeof currentPath !== 'undefined' && currentPath && currentPath.startsWith('/gallery')) { %> active<% } %>"
-        >
-          Gallery
-        </a>
-      </li>
-      <li>
-        <a 
-          href="/upload" 
-          class="nav-link<% if (typeof currentPath !== 'undefined' && currentPath && currentPath.startsWith('/upload')) { %> active<% } %>"
-        >
-          Upload
-        </a>
-      </li>
-    </ul>
-  </nav>
-</header>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+    <div class="collapse navbar-collapse" id="navbarNav">
+      <ul class="navbar-nav me-auto">
+        <li class="nav-item">
+          <a class="nav-link <%= typeof currentPage !== 'undefined' && currentPage === 'home' ? 'active' : '' %>" href="/">
+            <i class="bi bi-house me-1"></i>Home
+          </a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link <%= typeof currentPage !== 'undefined' && currentPage === 'gallery' ? 'active' : '' %>" href="/gallery">
+            <i class="bi bi-images me-1"></i>Gallery
+          </a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link <%= typeof currentPage !== 'undefined' && currentPage === 'upload' ? 'active' : '' %>" href="/upload">
+            <i class="bi bi-upload me-1"></i>Upload
+          </a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link <%= typeof currentPage !== 'undefined' && currentPage === 'tags' ? 'active' : '' %>" href="/tags">
+            <i class="bi bi-tags me-1"></i>Tags
+          </a>
+        </li>
+      </ul>
+    </div>
+  </div>
+</nav>

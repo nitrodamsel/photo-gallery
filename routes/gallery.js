@@ -1,57 +1,143 @@
 const express = require('express');
 const router = express.Router();
-const imageService = require('../services/imageService');
+const { Image, Tag, ImageTag, sequelize } = require('../models');
+const tagService = require('../services/tagService');
+const { Op } = require('sequelize');
 
-// GET /gallery - paginated grid of image cards
+// GET /gallery - main gallery page
 router.get('/', async (req, res, next) => {
   try {
-    const page = Math.max(1, parseInt(req.query.page) || 1);
-    const limit = parseInt(req.query.limit) || 12;
-    const tag = req.query.tag || null;
+    const page = parseInt(req.query.page, 10) || 1;
+    const limit = parseInt(req.query.limit, 10) || 12;
+    const offset = (page - 1) * limit;
+    const searchQuery = req.query.search || '';
+    const tagSlug = req.query.tag || '';
 
-    const result = await imageService.getImages({ page, limit, tag });
+    let whereClause = {};
+    let includeClause = [
+      {
+        model: Tag,
+        through: { attributes: [] },
+        required: false
+      }
+    ];
+
+    if (searchQuery) {
+      whereClause[Op.or] = [
+        { title: { [Op.like]: `%${searchQuery}%` } },
+        { originalName: { [Op.like]: `%${searchQuery}%` } },
+        { description: { [Op.like]: `%${searchQuery}%` } }
+      ];
+    }
+
+    let activeTag = null;
+    if (tagSlug) {
+      activeTag = await Tag.findOne({ where: { slug: tagSlug } });
+      if (activeTag) {
+        includeClause[0].required = true;
+        includeClause[0].where = { id: activeTag.id };
+      }
+    }
+
+    const { count, rows: images } = await Image.findAndCountAll({
+      where: whereClause,
+      include: includeClause,
+      order: [['createdAt', 'DESC']],
+      limit,
+      offset,
+      distinct: true
+    });
+
+    const totalPages = Math.ceil(count / limit);
+    const pagination = {
+      currentPage: page,
+      totalPages,
+      totalCount: count,
+      hasNext: page < totalPages,
+      hasPrev: page > 1,
+      nextPage: page + 1,
+      prevPage: page - 1
+    };
+
+    // Get all tags for tag cloud in sidebar
+    const allTags = await tagService.getAllTagsWithCounts();
 
     res.render('gallery', {
-      title: 'Gallery',
-      images: result.images,
-      pagination: {
-        page,
-        limit,
-        total: result.total,
-        totalPages: Math.ceil(result.total / limit),
-      },
-      activeTag: tag,
-      query: req.query,
+      title: activeTag ? `Tag: ${activeTag.name}` : 'Gallery',
+      images,
+      pagination,
+      totalCount: count,
+      searchQuery,
+      activeTag,
+      allTags,
+      currentPage: 'gallery'
     });
   } catch (err) {
     next(err);
   }
 });
 
-// GET /gallery/:id - full detail page
-router.get('/:id', async (req, res, next) => {
+// GET /gallery/images/:id - image detail page
+router.get('/images/:id', async (req, res, next) => {
   try {
-    const id = parseInt(req.params.id);
-    if (isNaN(id)) return next();
+    const imageId = parseInt(req.params.id, 10);
+    const image = await Image.findByPk(imageId, {
+      include: [
+        {
+          model: Tag,
+          through: { attributes: [] }
+        }
+      ]
+    });
 
-    const image = await imageService.getImageById(id);
     if (!image) {
-      return res.status(404).render('404', {
-        title: 'Image Not Found',
-        message: 'The image you are looking for does not exist.',
-      });
+      return res.status(404).render('404', { title: 'Image Not Found', currentPage: '' });
     }
 
-    // Fetch prev/next based on upload order
-    const prev = await imageService.getPrevImage(id);
-    const next_ = await imageService.getNextImage(id);
+    // Get EXIF data if available
+    let exifData = null;
+    try {
+      const exifService = require('../services/exifService');
+      const imagePath = require('path').join(__dirname, '../uploads', image.filename);
+      exifData = await exifService.getExifData(imagePath);
+    } catch (e) {
+      // EXIF extraction is optional
+    }
 
     res.render('image-detail', {
-      title: image.original_filename || `Image #${id}`,
+      title: image.title || image.originalName || 'Image Detail',
       image,
-      prevImage: prev,
-      nextImage: next_,
+      exifData,
+      currentPage: 'gallery'
     });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// DELETE /gallery/images/:id - delete an image
+router.delete('/images/:id', async (req, res, next) => {
+  try {
+    const imageId = parseInt(req.params.id, 10);
+    const image = await Image.findByPk(imageId);
+
+    if (!image) {
+      return res.status(404).json({ error: 'Image not found' });
+    }
+
+    // Delete associated image tags first
+    await ImageTag.destroy({ where: { imageId } });
+
+    // Delete file from disk
+    const fs = require('fs');
+    const path = require('path');
+    const filePath = path.join(__dirname, '../uploads', image.filename);
+    if (fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
+    }
+
+    await image.destroy();
+    res.json({ success: true });
   } catch (err) {
     next(err);
   }

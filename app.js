@@ -1,53 +1,50 @@
 const express = require('express');
 const path = require('path');
+const morgan = require('morgan');
 const expressLayouts = require('express-ejs-layouts');
-
-const indexRouter = require('./routes/index');
-const uploadRouter = require('./routes/upload');
-const galleryRouter = require('./routes/gallery');
-const { errorHandler, notFoundHandler } = require('./middleware/errorHandler');
 
 const app = express();
 
-// View engine setup
+// View engine
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
-app.set('layout', 'layouts/base');
 app.use(expressLayouts);
+app.set('layout', 'layouts/base');
+app.set('layout extractScripts', true);
+app.set('layout extractStyles', true);
 
-// Body parsing
+// Middleware
+app.use(morgan('dev'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-
-// Static files
 app.use(express.static(path.join(__dirname, 'public')));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// Template helpers available to all views
-app.locals.formatFileSize = function(bytes) {
-  if (!bytes) return 'Unknown';
-  const b = parseInt(bytes);
-  if (b >= 1024 * 1024) return (b / (1024 * 1024)).toFixed(2) + ' MB';
-  if (b >= 1024) return (b / 1024).toFixed(1) + ' KB';
-  return b + ' B';
-};
-
-app.locals.formatDate = function(date) {
-  if (!date) return '';
-  return new Date(date).toLocaleDateString('en-US', {
-    year: 'numeric', month: 'long', day: 'numeric',
-  });
-};
-
 // Routes
+const indexRouter = require('./routes/index');
+const galleryRouter = require('./routes/gallery');
+const uploadRouter = require('./routes/upload');
+const tagsRouter = require('./routes/tags');
+const imageTagsRouter = require('./routes/imageTags');
+
 app.use('/', indexRouter);
-app.use('/upload', uploadRouter);
 app.use('/gallery', galleryRouter);
+app.use('/upload', uploadRouter);
+app.use('/tags', tagsRouter);
 
-// 404 handler (must be after all routes)
-app.use(notFoundHandler);
+// API routes
+app.use('/api/tags', tagsRouter);
+app.use('/api/images/:id/tags', imageTagsRouter);
 
-// Error handler (must be last, 4 args)
+// Error handling
+const errorHandler = require('./middleware/errorHandler');
+
+// 404
+app.use((req, res, next) => {
+  res.status(404).render('404', { title: 'Page Not Found', currentPage: '' });
+});
+
+// Error handler
 app.use(errorHandler);
 
 module.exports = app;
