@@ -1,34 +1,27 @@
-'use strict';
+const { DataTypes } = require('sequelize');
 
-module.exports = (sequelize, DataTypes) => {
+module.exports = (sequelize) => {
   const Image = sequelize.define('Image', {
     id: {
       type: DataTypes.INTEGER,
       primaryKey: true,
       autoIncrement: true
     },
-    filename: {
+    originalName: {
       type: DataTypes.STRING(255),
       allowNull: false
     },
-    originalName: {
+    storedName: {
       type: DataTypes.STRING(255),
-      allowNull: true
-    },
-    title: {
-      type: DataTypes.STRING(255),
-      allowNull: true
-    },
-    description: {
-      type: DataTypes.TEXT,
-      allowNull: true
+      allowNull: false,
+      unique: true
     },
     mimeType: {
       type: DataTypes.STRING(100),
       allowNull: true
     },
     fileSize: {
-      type: DataTypes.INTEGER,
+      type: DataTypes.BIGINT,
       allowNull: true
     },
     width: {
@@ -39,22 +32,45 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.INTEGER,
       allowNull: true
     },
-    isPublic: {
-      type: DataTypes.BOOLEAN,
-      defaultValue: true
+    exifData: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+      get() {
+        const raw = this.getDataValue('exifData');
+        if (!raw) return null;
+        try { return JSON.parse(raw); } catch { return raw; }
+      },
+      set(val) {
+        this.setDataValue('exifData', val ? JSON.stringify(val) : null);
+      }
+    },
+    latitude: {
+      type: DataTypes.FLOAT,
+      allowNull: true
+    },
+    longitude: {
+      type: DataTypes.FLOAT,
+      allowNull: true
+    },
+    description: {
+      type: DataTypes.TEXT,
+      allowNull: true
     }
   }, {
-    tableName: 'Images',
+    tableName: 'images',
     timestamps: true
   });
 
-  Image.associate = function (models) {
+  Image.associate = (models) => {
     Image.belongsToMany(models.Tag, {
       through: models.ImageTag,
       foreignKey: 'imageId',
       otherKey: 'tagId'
     });
     Image.hasMany(models.ImageTag, {
+      foreignKey: 'imageId'
+    });
+    Image.hasMany(models.ThumbnailCache, {
       foreignKey: 'imageId'
     });
   };

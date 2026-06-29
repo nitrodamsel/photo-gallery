@@ -1,38 +1,66 @@
-<% if (typeof tags !== 'undefined' && tags && tags.length > 0) { %>
-  <%
-    const counts = tags.map(function(t) { return t.imageCount || 0; });
-    const minCount = Math.min.apply(null, counts);
-    const maxCount = Math.max.apply(null, counts);
-    const minSize = 0.8;
-    const maxSize = 2.0;
+<%
+/**
+ * Tag Cloud Partial
+ * Usage: <%- include('partials/tag-cloud', { tags: [...], title: 'Browse by Tag' }) %>
+ *
+ * Each tag should have: id, name, slug, color, imageCount (or dataValue imageCount)
+ */
+const cloudTitle = typeof title !== 'undefined' ? title : 'Browse by Tag';
+const cloudTags = typeof tags !== 'undefined' ? tags : [];
 
-    function getTagSize(count) {
-      if (maxCount === minCount) return (minSize + maxSize) / 2;
-      var logMin = Math.log(minCount + 1);
-      var logMax = Math.log(maxCount + 1);
-      var logCount = Math.log(count + 1);
-      if (logMax === logMin) return (minSize + maxSize) / 2;
-      return minSize + (logCount - logMin) / (logMax - logMin) * (maxSize - minSize);
-    }
-  %>
+// Compute min/max counts for logarithmic scaling
+const counts = cloudTags.map(t => {
+  const c = t.getDataValue ? (t.getDataValue('imageCount') || 0) : (t.imageCount || 0);
+  return parseInt(c, 10) || 0;
+});
+const minCount = counts.length > 0 ? Math.min(...counts) : 0;
+const maxCount = counts.length > 0 ? Math.max(...counts) : 1;
+
+const minFont = 0.8;  // rem
+const maxFont = 2.0;  // rem
+
+function getTagFontSize(count) {
+  if (maxCount === minCount) return ((minFont + maxFont) / 2).toFixed(2) + 'rem';
+  // Logarithmic scale
+  const logMin = Math.log(minCount + 1);
+  const logMax = Math.log(maxCount + 1);
+  const logCount = Math.log(count + 1);
+  const scale = logMax > logMin ? (logCount - logMin) / (logMax - logMin) : 0.5;
+  const size = minFont + scale * (maxFont - minFont);
+  return size.toFixed(2) + 'rem';
+}
+%>
+
+<% if (cloudTags && cloudTags.length > 0) { %>
+<div class="tag-cloud-widget">
+  <% if (cloudTitle) { %>
+  <h6 class="tag-cloud-title fw-semibold text-uppercase text-muted mb-3">
+    <i class="bi bi-tags me-1"></i><%= cloudTitle %>
+  </h6>
+  <% } %>
   <div class="tag-cloud d-flex flex-wrap gap-1 align-items-center">
-    <% tags.forEach(function(tag) { %>
+    <% cloudTags.forEach(function(tag) { %>
       <%
-        var size = getTagSize(tag.imageCount || 0);
-        var sizeRem = size.toFixed(2);
-        var bgColor = tag.color || '#6c757d';
+        const count = tag.getDataValue
+          ? (parseInt(tag.getDataValue('imageCount'), 10) || 0)
+          : (parseInt(tag.imageCount, 10) || 0);
+        const fontSize = getTagFontSize(count);
+        const bgColor = tag.color || '#6c757d';
       %>
-      <a href="/gallery?tag=<%= tag.slug %>" 
-         class="tag-cloud-item text-decoration-none"
-         style="font-size: <%= sizeRem %>rem; line-height: 1.2;"
-         title="<%= tag.name %> (<%= tag.imageCount || 0 %> image<%= (tag.imageCount || 0) !== 1 ? 's' : '' %>)">
-        <span class="badge" style="background-color: <%= bgColor %>; font-size: inherit;">
-          <%= tag.name %>
-          <small class="opacity-75">(<%= tag.imageCount || 0 %>)</small>
-        </span>
+      <a
+        href="/gallery?tag=<%= encodeURIComponent(tag.name) %>"
+        class="tag-cloud-item text-decoration-none"
+        style="font-size: <%= fontSize %>; color: <%= bgColor %>;"
+        title="<%= tag.name %> (<%= count %> image<%= count !== 1 ? 's' : '' %>)"
+      >
+        <%= tag.name %>
+        <sup class="tag-count" style="font-size:0.6rem;opacity:0.7;"><%= count %></sup>
       </a>
     <% }); %>
   </div>
+</div>
 <% } else { %>
-  <p class="text-muted small mb-0">No tags yet. <a href="/tags">Create some tags</a> to get started!</p>
+<div class="tag-cloud-widget text-muted fst-italic small">
+  <i class="bi bi-tags me-1"></i>No tags yet.
+</div>
 <% } %>

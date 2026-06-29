@@ -1,177 +1,125 @@
-/* ═══════════════════════════════════════════════════════════════
-   Main Styles — Photo Gallery
-   ═══════════════════════════════════════════════════════════════ */
-
-/* ─── Base ───────────────────────────────────────────────────── */
+/* ─── Base ──────────────────────────────────────────────────────────────── */
 body {
   background-color: #f8f9fa;
-  color: #212529;
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
 }
 
-/* ─── Navbar ─────────────────────────────────────────────────── */
-.navbar-brand {
-  font-weight: 700;
-  font-size: 1.3rem;
+/* ─── Drop Zone ──────────────────────────────────────────────────────────── */
+#dropZone {
+  border: 2px dashed #adb5bd;
+  border-radius: 0.5rem;
+  padding: 2.5rem;
+  text-align: center;
+  cursor: pointer;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+  background-color: #fff;
 }
 
-/* ─── Cards ──────────────────────────────────────────────────── */
-.card {
-  border: 1px solid rgba(0, 0, 0, 0.1);
-  transition: box-shadow 0.2s ease;
+#dropZone:hover,
+#dropZone.drag-over {
+  background-color: #e9f4ff;
+  border-color: #0d6efd;
 }
 
-.card:hover {
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+#dropZone.drag-over {
+  box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
 }
 
-/* ─── Image Cards (Gallery) ──────────────────────────────────── */
-.image-card {
-  overflow: hidden;
-}
-
-.image-card .card-img-top {
-  height: 150px;
-  object-fit: cover;
-  transition: transform 0.2s ease;
-}
-
-.image-card:hover .card-img-top {
-  transform: scale(1.03);
-}
-
-/* ─── Tag Cloud ──────────────────────────────────────────────── */
+/* ─── Tag Cloud ───────────────────────────────────────────────────────────── */
 .tag-cloud {
   line-height: 1.8;
 }
 
 .tag-cloud-item {
   display: inline-block;
+  text-decoration: none;
   transition: opacity 0.15s ease, transform 0.15s ease;
+  font-weight: 500;
 }
 
 .tag-cloud-item:hover {
-  opacity: 0.85;
-  transform: translateY(-1px);
+  opacity: 0.75;
+  transform: scale(1.05);
+  text-decoration: underline;
 }
 
-/* ─── Tag Badges ─────────────────────────────────────────────── */
+.tag-cloud-title {
+  font-size: 0.75rem;
+  letter-spacing: 0.05em;
+}
+
+/* ─── Tag Badges ─────────────────────────────────────────────────────────── */
 .tag-badge {
-  display: inline-flex;
-  align-items: center;
-  cursor: default;
-  user-select: none;
+  transition: opacity 0.15s ease;
 }
 
-.tag-badge .btn-close {
-  padding: 0;
-  opacity: 0.7;
+.tag-badge:hover {
+  opacity: 0.85;
 }
 
-.tag-badge .btn-close:hover {
-  opacity: 1;
+/* ─── Tag Management Table ───────────────────────────────────────────────── */
+#tagsTable tbody tr {
+  transition: background-color 0.15s ease;
 }
 
-/* ─── Drop Zone (Upload) ─────────────────────────────────────── */
-#dropZone {
-  border: 2px dashed #6c757d;
-  border-radius: 8px;
-  padding: 3rem 2rem;
-  text-align: center;
-  cursor: pointer;
-  transition: border-color 0.2s ease, background-color 0.2s ease;
-  background-color: #fff;
-}
-
-#dropZone:hover,
-#dropZone.drag-active {
-  border-color: #0d6efd;
-  background-color: #f0f4ff;
-}
-
-#dropZone .bi {
-  color: #6c757d;
-  transition: color 0.2s ease;
-}
-
-#dropZone.drag-active .bi {
-  color: #0d6efd;
-}
-
-/* ─── Progress Bar ───────────────────────────────────────────── */
-#progressContainer {
-  transition: opacity 0.3s ease;
-}
-
-/* ─── Preview Cards ──────────────────────────────────────────── */
-.preview-card {
-  transition: transform 0.2s ease;
-}
-
-.preview-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-}
-
-/* ─── Tags Management Page ───────────────────────────────────── */
-#tagsTable td {
-  vertical-align: middle;
-}
-
-.color-swatch {
-  display: inline-block;
+.tag-color-swatch {
   cursor: default;
 }
 
-.tag-edit-form .input-group {
-  flex-wrap: nowrap;
+/* ─── Image Grid Cards ───────────────────────────────────────────────────── */
+.image-card {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
-/* ─── Image Detail Page ──────────────────────────────────────── */
-.remove-tag-btn {
-  background: transparent;
-  border: none;
-  padding: 0 0 0 4px;
-  cursor: pointer;
-  line-height: 1;
+.image-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15) !important;
 }
 
-/* ─── Pagination ─────────────────────────────────────────────── */
-.pagination .page-link {
-  color: #0d6efd;
+.image-card img {
+  object-fit: cover;
 }
 
-.pagination .page-item.active .page-link {
-  background-color: #0d6efd;
-  border-color: #0d6efd;
-}
-
-/* ─── EXIF Table ─────────────────────────────────────────────── */
-.exif-table td:first-child {
-  white-space: nowrap;
-  font-weight: 500;
-  color: #6c757d;
-  width: 40%;
-}
-
-/* ─── Responsive ─────────────────────────────────────────────── */
-@media (max-width: 768px) {
-  .image-card .card-img-top {
-    height: 120px;
-  }
-
-  #dropZone {
-    padding: 2rem 1rem;
-  }
-}
-
-/* ─── Utilities ──────────────────────────────────────────────── */
-.cursor-pointer {
-  cursor: pointer;
-}
-
-.text-truncate-2 {
+/* ─── Progress Bar ───────────────────────────────────────────────────────── */
+.progress {
+  height: 1.25rem;
+  border-radius: 0.5rem;
   overflow: hidden;
+}
+
+.progress-bar {
+  transition: width 0.2s ease;
+  font-size: 0.8rem;
+  line-height: 1.25rem;
+}
+
+/* ─── Sticky Sidebar ─────────────────────────────────────────────────────── */
+.sticky-top {
+  z-index: 100;
+}
+
+/* ─── Navbar Tweaks ──────────────────────────────────────────────────────── */
+.navbar-brand {
+  font-weight: 700;
+  font-size: 1.25rem;
+}
+
+/* ─── Utility ────────────────────────────────────────────────────────────── */
+.text-truncate-2 {
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+code {
+  font-size: 0.85em;
+  color: #d63384;
+}
+
+/* ─── Responsive image detail ────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .sticky-top {
+    position: static !important;
+  }
 }

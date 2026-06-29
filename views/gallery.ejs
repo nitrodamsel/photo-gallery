@@ -1,90 +1,122 @@
+<%- include('layouts/base', { title: title || 'Gallery', body: `
 <div class="container-fluid mt-4">
-  <div class="row">
+  <div class="row g-4">
     <!-- Sidebar -->
-    <div class="col-lg-2 col-md-3 mb-3">
-      <!-- Tag Cloud -->
-      <div class="card mb-3">
-        <div class="card-header py-2">
-          <h6 class="mb-0"><i class="bi bi-tags me-1"></i>Browse by Tag</h6>
+    <div class="col-lg-3 col-xl-2">
+      <div class="sticky-top pt-2" style="top:70px;">
+        <!-- Search -->
+        <div class="card shadow-sm mb-3">
+          <div class="card-body">
+            <form action="/gallery" method="GET">
+              <div class="input-group input-group-sm">
+                <input
+                  type="text"
+                  name="search"
+                  class="form-control"
+                  placeholder="Search images..."
+                  value="${typeof search !== 'undefined' ? escapeHtml(search) : ''}"
+                />
+                <button class="btn btn-primary" type="submit">
+                  <i class="bi bi-search"></i>
+                </button>
+              </div>
+              ${typeof tag !== 'undefined' && tag ? \`<input type="hidden" name="tag" value="\${escapeHtml(tag)}" />\` : ''}
+            </form>
+          </div>
         </div>
-        <div class="card-body py-2">
-          <%- include('partials/tag-cloud', { tags: typeof allTags !== 'undefined' ? allTags : [] }) %>
-          <% if (typeof currentTag !== 'undefined' && currentTag) { %>
-            <div class="mt-2">
-              <a href="/gallery" class="btn btn-sm btn-outline-secondary w-100">
-                <i class="bi bi-x-circle me-1"></i>Clear Filter
-              </a>
-            </div>
-          <% } %>
-        </div>
-      </div>
 
-      <!-- Manage Tags Link -->
-      <div class="d-grid">
-        <a href="/tags" class="btn btn-sm btn-outline-primary">
-          <i class="bi bi-gear me-1"></i>Manage Tags
+        <!-- Tag Cloud -->
+        <div class="card shadow-sm mb-3">
+          <div class="card-body">
+            <%- include('partials/tag-cloud', { tags: allTags || [], title: 'Browse by Tag' }) %>
+          </div>
+        </div>
+
+        <!-- Active Filters -->
+        ${typeof tag !== 'undefined' && tag ? \`
+        <div class="card shadow-sm mb-3 border-info">
+          <div class="card-body py-2">
+            <div class="d-flex justify-content-between align-items-center">
+              <small class="text-muted">Filtered by tag:</small>
+              <a href="/gallery" class="btn btn-sm btn-outline-secondary"><i class="bi bi-x"></i></a>
+            </div>
+            <span class="badge bg-info text-dark mt-1">\${escapeHtml(tag)}</span>
+          </div>
+        </div>\` : ''}
+
+        <!-- Upload Button -->
+        <a href="/upload" class="btn btn-primary w-100 mb-2">
+          <i class="bi bi-cloud-upload me-2"></i>Upload Images
+        </a>
+        <a href="/tags" class="btn btn-outline-secondary w-100">
+          <i class="bi bi-tags me-2"></i>Manage Tags
         </a>
       </div>
     </div>
 
     <!-- Main Content -->
-    <div class="col-lg-10 col-md-9">
+    <div class="col-lg-9 col-xl-10">
       <div class="d-flex justify-content-between align-items-center mb-3">
-        <div>
-          <h1 class="h3 mb-0">
-            <% if (typeof currentTag !== 'undefined' && currentTag) { %>
-              <i class="bi bi-tag-fill me-2"></i>Tag: 
-              <span class="badge" style="background-color: <%= currentTag.color || '#6c757d' %>;">
-                <%= currentTag.name %>
-              </span>
-            <% } else { %>
-              <i class="bi bi-images me-2"></i>Gallery
-            <% } %>
-          </h1>
-          <% if (typeof totalImages !== 'undefined') { %>
-            <small class="text-muted"><%= totalImages %> image<%= totalImages !== 1 ? 's' : '' %></small>
-          <% } %>
-        </div>
-        <div class="d-flex gap-2">
-          <a href="/upload" class="btn btn-sm btn-success">
-            <i class="bi bi-plus-lg me-1"></i>Upload
-          </a>
+        <h4 class="mb-0">
+          ${typeof tag !== 'undefined' && tag
+            ? \`<i class="bi bi-tag-fill me-2 text-info"></i>Tag: \${escapeHtml(tag)}\`
+            : '<i class="bi bi-images me-2"></i>All Images'
+          }
+          ${typeof totalCount !== 'undefined'
+            ? \`<span class="badge bg-secondary ms-2 fs-6">\${totalCount}</span>\`
+            : ''
+          }
+        </h4>
+        <!-- Sort controls -->
+        <div class="d-flex gap-2 align-items-center">
+          <label class="form-label mb-0 small text-muted">Sort:</label>
+          <select class="form-select form-select-sm" style="width:auto;" onchange="location.href=this.value">
+            <option value="/gallery?sort=newest${typeof tag !== 'undefined' && tag ? '&tag=' + encodeURIComponent(tag) : ''}"
+              ${typeof sort === 'undefined' || sort === 'newest' ? 'selected' : ''}>Newest</option>
+            <option value="/gallery?sort=oldest${typeof tag !== 'undefined' && tag ? '&tag=' + encodeURIComponent(tag) : ''}"
+              ${typeof sort !== 'undefined' && sort === 'oldest' ? 'selected' : ''}>Oldest</option>
+            <option value="/gallery?sort=name${typeof tag !== 'undefined' && tag ? '&tag=' + encodeURIComponent(tag) : ''}"
+              ${typeof sort !== 'undefined' && sort === 'name' ? 'selected' : ''}>Name</option>
+          </select>
         </div>
       </div>
 
-      <% if (typeof images !== 'undefined' && images && images.length > 0) { %>
-        <div class="row g-3">
-          <% images.forEach(function(image) { %>
-            <div class="col-6 col-sm-4 col-md-3 col-xl-2">
-              <%- include('partials/image-card', { image: image }) %>
-            </div>
-          <% }); %>
-        </div>
+      <!-- Image Grid -->
+      ${typeof images !== 'undefined' && images.length > 0 ? \`
+      <div class="row row-cols-2 row-cols-md-3 row-cols-xl-4 g-3" id="imageGrid">
+        \${images.map(img => {
+          const imgCount = img.Tags ? img.Tags.length : 0;
+          return \`
+          <div class="col">
+            <%- include('partials/image-card', { image: img }) %>
+          </div>\`;
+        }).join('')}
+      </div>\` : \`
+      <div class="text-center py-5 text-muted">
+        <i class="bi bi-images display-1 d-block mb-3"></i>
+        <h5>No images found</h5>
+        <p>Try adjusting your filters or <a href="/upload">upload some images</a>.</p>
+      </div>\`}
 
-        <% if (typeof totalPages !== 'undefined' && totalPages > 1) { %>
-          <div class="mt-4">
-            <%- include('partials/pagination', {
-              currentPage: currentPage || 1,
-              totalPages: totalPages,
-              baseUrl: (typeof currentTag !== 'undefined' && currentTag) ? '/gallery?tag=' + currentTag.slug : '/gallery'
-            }) %>
-          </div>
-        <% } %>
-      <% } else { %>
-        <div class="text-center py-5">
-          <i class="bi bi-images display-1 text-muted"></i>
-          <h3 class="mt-3 text-muted">No images found</h3>
-          <% if (typeof currentTag !== 'undefined' && currentTag) { %>
-            <p class="text-muted">No images are tagged with "<%= currentTag.name %>".</p>
-            <a href="/gallery" class="btn btn-outline-secondary me-2">View All Images</a>
-          <% } else { %>
-            <p class="text-muted">Start by uploading your first image!</p>
-          <% } %>
-          <a href="/upload" class="btn btn-primary">
-            <i class="bi bi-cloud-upload me-1"></i>Upload Image
-          </a>
-        </div>
-      <% } %>
+      <!-- Pagination -->
+      ${typeof totalPages !== 'undefined' && totalPages > 1 ? \`
+      <%- include('partials/pagination', {
+        currentPage: currentPageNum || 1,
+        totalPages: totalPages,
+        baseUrl: '/gallery'
+      }) %>\` : ''}
     </div>
   </div>
 </div>
+<script>
+function escapeHtml(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+</script>
+` }) %>

@@ -1,48 +1,63 @@
 const express = require('express');
-const router = express.Router({ mergeParams: true });
+const router = express.Router();
 const tagService = require('../services/tagService');
-const { Image } = require('../models');
+const { Image, Tag, ImageTag } = require('../models');
 
-// POST /api/images/:id/tags - Assign tag to image
-router.post('/', async (req, res, next) => {
+// POST /api/images/:id/tags — assign tag to image
+router.post('/:id/tags', async (req, res, next) => {
   try {
-    const imageId = req.params.id;
-    const { tagName } = req.body;
+    const { id } = req.params;
+    const { tagName, color } = req.body;
 
-    if (!tagName) {
-      return res.status(400).json({ error: 'tagName is required' });
+    if (!tagName || tagName.trim().length < 2 || tagName.trim().length > 30) {
+      return res.status(400).json({ error: 'Tag name must be between 2 and 30 characters.' });
+    }
+    if (!/^[a-zA-Z0-9\- ]+$/.test(tagName.trim())) {
+      return res.status(400).json({ error: 'Tag name can only contain letters, numbers, hyphens, and spaces.' });
     }
 
-    // Verify image exists
-    const image = await Image.findByPk(imageId);
+    const image = await Image.findByPk(id);
     if (!image) {
-      return res.status(404).json({ error: 'Image not found' });
+      return res.status(404).json({ error: 'Image not found.' });
     }
 
-    const updatedTags = await tagService.assignTag(imageId, tagName);
-    res.json({ tags: updatedTags });
+    await tagService.assignTag(id, tagName.trim(), color);
+
+    // Return updated tag list
+    const updatedImage = await Image.findByPk(id, {
+      include: [{
+        model: Tag,
+        through: { attributes: [] }
+      }]
+    });
+
+    res.json({ tags: updatedImage.Tags });
   } catch (err) {
-    if (err.message && err.message.includes('Invalid')) {
-      return res.status(400).json({ error: err.message });
-    }
     next(err);
   }
 });
 
-// DELETE /api/images/:id/tags/:tagId - Remove tag from image
-router.delete('/:tagId', async (req, res, next) => {
+// DELETE /api/images/:id/tags/:tagId — remove tag from image
+router.delete('/:id/tags/:tagId', async (req, res, next) => {
   try {
-    const imageId = req.params.id;
-    const tagId = req.params.tagId;
+    const { id, tagId } = req.params;
 
-    // Verify image exists
-    const image = await Image.findByPk(imageId);
+    const image = await Image.findByPk(id);
     if (!image) {
-      return res.status(404).json({ error: 'Image not found' });
+      return res.status(404).json({ error: 'Image not found.' });
     }
 
-    const updatedTags = await tagService.removeTagFromImage(imageId, tagId);
-    res.json({ tags: updatedTags });
+    await tagService.removeTag(id, tagId);
+
+    // Return updated tag list
+    const updatedImage = await Image.findByPk(id, {
+      include: [{
+        model: Tag,
+        through: { attributes: [] }
+      }]
+    });
+
+    res.json({ tags: updatedImage.Tags });
   } catch (err) {
     next(err);
   }

@@ -1,43 +1,35 @@
-'use strict';
-
-const fs = require('fs');
-const path = require('path');
-const Sequelize = require('sequelize');
-const basename = path.basename(__filename);
+const { Sequelize } = require('sequelize');
 const config = require('../config');
 
-const sequelize = new Sequelize(config.database.name, config.database.user, config.database.password, {
-  host: config.database.host,
-  port: config.database.port,
-  dialect: config.database.dialect || 'sqlite',
-  storage: config.database.storage,
-  logging: process.env.NODE_ENV === 'development' ? console.log : false,
-});
+const sequelize = new Sequelize(
+  config.database.database,
+  config.database.username,
+  config.database.password,
+  {
+    host: config.database.host,
+    port: config.database.port,
+    dialect: config.database.dialect,
+    logging: config.database.logging,
+    pool: config.database.pool
+  }
+);
 
 const db = {};
 
-fs.readdirSync(__dirname)
-  .filter(file => {
-    return (
-      file.indexOf('.') !== 0 &&
-      file !== basename &&
-      file.slice(-3) === '.js'
-    );
-  })
-  .forEach(file => {
-    const model = require(path.join(__dirname, file))(sequelize, Sequelize.DataTypes);
-    db[model.name] = model;
-  });
+db.sequelize = sequelize;
+db.Sequelize = Sequelize;
 
+// Load models
+db.Image = require('./Image')(sequelize);
+db.Tag = require('./Tag')(sequelize);
+db.ImageTag = require('./ImageTag')(sequelize);
+db.ThumbnailCache = require('./ThumbnailCache')(sequelize);
+
+// Run associations
 Object.keys(db).forEach(modelName => {
-  if (db[modelName].associate) {
+  if (db[modelName] && db[modelName].associate) {
     db[modelName].associate(db);
   }
 });
 
-db.sequelize = sequelize;
-db.Sequelize = Sequelize;
-db.sequelize_instance = sequelize;
-
-// Export sequelize instance directly too for use in services
-module.exports = { ...db, sequelize };
+module.exports = db;

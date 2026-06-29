@@ -1,6 +1,6 @@
-'use strict';
+const { DataTypes } = require('sequelize');
 
-module.exports = (sequelize, DataTypes) => {
+module.exports = (sequelize) => {
   const Tag = sequelize.define('Tag', {
     id: {
       type: DataTypes.INTEGER,
@@ -8,29 +8,32 @@ module.exports = (sequelize, DataTypes) => {
       autoIncrement: true
     },
     name: {
-      type: DataTypes.STRING(100),
+      type: DataTypes.STRING(50),
       allowNull: false,
+      unique: true,
       validate: {
         len: [2, 30],
-        is: /^[a-zA-Z0-9\s\-]+$/
+        notEmpty: true
       }
     },
     slug: {
-      type: DataTypes.STRING(100),
+      type: DataTypes.STRING(60),
       allowNull: false,
       unique: true
     },
     color: {
-      type: DataTypes.STRING(20),
-      allowNull: true,
-      defaultValue: '#6c757d'
+      type: DataTypes.STRING(7),
+      defaultValue: '#6c757d',
+      validate: {
+        is: /^#[0-9a-fA-F]{6}$/
+      }
     }
   }, {
-    tableName: 'Tags',
+    tableName: 'tags',
     timestamps: true
   });
 
-  Tag.associate = function (models) {
+  Tag.associate = (models) => {
     Tag.belongsToMany(models.Image, {
       through: models.ImageTag,
       foreignKey: 'tagId',

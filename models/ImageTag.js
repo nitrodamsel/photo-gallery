@@ -1,6 +1,6 @@
-'use strict';
+const { DataTypes } = require('sequelize');
 
-module.exports = (sequelize, DataTypes) => {
+module.exports = (sequelize) => {
   const ImageTag = sequelize.define('ImageTag', {
     id: {
       type: DataTypes.INTEGER,
@@ -11,7 +11,7 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.INTEGER,
       allowNull: false,
       references: {
-        model: 'Images',
+        model: 'images',
         key: 'id'
       }
     },
@@ -19,16 +19,22 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.INTEGER,
       allowNull: false,
       references: {
-        model: 'Tags',
+        model: 'tags',
         key: 'id'
       }
     }
   }, {
-    tableName: 'ImageTags',
-    timestamps: true
+    tableName: 'image_tags',
+    timestamps: true,
+    indexes: [
+      {
+        unique: true,
+        fields: ['imageId', 'tagId']
+      }
+    ]
   });
 
-  ImageTag.associate = function (models) {
+  ImageTag.associate = (models) => {
     ImageTag.belongsTo(models.Image, { foreignKey: 'imageId' });
     ImageTag.belongsTo(models.Tag, { foreignKey: 'tagId' });
   };
