@@ -1,115 +1,129 @@
-<div class="container mt-4" style="max-width: 800px;">
-  <div class="d-flex justify-content-between align-items-center mb-4">
-    <h1><i class="bi bi-upload me-2"></i>Upload Photos</h1>
-    <a href="/gallery" class="btn btn-outline-secondary">
-      <i class="bi bi-arrow-left me-1"></i>Back to Gallery
-    </a>
-  </div>
+<%- include('layouts/base', { title: title, activePage: 'upload', body: `
+<div class="container py-4">
+  <div class="row justify-content-center">
+    <div class="col-lg-8">
 
-  <!-- Upload Form -->
-  <form id="uploadForm" enctype="multipart/form-data" novalidate>
-
-    <!-- Drop Zone -->
-    <div id="dropZone" class="mb-4">
-      <div id="dropZoneContent" class="text-center">
-        <i class="bi bi-cloud-upload fs-1 text-muted d-block mb-3"></i>
-        <h5 class="text-muted">Drag & Drop photos here</h5>
-        <p class="text-muted small mb-3">or click to browse files</p>
-        <button type="button" id="selectFilesBtn" class="btn btn-outline-primary">
-          <i class="bi bi-folder2-open me-1"></i>Select Files
-        </button>
-        <p class="text-muted small mt-3 mb-0">
-          Supported: JPEG, PNG, GIF, WebP, TIFF
-        </p>
+      <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h2 mb-0">
+          <i class="bi bi-cloud-upload text-primary me-2"></i>Upload Images
+        </h1>
+        <a href="/gallery" class="btn btn-outline-secondary btn-sm">
+          <i class="bi bi-arrow-left me-1"></i>Back to Gallery
+        </a>
       </div>
-    </div>
 
-    <input type="file" id="fileInput" name="image" accept="image/*" multiple class="d-none">
+      <!-- Upload Messages -->
+      <div id="uploadMessages" class="mb-3"></div>
 
-    <!-- Preview Container -->
-    <div id="previewContainer" class="d-flex flex-wrap mb-3 d-none"></div>
+      <!-- Success Thumbnails -->
+      <div id="successThumbs" class="mb-3 d-none"></div>
 
-    <!-- Progress Bar -->
-    <div id="progressContainer" class="mb-3 d-none">
-      <div class="d-flex justify-content-between mb-1">
-        <small class="text-muted" id="progressText">Uploading...</small>
-      </div>
-      <div class="progress" style="height: 20px;">
-        <div id="uploadProgressBar" class="progress-bar progress-bar-striped progress-bar-animated" 
-             role="progressbar" style="width: 0%;" 
-             aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">0%</div>
-      </div>
-    </div>
-
-    <!-- Upload Results -->
-    <div id="uploadResults" class="mb-3"></div>
-
-    <!-- Optional Metadata -->
-    <div class="card shadow-sm mb-3">
-      <div class="card-header" data-bs-toggle="collapse" data-bs-target="#metadataCollapse" style="cursor: pointer;">
-        <h6 class="mb-0 d-flex justify-content-between align-items-center">
-          <span><i class="bi bi-pencil me-1"></i>Optional Metadata</span>
-          <i class="bi bi-chevron-down"></i>
-        </h6>
-      </div>
-      <div class="collapse" id="metadataCollapse">
+      <!-- Upload Form -->
+      <div class="card shadow-sm">
         <div class="card-body">
-          <div class="mb-3">
-            <label for="titleInput" class="form-label">Title</label>
-            <input type="text" class="form-control" id="titleInput" name="title" 
-                   placeholder="Photo title" maxlength="255">
+
+          <!-- Drop Zone -->
+          <div id="dropZone" class="mb-4" role="button" tabindex="0" aria-label="Drop files here or click to browse">
+            <div class="drop-zone-icon">
+              <i class="bi bi-cloud-upload-fill"></i>
+            </div>
+            <h5 class="text-muted mb-2">Drag &amp; drop images here</h5>
+            <p class="text-muted small mb-3">or</p>
+            <button type="button" class="btn btn-outline-primary" id="browseBtn">
+              <i class="bi bi-folder2-open me-1"></i>Browse Files
+            </button>
+            <p class="text-muted small mt-3 mb-0">
+              Supports: JPEG, PNG, GIF, WebP, TIFF &bull; Max 50MB per file
+            </p>
+            <input type="file" id="fileInput" accept="image/*" multiple class="d-none" />
           </div>
-          <div class="mb-3">
-            <label for="descriptionInput" class="form-label">Description</label>
-            <textarea class="form-control" id="descriptionInput" name="description" 
-                      rows="2" placeholder="Photo description" maxlength="1000"></textarea>
+
+          <!-- Preview -->
+          <div id="previewContainer" class="mb-3"></div>
+
+          <!-- Progress Bar -->
+          <div id="progressContainer" class="mb-3 d-none">
+            <div id="progressText" class="small text-muted mb-1">Uploading...</div>
+            <div class="progress" style="height: 20px;">
+              <div
+                id="uploadProgressBar"
+                class="progress-bar progress-bar-striped progress-bar-animated"
+                role="progressbar"
+                style="width: 0%"
+                aria-valuenow="0"
+                aria-valuemin="0"
+                aria-valuemax="100"
+              >0%</div>
+            </div>
           </div>
-          <div class="mb-3">
-            <label for="tagsInput" class="form-label">Tags</label>
-            <input type="text" class="form-control" id="tagsInput" name="tags" 
-                   placeholder="e.g. nature, travel, 2024 (comma-separated)" list="tagSuggestions">
-            <datalist id="tagSuggestions"></datalist>
-            <div class="form-text">Separate multiple tags with commas</div>
-          </div>
-          <div class="form-check">
-            <input class="form-check-input" type="checkbox" id="isPublicInput" name="isPublic" checked>
-            <label class="form-check-label" for="isPublicInput">Make public</label>
-          </div>
+
+          <!-- Additional Metadata Form -->
+          <form id="uploadForm" class="mt-4 pt-3 border-top">
+            <h6 class="text-muted mb-3">
+              <i class="bi bi-info-circle me-1"></i>Optional Metadata
+              <span class="badge bg-light text-muted ms-1 fw-normal">Applied to next upload</span>
+            </h6>
+            <div class="row g-3">
+              <div class="col-md-6">
+                <label for="uploadTitle" class="form-label">Title</label>
+                <input type="text" class="form-control" id="uploadTitle" name="title" placeholder="Image title..." maxlength="255" />
+              </div>
+              <div class="col-md-6">
+                <label for="uploadTags" class="form-label">Tags</label>
+                <input
+                  type="text"
+                  class="form-control"
+                  id="uploadTags"
+                  name="tags"
+                  placeholder="nature, black-and-white, portrait..."
+                  list="uploadTagSuggestions"
+                  autocomplete="off"
+                />
+                <datalist id="uploadTagSuggestions"></datalist>
+                <div class="form-text">Comma-separated tag names.</div>
+              </div>
+              <div class="col-12">
+                <label for="uploadDescription" class="form-label">Description</label>
+                <textarea class="form-control" id="uploadDescription" name="description" rows="2" placeholder="Describe this image..." maxlength="1000"></textarea>
+              </div>
+            </div>
+          </form>
+
         </div>
       </div>
+
     </div>
-  </form>
+  </div>
 </div>
 
 <script src="/js/upload.js"></script>
 <script>
-// Init tag autocomplete for upload page tags input
-document.addEventListener('DOMContentLoaded', function() {
-  const tagsInput = document.getElementById('tagsInput');
-  const tagSuggestions = document.getElementById('tagSuggestions');
-  if (tagsInput && tagSuggestions) {
+  // Autocomplete for upload tags field
+  const uploadTagInput = document.getElementById('uploadTags');
+  if (uploadTagInput) {
     let debounce;
-    tagsInput.addEventListener('input', function() {
+    uploadTagInput.addEventListener('input', function() {
       clearTimeout(debounce);
-      const val = this.value;
-      const lastComma = val.lastIndexOf(',');
-      const query = (lastComma >= 0 ? val.slice(lastComma + 1) : val).trim();
-      if (query.length < 1) { tagSuggestions.innerHTML = ''; return; }
+      const parts = this.value.split(',');
+      const last = parts[parts.length - 1].trim();
+      if (last.length < 1) return;
       debounce = setTimeout(async () => {
         try {
-          const res = await fetch(`/api/tags?q=${encodeURIComponent(query)}`);
+          const res = await fetch('/api/tags?q=' + encodeURIComponent(last));
+          if (!res.ok) return;
           const tags = await res.json();
-          tagSuggestions.innerHTML = '';
+          const dl = document.getElementById('uploadTagSuggestions');
+          dl.innerHTML = '';
           tags.forEach(tag => {
             const opt = document.createElement('option');
-            // Preserve everything before the last comma
-            const prefix = lastComma >= 0 ? val.slice(0, lastComma + 1) + ' ' : '';
-            opt.value = prefix + tag.name;
-            tagSuggestions.appendChild(opt);
+            // Replace the last segment with the tag name
+            const prefix = parts.slice(0, -1).join(', ');
+            opt.value = (prefix ? prefix + ', ' : '') + tag.name;
+            dl.appendChild(opt);
           });
-        } catch(e) {}
-      }, 250);
+        } catch {}
+      }, 200);
     });
   }
-});
 </script>
+`) %>

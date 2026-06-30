@@ -1,12 +1,18 @@
 const express = require('express');
 const router = express.Router();
 const tagService = require('../services/tagService');
+const { Tag } = require('../models');
+const { Op } = require('sequelize');
 
 // GET /tags - Tag management page
 router.get('/', async (req, res, next) => {
   try {
     const tags = await tagService.getAllTagsWithCounts();
-    res.render('tags', { title: 'Tag Management', tags });
+    res.render('tags', {
+      title: 'Tag Management',
+      tags,
+      activePage: 'tags'
+    });
   } catch (err) {
     next(err);
   }
@@ -32,10 +38,17 @@ router.get('/api', async (req, res, next) => {
 router.post('/api', async (req, res, next) => {
   try {
     const { name, color } = req.body;
-    if (!name || name.trim().length < 2 || name.trim().length > 30) {
-      return res.status(400).json({ error: 'Tag name must be between 2 and 30 characters.' });
+    if (!name || name.trim().length < 2) {
+      return res.status(400).json({ error: 'Tag name must be at least 2 characters.' });
     }
-    const tag = await tagService.createTag(name.trim(), color);
+    if (name.trim().length > 30) {
+      return res.status(400).json({ error: 'Tag name must be 30 characters or fewer.' });
+    }
+    if (!/^[a-zA-Z0-9\- ]+$/.test(name.trim())) {
+      return res.status(400).json({ error: 'Tag name may only contain letters, numbers, hyphens, and spaces.' });
+    }
+
+    const tag = await tagService.findOrCreateByName(name.trim(), color);
     res.status(201).json(tag);
   } catch (err) {
     if (err.message && err.message.includes('already exists')) {
@@ -48,11 +61,20 @@ router.post('/api', async (req, res, next) => {
 // PATCH /api/tags/:id - Rename tag
 router.patch('/api/:id', async (req, res, next) => {
   try {
-    const { name, color } = req.body;
-    if (name !== undefined && (name.trim().length < 2 || name.trim().length > 30)) {
-      return res.status(400).json({ error: 'Tag name must be between 2 and 30 characters.' });
+    const { id } = req.params;
+    const { name } = req.body;
+
+    if (!name || name.trim().length < 2) {
+      return res.status(400).json({ error: 'Tag name must be at least 2 characters.' });
     }
-    const tag = await tagService.updateTag(req.params.id, { name: name ? name.trim() : undefined, color });
+    if (name.trim().length > 30) {
+      return res.status(400).json({ error: 'Tag name must be 30 characters or fewer.' });
+    }
+    if (!/^[a-zA-Z0-9\- ]+$/.test(name.trim())) {
+      return res.status(400).json({ error: 'Tag name may only contain letters, numbers, hyphens, and spaces.' });
+    }
+
+    const tag = await tagService.renameTag(id, name.trim());
     res.json(tag);
   } catch (err) {
     if (err.message && (err.message.includes('not found') || err.message.includes('already exists'))) {
@@ -65,8 +87,9 @@ router.patch('/api/:id', async (req, res, next) => {
 // DELETE /api/tags/:id - Delete tag and all associations
 router.delete('/api/:id', async (req, res, next) => {
   try {
-    await tagService.deleteTag(req.params.id);
-    res.json({ success: true });
+    const { id } = req.params;
+    await tagService.deleteTag(id);
+    res.json({ success: true, message: 'Tag deleted successfully.' });
   } catch (err) {
     if (err.message && err.message.includes('not found')) {
       return res.status(404).json({ error: err.message });

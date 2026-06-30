@@ -1,280 +1,310 @@
 /**
- * Drag-and-drop upload with XMLHttpRequest for progress tracking
- * Updates progress bar, shows thumbnail preview on completion,
- * appends success/error messages
+ * upload.js - Drag-and-drop file upload with progress tracking
+ * Uses XMLHttpRequest for upload progress events.
  */
 
 (function () {
   'use strict';
 
-  const dropZone = document.getElementById('drop-zone');
-  const fileInput = document.getElementById('file-input');
-  const uploadForm = document.getElementById('upload-form');
-  const progressContainer = document.getElementById('progress-container');
-  const progressBar = document.getElementById('upload-progress-bar');
-  const progressText = document.getElementById('progress-text');
-  const previewContainer = document.getElementById('preview-container');
-  const messageContainer = document.getElementById('upload-message');
+  const dropZone = document.getElementById('dropZone');
+  const fileInput = document.getElementById('fileInput');
+  const uploadForm = document.getElementById('uploadForm');
+  const progressContainer = document.getElementById('progressContainer');
+  const progressBar = document.getElementById('uploadProgressBar');
+  const progressText = document.getElementById('progressText');
+  const previewContainer = document.getElementById('previewContainer');
+  const uploadMessages = document.getElementById('uploadMessages');
+  const browseBtn = document.getElementById('browseBtn');
 
-  if (!dropZone && !uploadForm) return;
+  if (!dropZone || !fileInput) return;
 
-  // ─── Drag & Drop Events ──────────────────────────────────────────────────
-
-  if (dropZone) {
-    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-      dropZone.addEventListener(eventName, preventDefaults, false);
-    });
-
-    ['dragenter', 'dragover'].forEach(eventName => {
-      dropZone.addEventListener(eventName, () => {
-        dropZone.classList.add('drop-zone-active');
-      });
-    });
-
-    ['dragleave', 'drop'].forEach(eventName => {
-      dropZone.addEventListener(eventName, () => {
-        dropZone.classList.remove('drop-zone-active');
-      });
-    });
-
-    dropZone.addEventListener('drop', function (e) {
-      const files = e.dataTransfer.files;
-      if (files && files.length > 0) {
-        handleFiles(files);
-      }
-    });
-
-    dropZone.addEventListener('click', function () {
-      if (fileInput) fileInput.click();
+  // ─── Browse Button ──────────────────────────────────────────────────────────
+  if (browseBtn) {
+    browseBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      fileInput.click();
     });
   }
 
-  if (fileInput) {
-    fileInput.addEventListener('change', function () {
-      if (this.files && this.files.length > 0) {
-        handleFiles(this.files);
-      }
+  // ─── Drop Zone Events ───────────────────────────────────────────────────────
+  ['dragenter', 'dragover'].forEach(eventName => {
+    dropZone.addEventListener(eventName, (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      dropZone.classList.add('drag-over');
     });
-  }
+  });
 
-  if (uploadForm) {
-    uploadForm.addEventListener('submit', function (e) {
-      // If using the traditional form submit (no drag-drop), allow it
-      // But intercept for XHR if files are selected
-      if (fileInput && fileInput.files && fileInput.files.length > 0) {
-        e.preventDefault();
-        handleFiles(fileInput.files);
-      }
+  ['dragleave', 'drop'].forEach(eventName => {
+    dropZone.addEventListener(eventName, (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      dropZone.classList.remove('drag-over');
     });
-  }
+  });
 
-  // ─── Handle Files ────────────────────────────────────────────────────────
+  dropZone.addEventListener('drop', (e) => {
+    const files = e.dataTransfer.files;
+    if (files.length > 0) {
+      handleFiles(files);
+    }
+  });
+
+  dropZone.addEventListener('click', () => {
+    fileInput.click();
+  });
+
+  fileInput.addEventListener('change', () => {
+    if (fileInput.files.length > 0) {
+      handleFiles(fileInput.files);
+    }
+  });
+
+  // ─── File Handling ──────────────────────────────────────────────────────────
 
   function handleFiles(files) {
-    clearMessages();
+    // Filter to only accept images
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp', 'image/tiff'];
+    const validFiles = Array.from(files).filter(f => allowedTypes.includes(f.type));
 
-    Array.from(files).forEach(file => {
-      if (!isValidImageFile(file)) {
-        showMessage(`"${file.name}" is not a supported image format (JPEG, PNG, GIF, WebP).`, 'danger');
-        return;
-      }
-      uploadFile(file);
-    });
-  }
-
-  function isValidImageFile(file) {
-    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
-    return allowedTypes.includes(file.type.toLowerCase());
-  }
-
-  // ─── Upload via XHR ──────────────────────────────────────────────────────
-
-  function uploadFile(file) {
-    const formData = new FormData();
-    formData.append('image', file);
-
-    // Copy other form fields if present
-    if (uploadForm) {
-      const titleInput = uploadForm.querySelector('[name="title"]');
-      const descInput = uploadForm.querySelector('[name="description"]');
-      const tagsInput = uploadForm.querySelector('[name="tags"]');
-      if (titleInput) formData.append('title', titleInput.value);
-      if (descInput) formData.append('description', descInput.value);
-      if (tagsInput) formData.append('tags', tagsInput.value);
+    if (validFiles.length === 0) {
+      showMessage('Please select valid image files (JPEG, PNG, GIF, WebP, TIFF).', 'danger');
+      return;
     }
 
-    // Show preview immediately
-    showPreview(file);
-
-    // Show progress container
-    if (progressContainer) progressContainer.style.display = 'block';
-    setProgress(0);
-
-    const xhr = new XMLHttpRequest();
-
-    xhr.upload.addEventListener('progress', function (e) {
-      if (e.lengthComputable) {
-        const percent = Math.round((e.loaded / e.total) * 100);
-        setProgress(percent);
-      }
-    });
-
-    xhr.addEventListener('load', function () {
-      if (xhr.status >= 200 && xhr.status < 300) {
-        setProgress(100);
-        let data;
-        try {
-          data = JSON.parse(xhr.responseText);
-        } catch (err) {
-          // Non-JSON response — redirect
-          showMessage(`"${file.name}" uploaded successfully!`, 'success');
-          setTimeout(() => { window.location.href = '/gallery'; }, 1500);
-          return;
-        }
-
-        if (data.redirect) {
-          showMessage(`"${file.name}" uploaded successfully!`, 'success');
-          updatePreviewWithLink(file.name, data.redirect, data.thumbnailUrl);
-          setTimeout(() => { window.location.href = data.redirect; }, 2000);
-        } else {
-          showMessage(`"${file.name}" uploaded successfully!`, 'success');
-        }
-      } else {
-        setProgress(0);
-        if (progressContainer) progressContainer.style.display = 'none';
-        let errorMsg = `Failed to upload "${file.name}".`;
-        try {
-          const data = JSON.parse(xhr.responseText);
-          if (data.error) errorMsg = data.error;
-        } catch (e) { /* ignore */ }
-        showMessage(errorMsg, 'danger');
-      }
-    });
-
-    xhr.addEventListener('error', function () {
-      setProgress(0);
-      if (progressContainer) progressContainer.style.display = 'none';
-      showMessage(`Network error uploading "${file.name}". Please try again.`, 'danger');
-    });
-
-    xhr.addEventListener('abort', function () {
-      setProgress(0);
-      if (progressContainer) progressContainer.style.display = 'none';
-      showMessage(`Upload of "${file.name}" was cancelled.`, 'warning');
-    });
-
-    xhr.open('POST', '/upload', true);
-    xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
-    xhr.send(formData);
-  }
-
-  // ─── Progress Bar ─────────────────────────────────────────────────────────
-
-  function setProgress(percent) {
-    if (progressBar) {
-      progressBar.style.width = `${percent}%`;
-      progressBar.setAttribute('aria-valuenow', percent);
+    if (validFiles.length !== files.length) {
+      showMessage('Some files were skipped (unsupported format).', 'warning');
     }
-    if (progressText) {
-      progressText.textContent = `${percent}%`;
-    }
-  }
 
-  // ─── Preview ──────────────────────────────────────────────────────────────
+    // Show preview for first file
+    if (validFiles.length === 1) {
+      showPreview(validFiles[0]);
+    } else {
+      showMultiplePreview(validFiles);
+    }
+
+    // Upload files one by one
+    uploadFiles(validFiles);
+  }
 
   function showPreview(file) {
     if (!previewContainer) return;
-
     const reader = new FileReader();
-    reader.onload = function (e) {
-      const wrapper = document.createElement('div');
-      wrapper.className = 'upload-preview-item me-2 mb-2 d-inline-block position-relative';
-      wrapper.setAttribute('data-filename', file.name);
-
-      const img = document.createElement('img');
-      img.src = e.target.result;
-      img.className = 'img-thumbnail';
-      img.style.width = '120px';
-      img.style.height = '120px';
-      img.style.objectFit = 'cover';
-      img.alt = file.name;
-
-      const label = document.createElement('div');
-      label.className = 'text-truncate small text-center mt-1';
-      label.style.maxWidth = '120px';
-      label.textContent = file.name;
-
-      const spinner = document.createElement('div');
-      spinner.className = 'position-absolute top-0 end-0 p-1';
-      spinner.id = `spinner-${sanitizeId(file.name)}`;
-      spinner.innerHTML = '<div class="spinner-border spinner-border-sm text-primary" role="status"><span class="visually-hidden">Uploading...</span></div>';
-
-      wrapper.appendChild(img);
-      wrapper.appendChild(spinner);
-      wrapper.appendChild(label);
-      previewContainer.appendChild(wrapper);
+    reader.onload = (e) => {
+      previewContainer.innerHTML = `
+        <div class="text-center">
+          <p class="text-muted small mb-2">Preview:</p>
+          <img
+            src="${e.target.result}"
+            alt="Preview"
+            class="img-thumbnail"
+            style="max-width: 200px; max-height: 150px; object-fit: cover;"
+          />
+          <p class="small text-muted mt-1 mb-0">${escapeHtml(file.name)} (${formatFileSize(file.size)})</p>
+        </div>
+      `;
     };
     reader.readAsDataURL(file);
   }
 
-  function updatePreviewWithLink(fileName, href, thumbnailUrl) {
-    const wrapper = document.querySelector(`.upload-preview-item[data-filename="${fileName}"]`);
-    if (!wrapper) return;
+  function showMultiplePreview(files) {
+    if (!previewContainer) return;
+    previewContainer.innerHTML = `
+      <p class="text-muted small mb-2">${files.length} files selected:</p>
+      <ul class="list-unstyled small mb-0">
+        ${files.map(f => `<li><i class="bi bi-image me-1 text-primary"></i>${escapeHtml(f.name)} <span class="text-muted">(${formatFileSize(f.size)})</span></li>`).join('')}
+      </ul>
+    `;
+  }
 
-    const spinnerId = `spinner-${sanitizeId(fileName)}`;
-    const spinner = document.getElementById(spinnerId);
-    if (spinner) spinner.remove();
+  // ─── Upload Logic ───────────────────────────────────────────────────────────
 
-    // Show success checkmark
-    const check = document.createElement('div');
-    check.className = 'position-absolute top-0 end-0 p-1';
-    check.innerHTML = '<i class="bi bi-check-circle-fill text-success fs-5"></i>';
-    wrapper.appendChild(check);
+  async function uploadFiles(files) {
+    clearMessages();
 
-    // Update thumbnail if provided
-    if (thumbnailUrl) {
-      const img = wrapper.querySelector('img');
-      if (img) img.src = thumbnailUrl;
-    }
-
-    // Wrap in link
-    if (href) {
-      wrapper.style.cursor = 'pointer';
-      wrapper.addEventListener('click', () => { window.location.href = href; });
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      const label = files.length > 1 ? `File ${i + 1}/${files.length}: ${file.name}` : file.name;
+      await uploadSingleFile(file, label);
     }
   }
 
-  // ─── Messages ─────────────────────────────────────────────────────────────
+  function uploadSingleFile(file, label) {
+    return new Promise((resolve) => {
+      const formData = new FormData();
+      formData.append('image', file);
 
-  function showMessage(message, type) {
-    if (!messageContainer) return;
+      // Grab other form fields if present
+      if (uploadForm) {
+        const titleInput = uploadForm.querySelector('[name="title"]');
+        const descInput = uploadForm.querySelector('[name="description"]');
+        const tagsInput = uploadForm.querySelector('[name="tags"]');
+        const albumInput = uploadForm.querySelector('[name="album"]');
 
-    const alert = document.createElement('div');
-    alert.className = `alert alert-${type} alert-dismissible fade show`;
-    alert.role = 'alert';
-    alert.innerHTML = `
-      ${message}
-      <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-    `;
-    messageContainer.appendChild(alert);
+        if (titleInput && titleInput.value) formData.append('title', titleInput.value);
+        if (descInput && descInput.value) formData.append('description', descInput.value);
+        if (tagsInput && tagsInput.value) formData.append('tags', tagsInput.value);
+        if (albumInput && albumInput.value) formData.append('album', albumInput.value);
+      }
+
+      showProgress(0, label);
+
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', '/upload', true);
+
+      // Progress tracking
+      xhr.upload.addEventListener('progress', (e) => {
+        if (e.lengthComputable) {
+          const pct = Math.round((e.loaded / e.total) * 100);
+          showProgress(pct, label);
+        }
+      });
+
+      xhr.addEventListener('load', () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          try {
+            // Try to parse JSON response
+            const data = JSON.parse(xhr.responseText);
+            showProgress(100, label);
+            showMessage(
+              `<i class="bi bi-check-circle-fill text-success me-1"></i>
+               <strong>${escapeHtml(file.name)}</strong> uploaded successfully!
+               ${data.image ? `<a href="/gallery/${data.image.id}" class="ms-2 btn btn-sm btn-outline-success">View Image</a>` : ''}`,
+              'success'
+            );
+            if (data.image) {
+              appendSuccessThumb(data.image);
+            }
+          } catch {
+            // HTML response (redirect) — treat as success
+            showProgress(100, label);
+            showMessage(
+              `<i class="bi bi-check-circle-fill text-success me-1"></i>
+               <strong>${escapeHtml(file.name)}</strong> uploaded successfully!`,
+              'success'
+            );
+          }
+        } else {
+          showProgress(0, label);
+          let errorMsg = 'Upload failed.';
+          try {
+            const err = JSON.parse(xhr.responseText);
+            errorMsg = err.error || err.message || errorMsg;
+          } catch {}
+          showMessage(
+            `<i class="bi bi-exclamation-triangle-fill text-danger me-1"></i>
+             <strong>${escapeHtml(file.name)}</strong>: ${escapeHtml(errorMsg)}`,
+            'danger'
+          );
+        }
+        hideProgressAfterDelay();
+        resolve();
+      });
+
+      xhr.addEventListener('error', () => {
+        showMessage(
+          `<i class="bi bi-wifi-off me-1 text-danger"></i>
+           Network error uploading <strong>${escapeHtml(file.name)}</strong>.`,
+          'danger'
+        );
+        hideProgressAfterDelay();
+        resolve();
+      });
+
+      xhr.addEventListener('abort', () => {
+        showMessage(
+          `<i class="bi bi-x-circle me-1 text-warning"></i>
+           Upload of <strong>${escapeHtml(file.name)}</strong> was cancelled.`,
+          'warning'
+        );
+        hideProgressAfterDelay();
+        resolve();
+      });
+
+      xhr.send(formData);
+    });
+  }
+
+  // ─── UI Helpers ─────────────────────────────────────────────────────────────
+
+  function showProgress(percent, label) {
+    if (!progressContainer || !progressBar) return;
+    progressContainer.classList.remove('d-none');
+    progressBar.style.width = percent + '%';
+    progressBar.setAttribute('aria-valuenow', percent);
+    progressBar.textContent = percent + '%';
+    if (progressText) {
+      progressText.textContent = label ? `Uploading: ${label}` : 'Uploading...';
+    }
+
+    if (percent === 100) {
+      progressBar.classList.remove('progress-bar-animated');
+      progressBar.classList.add('bg-success');
+    } else {
+      progressBar.classList.add('progress-bar-animated');
+      progressBar.classList.remove('bg-success');
+    }
+  }
+
+  function hideProgressAfterDelay() {
+    setTimeout(() => {
+      if (progressContainer) progressContainer.classList.add('d-none');
+      if (progressBar) {
+        progressBar.style.width = '0%';
+        progressBar.textContent = '0%';
+        progressBar.classList.remove('bg-success', 'progress-bar-animated');
+      }
+    }, 2000);
+  }
+
+  function showMessage(html, type) {
+    if (!uploadMessages) return;
+    const div = document.createElement('div');
+    div.className = `alert alert-${type} alert-dismissible fade show py-2 mb-2`;
+    div.innerHTML = html + '<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>';
+    uploadMessages.appendChild(div);
   }
 
   function clearMessages() {
-    if (messageContainer) messageContainer.innerHTML = '';
-    if (previewContainer) previewContainer.innerHTML = '';
-    if (progressContainer) progressContainer.style.display = 'none';
-    setProgress(0);
+    if (uploadMessages) uploadMessages.innerHTML = '';
   }
 
-  // ─── Utilities ────────────────────────────────────────────────────────────
+  function appendSuccessThumb(image) {
+    // Append a small thumbnail to the preview area after successful upload
+    const thumbsContainer = document.getElementById('successThumbs');
+    if (!thumbsContainer) return;
 
-  function preventDefaults(e) {
-    e.preventDefault();
-    e.stopPropagation();
+    const div = document.createElement('div');
+    div.className = 'success-thumb d-inline-block m-1 text-center';
+    div.innerHTML = `
+      <a href="/gallery/${image.id}" title="${escapeHtml(image.title || image.filename)}">
+        <img
+          src="/uploads/${escapeHtml(image.filename)}"
+          alt="${escapeHtml(image.title || image.filename)}"
+          class="img-thumbnail"
+          style="width: 80px; height: 80px; object-fit: cover;"
+          onerror="this.src='/img/placeholder.png'"
+        />
+      </a>
+    `;
+    thumbsContainer.appendChild(div);
+    thumbsContainer.classList.remove('d-none');
   }
 
-  function sanitizeId(str) {
-    return str.replace(/[^a-zA-Z0-9]/g, '_');
+  function formatFileSize(bytes) {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+  }
+
+  function escapeHtml(str) {
+    if (!str) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
   }
 
 })();

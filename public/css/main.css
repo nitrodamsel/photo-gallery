@@ -1,118 +1,189 @@
 /* ─── Base ─────────────────────────────────────────────────────────────────── */
+:root {
+  --transition-fast: 0.15s ease;
+  --transition-medium: 0.3s ease;
+  --shadow-sm: 0 1px 3px rgba(0,0,0,.1);
+  --shadow-md: 0 4px 12px rgba(0,0,0,.15);
+}
+
 body {
   background-color: #f8f9fa;
   min-height: 100vh;
 }
 
-main {
-  padding-bottom: 2rem;
+/* ─── Navbar ────────────────────────────────────────────────────────────────── */
+.navbar-brand {
+  font-weight: 700;
+  letter-spacing: -0.5px;
 }
 
-/* ─── Tag Cloud ─────────────────────────────────────────────────────────────── */
-.tag-cloud {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
-  line-height: 1.6;
-}
-
-.tag-cloud-item {
-  display: inline-block;
-  text-decoration: none;
-  font-weight: 500;
-  transition: opacity 0.15s ease, transform 0.15s ease;
-  line-height: 1.2;
-}
-
-.tag-cloud-item:hover {
-  opacity: 0.75;
-  transform: scale(1.05);
-}
-
-/* ─── Image Cards ────────────────────────────────────────────────────────────── */
-.image-card {
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+/* ─── Cards ─────────────────────────────────────────────────────────────────── */
+.card {
   border: none;
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow var(--transition-medium);
 }
 
-.image-card:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12) !important;
-}
-
-/* ─── Drop Zone ──────────────────────────────────────────────────────────────── */
-#drop-zone {
-  border: 2.5px dashed #6c757d;
-  border-radius: 0.75rem;
-  padding: 3rem 2rem;
-  text-align: center;
+/* ─── Gallery Grid ───────────────────────────────────────────────────────────── */
+.image-grid .card {
+  transition: transform var(--transition-medium), box-shadow var(--transition-medium);
   cursor: pointer;
-  transition: border-color 0.2s ease, background-color 0.2s ease;
-  background: #fff;
+  overflow: hidden;
 }
 
-#drop-zone:hover,
-#drop-zone.drop-zone-active {
-  border-color: #0d6efd;
-  background-color: #e8f0fe;
+.image-grid .card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-md);
 }
 
-#drop-zone.drop-zone-active {
-  border-style: solid;
+.image-grid .card-img-top {
+  transition: transform var(--transition-medium);
 }
 
-/* ─── Upload Progress ────────────────────────────────────────────────────────── */
-#progress-container {
-  display: none;
+.image-grid .card:hover .card-img-top {
+  transform: scale(1.04);
 }
 
-#upload-progress-bar {
-  transition: width 0.2s ease;
-}
-
-/* ─── Preview Container ──────────────────────────────────────────────────────── */
-#preview-container {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  margin-top: 1rem;
-}
-
-.upload-preview-item img {
-  border-radius: 0.375rem;
+.gallery-thumbnail {
+  width: 100%;
+  height: 180px;
+  object-fit: cover;
+  display: block;
 }
 
 /* ─── Tag Badges ─────────────────────────────────────────────────────────────── */
 .tag-badge {
-  transition: opacity 0.15s ease;
+  font-size: 0.8rem;
+  font-weight: 500;
+  padding: 0.3em 0.6em;
+  border-radius: 4px;
+  transition: opacity var(--transition-fast);
 }
 
-.tag-badge:hover {
-  opacity: 0.85;
+.tag-badge .btn-close {
+  opacity: 0.7;
+}
+
+.tag-badge .btn-close:hover {
+  opacity: 1;
+}
+
+/* ─── Tag Cloud ──────────────────────────────────────────────────────────────── */
+.tag-cloud {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  line-height: 1.8;
+}
+
+.tag-cloud-item {
+  display: inline-block;
+  padding: 0.1rem 0.25rem;
+  border-radius: 3px;
+  transition: opacity var(--transition-fast), background-color var(--transition-fast);
+  font-weight: 500;
+}
+
+.tag-cloud-item:hover {
+  opacity: 0.75;
+  text-decoration: underline !important;
+  background-color: rgba(0,0,0,0.05);
+}
+
+.tag-cloud-item.active {
+  font-weight: 700;
+  text-decoration: underline !important;
+}
+
+/* ─── Upload Drop Zone ───────────────────────────────────────────────────────── */
+#dropZone {
+  border: 2px dashed #ccc;
+  border-radius: 12px;
+  padding: 3rem;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color var(--transition-medium), background-color var(--transition-medium);
+  background-color: #fff;
+  min-height: 200px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+#dropZone:hover,
+#dropZone.drag-over {
+  border-color: #0d6efd;
+  background-color: #f0f7ff;
+}
+
+#dropZone.drag-over {
+  border-style: solid;
+  transform: scale(1.01);
+}
+
+.drop-zone-icon {
+  font-size: 3rem;
+  color: #adb5bd;
+  margin-bottom: 1rem;
+  transition: color var(--transition-medium);
+}
+
+#dropZone:hover .drop-zone-icon,
+#dropZone.drag-over .drop-zone-icon {
+  color: #0d6efd;
+}
+
+/* ─── Upload Progress ────────────────────────────────────────────────────────── */
+#progressContainer {
+  transition: opacity var(--transition-medium);
 }
 
 /* ─── Tag Management Table ───────────────────────────────────────────────────── */
-#tagsTable td {
-  vertical-align: middle;
+#tagsTable .tag-name-display {
+  cursor: default;
 }
 
-.tag-name-input {
-  max-width: 200px;
+#tagsTable tr {
+  transition: opacity var(--transition-medium);
 }
 
-/* ─── Navbar active state ────────────────────────────────────────────────────── */
-.navbar-nav .nav-link:hover {
-  opacity: 0.85;
+/* ─── Image Detail ───────────────────────────────────────────────────────────── */
+#mainImage {
+  max-height: 70vh;
+  object-fit: contain;
+}
+
+/* ─── Pagination ─────────────────────────────────────────────────────────────── */
+.pagination .page-link {
+  border-radius: 6px;
+  margin: 0 2px;
+}
+
+/* ─── Toasts ─────────────────────────────────────────────────────────────────── */
+#toastContainer {
+  z-index: 9999;
+}
+
+/* ─── Responsive Fixes ───────────────────────────────────────────────────────── */
+@media (max-width: 767.98px) {
+  .gallery-thumbnail {
+    height: 140px;
+  }
+
+  #dropZone {
+    padding: 2rem 1rem;
+  }
 }
 
 /* ─── Utility ────────────────────────────────────────────────────────────────── */
-.cursor-pointer {
-  cursor: pointer;
-}
+.cursor-pointer { cursor: pointer; }
+.min-height-badges { min-height: 2.5rem; }
+.object-fit-cover { object-fit: cover; }
 
-.text-truncate-2 {
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
+/* ─── EXIF Table ─────────────────────────────────────────────────────────────── */
+.exif-table th {
+  width: 40%;
+  font-weight: 600;
+  color: #495057;
 }

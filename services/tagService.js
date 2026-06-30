@@ -5,29 +5,11 @@ const { Op, fn, col, literal } = require('sequelize');
  * Generate a slug from a tag name
  */
 function generateSlug(name) {
-  return name
-    .toLowerCase()
-    .trim()
-    .replace(/\s+/g, '-')
-    .replace(/[^a-z0-9-]/g, '')
-    .replace(/-+/g, '-')
-    .replace(/^-|-$/g, '');
+  return name.toLowerCase().trim().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
 }
 
 /**
- * Validate tag name: 2–30 chars, alphanumeric + hyphens + spaces
- */
-function validateTagName(name) {
-  if (!name || name.length < 2 || name.length > 30) {
-    throw new Error('Tag name must be between 2 and 30 characters.');
-  }
-  if (!/^[a-zA-Z0-9\s-]+$/.test(name)) {
-    throw new Error('Tag name can only contain letters, numbers, spaces, and hyphens.');
-  }
-}
-
-/**
- * Get all tags with image counts, ordered by count descending
+ * Get all tags with their image counts, ordered by count desc
  */
 async function getAllTagsWithCounts() {
   const tags = await Tag.findAll({
@@ -47,14 +29,25 @@ async function getAllTagsWithCounts() {
     order: [[literal('imageCount'), 'DESC']],
     subQuery: false
   });
-  return tags;
+
+  return tags.map(tag => {
+    const plain = tag.get({ plain: true });
+    plain.imageCount = parseInt(plain.imageCount || 0, 10);
+    return plain;
+  });
 }
 
 /**
- * Search tags by name or slug using LIKE query
+ * Search tags by name or slug with LIKE query
  */
 async function searchTags(q) {
   const tags = await Tag.findAll({
+    where: {
+      [Op.or]: [
+        { name: { [Op.like]: `%${q}%` } },
+        { slug: { [Op.like]: `%${q}%` } }
+      ]
+    },
     attributes: {
       include: [
         [fn('COUNT', col('ImageTags.id')), 'imageCount']
@@ -67,123 +60,62 @@ async function searchTags(q) {
         required: false
       }
     ],
-    where: {
-      [Op.or]: [
-        { name: { [Op.like]: `%${q}%` } },
-        { slug: { [Op.like]: `%${q}%` } }
-      ]
-    },
     group: ['Tag.id'],
-    order: [['name', 'ASC']],
-    subQuery: false
+    order: [[literal('imageCount'), 'DESC']],
+    subQuery: false,
+    limit: 20
   });
-  return tags;
-}
 
-/**
- * Create a new tag
- */
-async function createTag(name, color) {
-  validateTagName(name);
-  const slug = generateSlug(name);
-
-  const existing = await Tag.findOne({ where: { slug } });
-  if (existing) {
-    throw new Error(`Tag '${name}' already exists.`);
-  }
-
-  const tag = await Tag.create({
-    name,
-    slug,
-    color: color || null
+  return tags.map(tag => {
+    const plain = tag.get({ plain: true });
+    plain.imageCount = parseInt(plain.imageCount || 0, 10);
+    return plain;
   });
-  return tag;
 }
 
 /**
  * Find or create a tag by name (case-insensitive via slug)
  */
-async function findOrCreateByName(name) {
-  validateTagName(name);
+async function findOrCreateByName(name, color) {
   const slug = generateSlug(name);
 
-  const [tag] = await Tag.findOrCreate({
-    where: { slug },
-    defaults: {
-      name,
-      slug,
-      color: null
-    }
+  let tag = await Tag.findOne({ where: { slug } });
+
+  if (tag) {
+    return tag.get({ plain: true });
+  }
+
+  tag = await Tag.create({
+    name: name.trim(),
+    slug,
+    color: color || '#6c757d'
   });
-  return tag;
+
+  return tag.get({ plain: true });
 }
 
 /**
- * Update a tag (rename and/or change color)
+ * Assign a tag to an image, creating the tag if needed
  */
-async function updateTag(id, { name, color }) {
-  const tag = await Tag.findByPk(id);
-  if (!tag) {
-    throw new Error(`Tag with id ${id} not found.`);
-  }
+async function assignTag(imageId, tagName, color) {
+  const tag = await findOrCreateByName(tagName, color);
 
-  if (name !== undefined) {
-    validateTagName(name);
-    const newSlug = generateSlug(name);
-
-    // Check if new slug conflicts with another tag
-    const existing = await Tag.findOne({ where: { slug: newSlug } });
-    if (existing && existing.id !== tag.id) {
-      throw new Error(`Tag '${name}' already exists.`);
-    }
-
-    tag.name = name;
-    tag.slug = newSlug;
-  }
-
-  if (color !== undefined) {
-    tag.color = color;
-  }
-
-  await tag.save();
-  return tag;
-}
-
-/**
- * Assign a tag to an image (finds or creates tag, then creates ImageTag if not exists)
- */
-async function assignTag(imageId, tagName) {
-  const tag = await findOrCreateByName(tagName);
   await ImageTag.findOrCreate({
     where: { imageId, tagId: tag.id }
   });
-  return tag;
+
+  return getTagsForImage(imageId);
 }
 
 /**
  * Remove a tag from an image
  */
 async function removeTag(imageId, tagId) {
-  const deleted = await ImageTag.destroy({
+  await ImageTag.destroy({
     where: { imageId, tagId }
   });
-  return deleted;
-}
 
-/**
- * Delete a tag and all its associations
- */
-async function deleteTag(id) {
-  const tag = await Tag.findByPk(id);
-  if (!tag) {
-    throw new Error(`Tag with id ${id} not found.`);
-  }
-
-  // Delete all ImageTag associations first
-  await ImageTag.destroy({ where: { tagId: id } });
-
-  // Then delete the tag
-  await tag.destroy();
+  return getTagsForImage(imageId);
 }
 
 /**
@@ -194,18 +126,63 @@ async function getTagsForImage(imageId) {
     where: { imageId },
     include: [{ model: Tag }]
   });
-  return imageTags.map(it => it.Tag);
+
+  return imageTags.map(it => {
+    const tag = it.Tag ? it.Tag.get({ plain: true }) : null;
+    return tag;
+  }).filter(Boolean);
+}
+
+/**
+ * Rename a tag (regenerates slug)
+ */
+async function renameTag(id, newName) {
+  const tag = await Tag.findByPk(id);
+  if (!tag) {
+    throw new Error('Tag not found.');
+  }
+
+  const newSlug = generateSlug(newName);
+
+  // Check if another tag with that slug exists
+  const existing = await Tag.findOne({ where: { slug: newSlug } });
+  if (existing && existing.id !== tag.id) {
+    throw new Error(`Tag "${newName}" already exists.`);
+  }
+
+  tag.name = newName.trim();
+  tag.slug = newSlug;
+  await tag.save();
+
+  return tag.get({ plain: true });
+}
+
+/**
+ * Delete a tag and all its associations
+ */
+async function deleteTag(id) {
+  const tag = await Tag.findByPk(id);
+  if (!tag) {
+    throw new Error('Tag not found.');
+  }
+
+  // Delete all ImageTag associations first
+  await ImageTag.destroy({ where: { tagId: id } });
+
+  // Delete the tag
+  await tag.destroy();
+
+  return true;
 }
 
 module.exports = {
   getAllTagsWithCounts,
   searchTags,
-  createTag,
   findOrCreateByName,
-  updateTag,
   assignTag,
   removeTag,
-  deleteTag,
   getTagsForImage,
+  renameTag,
+  deleteTag,
   generateSlug
 };

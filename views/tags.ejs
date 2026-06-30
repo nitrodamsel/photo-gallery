@@ -1,111 +1,444 @@
-<%- include('layouts/base', { title: title, body: `
-<div class="container mt-4">
-  <div class="d-flex justify-content-between align-items-center mb-4">
-    <h1><i class="bi bi-tags-fill me-2"></i>Tag Management</h1>
-    <a href="/gallery" class="btn btn-outline-secondary">
-      <i class="bi bi-arrow-left me-1"></i>Back to Gallery
-    </a>
-  </div>
+<%- include('layouts/base', { title: title, activePage: activePage, body: `
+<div class="container-fluid py-4">
+  <div class="row">
+    <div class="col-12">
+      <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h2 mb-0">
+          <i class="bi bi-tags-fill text-primary me-2"></i>Tag Management
+        </h1>
+        <span class="badge bg-secondary fs-6">${tags.length} tag${tags.length !== 1 ? 's' : ''}</span>
+      </div>
 
-  <!-- Create New Tag -->
-  <div class="card mb-4 shadow-sm">
-    <div class="card-header bg-primary text-white">
-      <h5 class="mb-0"><i class="bi bi-plus-circle me-2"></i>Create New Tag</h5>
-    </div>
-    <div class="card-body">
-      <form id="createTagForm" class="row g-3">
-        <div class="col-md-5">
-          <label for="newTagName" class="form-label">Tag Name <span class="text-danger">*</span></label>
-          <input type="text" class="form-control" id="newTagName" name="name"
-            placeholder="e.g. landscape, black-and-white" minlength="2" maxlength="30" required>
-          <div class="form-text">2–30 characters, letters, numbers, spaces, and hyphens.</div>
+      <!-- Create New Tag Form -->
+      <div class="card shadow-sm mb-4">
+        <div class="card-header bg-primary text-white">
+          <h5 class="mb-0"><i class="bi bi-plus-circle me-2"></i>Create New Tag</h5>
         </div>
-        <div class="col-md-3">
-          <label for="newTagColor" class="form-label">Color</label>
-          <input type="color" class="form-control form-control-color" id="newTagColor" name="color" value="#6c757d">
+        <div class="card-body">
+          <form id="createTagForm" class="row g-3 align-items-end">
+            <div class="col-md-5">
+              <label for="newTagName" class="form-label fw-semibold">Tag Name</label>
+              <input
+                type="text"
+                class="form-control"
+                id="newTagName"
+                placeholder="e.g., nature, black-and-white"
+                minlength="2"
+                maxlength="30"
+                pattern="[a-zA-Z0-9\\- ]+"
+                required
+              />
+              <div class="form-text">2–30 chars, letters, numbers, hyphens, spaces.</div>
+            </div>
+            <div class="col-md-3">
+              <label for="newTagColor" class="form-label fw-semibold">Color</label>
+              <div class="input-group">
+                <input type="color" class="form-control form-control-color" id="newTagColor" value="#6c757d" title="Pick tag color" />
+                <input type="text" class="form-control" id="newTagColorHex" value="#6c757d" maxlength="7" placeholder="#rrggbb" />
+              </div>
+            </div>
+            <div class="col-md-2">
+              <button type="submit" class="btn btn-primary w-100">
+                <i class="bi bi-plus-lg me-1"></i>Create Tag
+              </button>
+            </div>
+            <div class="col-md-2">
+              <div id="createTagMessage" class="small"></div>
+            </div>
+          </form>
         </div>
-        <div class="col-md-4 d-flex align-items-end">
-          <button type="submit" class="btn btn-primary w-100">
-            <i class="bi bi-plus-lg me-1"></i>Create Tag
-          </button>
-        </div>
-        <div class="col-12" id="createTagMessage" style="display:none;"></div>
-      </form>
-    </div>
-  </div>
+      </div>
 
-  <!-- Tags Table -->
-  <div class="card shadow-sm">
-    <div class="card-header">
-      <h5 class="mb-0"><i class="bi bi-table me-2"></i>All Tags (<span id="tagCount">${tags.length}</span>)</h5>
-    </div>
-    <div class="card-body p-0">
-      ${tags.length === 0 ? `
-        <div class="text-center text-muted py-5">
-          <i class="bi bi-tags fs-1"></i>
-          <p class="mt-3">No tags yet. Create your first tag above!</p>
+      <!-- Tags Table -->
+      <div class="card shadow-sm">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <h5 class="mb-0"><i class="bi bi-list-ul me-2"></i>All Tags</h5>
+          <div class="input-group" style="max-width: 250px;">
+            <span class="input-group-text"><i class="bi bi-search"></i></span>
+            <input type="text" class="form-control form-control-sm" id="tagSearchInput" placeholder="Filter tags..." />
+          </div>
         </div>
-      ` : `
-        <div class="table-responsive">
-          <table class="table table-hover mb-0" id="tagsTable">
-            <thead class="table-light">
-              <tr>
-                <th>Color</th>
-                <th>Name</th>
-                <th>Slug</th>
-                <th class="text-center">Images</th>
-                <th>Created</th>
-                <th class="text-center">Actions</th>
-              </tr>
-            </thead>
-            <tbody id="tagsTableBody">
-              ${tags.map(tag => `
-                <tr id="tag-row-${tag.id}" data-tag-id="${tag.id}">
-                  <td>
-                    <span class="d-inline-block rounded" style="width:24px;height:24px;background:${tag.color || '#6c757d'};border:1px solid #dee2e6;"></span>
-                  </td>
-                  <td>
-                    <span class="tag-name-display" id="tag-name-${tag.id}">${tag.name}</span>
-                    <input type="text" class="form-control form-control-sm tag-name-input d-none"
-                      id="tag-input-${tag.id}" value="${tag.name}" minlength="2" maxlength="30"
-                      style="display:none!important;">
-                  </td>
-                  <td>
-                    <code class="tag-slug-display" id="tag-slug-${tag.id}">${tag.slug}</code>
-                  </td>
-                  <td class="text-center">
-                    <a href="/gallery?tag=${encodeURIComponent(tag.slug)}" class="badge bg-secondary text-decoration-none">
-                      ${tag.get ? tag.get('imageCount') || 0 : (tag.dataValues ? tag.dataValues.imageCount || 0 : 0)}
-                    </a>
-                  </td>
-                  <td>
-                    <small class="text-muted">${new Date(tag.createdAt).toLocaleDateString()}</small>
-                  </td>
-                  <td class="text-center">
-                    <div class="btn-group btn-group-sm" id="tag-actions-${tag.id}">
-                      <button class="btn btn-outline-primary btn-rename" data-tag-id="${tag.id}" title="Rename">
-                        <i class="bi bi-pencil"></i>
-                      </button>
-                      <button class="btn btn-outline-danger btn-delete" data-tag-id="${tag.id}" data-tag-name="${tag.name}" title="Delete">
-                        <i class="bi bi-trash"></i>
-                      </button>
-                    </div>
-                    <div class="btn-group btn-group-sm d-none" id="tag-edit-actions-${tag.id}">
-                      <button class="btn btn-success btn-save" data-tag-id="${tag.id}" title="Save">
-                        <i class="bi bi-check-lg"></i> Save
-                      </button>
-                      <button class="btn btn-secondary btn-cancel" data-tag-id="${tag.id}" title="Cancel">
-                        <i class="bi bi-x-lg"></i>
-                      </button>
-                    </div>
-                  </td>
+        <div class="card-body p-0">
+          <div class="table-responsive">
+            <table class="table table-hover table-striped mb-0" id="tagsTable">
+              <thead class="table-dark">
+                <tr>
+                  <th style="width: 40px;">Color</th>
+                  <th>Name</th>
+                  <th>Slug</th>
+                  <th class="text-center" style="width: 100px;">Images</th>
+                  <th style="width: 140px;">Created</th>
+                  <th class="text-center" style="width: 160px;">Actions</th>
                 </tr>
-              `).join('')}
-            </tbody>
-          </table>
+              </thead>
+              <tbody id="tagsTableBody">
+                <% if (tags.length === 0) { %>
+                  <tr id="noTagsRow">
+                    <td colspan="6" class="text-center text-muted py-4">
+                      <i class="bi bi-tags fs-3 d-block mb-2"></i>
+                      No tags yet. Create your first tag above!
+                    </td>
+                  </tr>
+                <% } %>
+                <% tags.forEach(tag => { %>
+                  <tr id="tag-row-<%= tag.id %>" data-tag-name="<%= tag.name.toLowerCase() %>" data-tag-slug="<%= tag.slug %>">
+                    <td class="align-middle">
+                      <span
+                        class="d-inline-block rounded-circle border"
+                        style="width: 24px; height: 24px; background-color: <%= tag.color || '#6c757d' %>;"
+                        title="<%= tag.color || '#6c757d' %>"
+                      ></span>
+                    </td>
+                    <td class="align-middle">
+                      <span
+                        class="tag-name-display fw-semibold"
+                        id="tag-name-<%= tag.id %>"
+                      ><%= tag.name %></span>
+                      <input
+                        type="text"
+                        class="form-control form-control-sm tag-name-input d-none"
+                        id="tag-input-<%= tag.id %>"
+                        value="<%= tag.name %>"
+                        minlength="2"
+                        maxlength="30"
+                        style="max-width: 200px; display: inline-block !important;"
+                      />
+                    </td>
+                    <td class="align-middle">
+                      <code class="tag-slug-display" id="tag-slug-<%= tag.id %>"><%= tag.slug %></code>
+                    </td>
+                    <td class="align-middle text-center">
+                      <a href="/gallery?tag=<%= tag.slug %>" class="badge bg-info text-dark text-decoration-none" title="Browse images with this tag">
+                        <%= tag.imageCount %>
+                      </a>
+                    </td>
+                    <td class="align-middle text-muted small">
+                      <%= new Date(tag.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) %>
+                    </td>
+                    <td class="align-middle text-center">
+                      <!-- Normal Actions -->
+                      <div class="tag-actions-normal" id="tag-actions-<%= tag.id %>">
+                        <button
+                          class="btn btn-sm btn-outline-secondary me-1"
+                          onclick="startRename(<%= tag.id %>)"
+                          title="Rename tag"
+                        >
+                          <i class="bi bi-pencil"></i>
+                        </button>
+                        <button
+                          class="btn btn-sm btn-outline-danger"
+                          onclick="confirmDeleteTag(<%= tag.id %>, '<%= tag.name.replace(/'/g, "\\'") %>')"
+                          title="Delete tag"
+                        >
+                          <i class="bi bi-trash3"></i>
+                        </button>
+                      </div>
+                      <!-- Edit Actions -->
+                      <div class="tag-actions-edit d-none" id="tag-edit-actions-<%= tag.id %>">
+                        <button
+                          class="btn btn-sm btn-success me-1"
+                          onclick="saveRename(<%= tag.id %>)"
+                          title="Save"
+                        >
+                          <i class="bi bi-check-lg"></i>
+                        </button>
+                        <button
+                          class="btn btn-sm btn-secondary"
+                          onclick="cancelRename(<%= tag.id %>)"
+                          title="Cancel"
+                        >
+                          <i class="bi bi-x-lg"></i>
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                <% }) %>
+              </tbody>
+            </table>
+          </div>
         </div>
-      `}
+      </div>
+
     </div>
   </div>
 </div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteTagModal" tabindex="-1" aria-labelledby="deleteTagModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header bg-danger text-white">
+        <h5 class="modal-title" id="deleteTagModalLabel">
+          <i class="bi bi-exclamation-triangle-fill me-2"></i>Delete Tag
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <p>Are you sure you want to delete the tag <strong id="deleteTagName"></strong>?</p>
+        <p class="text-muted small mb-0">
+          <i class="bi bi-info-circle me-1"></i>
+          This will remove the tag from all images. This action cannot be undone.
+        </p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-danger" id="confirmDeleteBtn">
+          <i class="bi bi-trash3 me-1"></i>Delete Tag
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="/js/tagging.js"></script>
+<script>
+  // Color picker sync
+  const colorPicker = document.getElementById('newTagColor');
+  const colorHex = document.getElementById('newTagColorHex');
+
+  colorPicker.addEventListener('input', () => {
+    colorHex.value = colorPicker.value;
+  });
+  colorHex.addEventListener('input', () => {
+    if (/^#[0-9a-fA-F]{6}$/.test(colorHex.value)) {
+      colorPicker.value = colorHex.value;
+    }
+  });
+
+  // Create tag form
+  document.getElementById('createTagForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const name = document.getElementById('newTagName').value.trim();
+    const color = document.getElementById('newTagColor').value;
+    const msgEl = document.getElementById('createTagMessage');
+
+    msgEl.innerHTML = '<span class="text-muted"><i class="bi bi-hourglass-split me-1"></i>Creating...</span>';
+
+    try {
+      const res = await fetch('/api/tags', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, color })
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        msgEl.innerHTML = '<span class="text-danger"><i class="bi bi-exclamation-circle me-1"></i>' + escapeHtml(data.error) + '</span>';
+        return;
+      }
+
+      msgEl.innerHTML = '<span class="text-success"><i class="bi bi-check-circle me-1"></i>Created!</span>';
+      document.getElementById('newTagName').value = '';
+
+      // Add new row to table
+      addTagRow(data);
+
+      // Remove "no tags" row if present
+      const noTagsRow = document.getElementById('noTagsRow');
+      if (noTagsRow) noTagsRow.remove();
+
+      setTimeout(() => { msgEl.innerHTML = ''; }, 3000);
+    } catch (err) {
+      msgEl.innerHTML = '<span class="text-danger"><i class="bi bi-wifi-off me-1"></i>Network error.</span>';
+    }
+  });
+
+  // Table filter
+  document.getElementById('tagSearchInput').addEventListener('input', function() {
+    const query = this.value.toLowerCase();
+    const rows = document.querySelectorAll('#tagsTableBody tr[id^="tag-row-"]');
+    rows.forEach(row => {
+      const name = row.dataset.tagName || '';
+      const slug = row.dataset.tagSlug || '';
+      row.style.display = (name.includes(query) || slug.includes(query)) ? '' : 'none';
+    });
+  });
+
+  // Add a new tag row dynamically
+  function addTagRow(tag) {
+    const tbody = document.getElementById('tagsTableBody');
+    const date = new Date(tag.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+    const safeName = escapeHtml(tag.name);
+    const safeSlug = escapeHtml(tag.slug);
+    const color = tag.color || '#6c757d';
+
+    const tr = document.createElement('tr');
+    tr.id = 'tag-row-' + tag.id;
+    tr.dataset.tagName = tag.name.toLowerCase();
+    tr.dataset.tagSlug = tag.slug;
+    tr.innerHTML = \`
+      <td class="align-middle">
+        <span class="d-inline-block rounded-circle border" style="width: 24px; height: 24px; background-color: \${escapeHtml(color)};"></span>
+      </td>
+      <td class="align-middle">
+        <span class="tag-name-display fw-semibold" id="tag-name-\${tag.id}">\${safeName}</span>
+        <input type="text" class="form-control form-control-sm tag-name-input d-none" id="tag-input-\${tag.id}" value="\${safeName}" minlength="2" maxlength="30" style="max-width: 200px; display: inline-block !important;" />
+      </td>
+      <td class="align-middle"><code class="tag-slug-display" id="tag-slug-\${tag.id}">\${safeSlug}</code></td>
+      <td class="align-middle text-center">
+        <a href="/gallery?tag=\${safeSlug}" class="badge bg-info text-dark text-decoration-none">0</a>
+      </td>
+      <td class="align-middle text-muted small">\${date}</td>
+      <td class="align-middle text-center">
+        <div class="tag-actions-normal" id="tag-actions-\${tag.id}">
+          <button class="btn btn-sm btn-outline-secondary me-1" onclick="startRename(\${tag.id})" title="Rename tag"><i class="bi bi-pencil"></i></button>
+          <button class="btn btn-sm btn-outline-danger" onclick="confirmDeleteTag(\${tag.id}, '\${safeName}')" title="Delete tag"><i class="bi bi-trash3"></i></button>
+        </div>
+        <div class="tag-actions-edit d-none" id="tag-edit-actions-\${tag.id}">
+          <button class="btn btn-sm btn-success me-1" onclick="saveRename(\${tag.id})" title="Save"><i class="bi bi-check-lg"></i></button>
+          <button class="btn btn-sm btn-secondary" onclick="cancelRename(\${tag.id})" title="Cancel"><i class="bi bi-x-lg"></i></button>
+        </div>
+      </td>
+    \`;
+    tbody.insertBefore(tr, tbody.firstChild);
+  }
+
+  // Delete tag
+  let pendingDeleteId = null;
+  function confirmDeleteTag(id, name) {
+    pendingDeleteId = id;
+    document.getElementById('deleteTagName').textContent = '"' + name + '"';
+    const modal = new bootstrap.Modal(document.getElementById('deleteTagModal'));
+    modal.show();
+  }
+
+  document.getElementById('confirmDeleteBtn').addEventListener('click', async () => {
+    if (!pendingDeleteId) return;
+    const id = pendingDeleteId;
+
+    try {
+      const res = await fetch('/api/tags/' + id, { method: 'DELETE' });
+      const data = await res.json();
+
+      bootstrap.Modal.getInstance(document.getElementById('deleteTagModal')).hide();
+
+      if (!res.ok) {
+        showToast(data.error || 'Failed to delete tag.', 'danger');
+        return;
+      }
+
+      const row = document.getElementById('tag-row-' + id);
+      if (row) {
+        row.style.transition = 'opacity 0.3s';
+        row.style.opacity = '0';
+        setTimeout(() => row.remove(), 300);
+      }
+      showToast('Tag deleted successfully.', 'success');
+    } catch (err) {
+      showToast('Network error while deleting tag.', 'danger');
+    }
+    pendingDeleteId = null;
+  });
+
+  // Rename tag functions
+  function startRename(id) {
+    const nameDisplay = document.getElementById('tag-name-' + id);
+    const nameInput = document.getElementById('tag-input-' + id);
+    const normalActions = document.getElementById('tag-actions-' + id);
+    const editActions = document.getElementById('tag-edit-actions-' + id);
+
+    nameDisplay.classList.add('d-none');
+    nameInput.classList.remove('d-none');
+    nameInput.focus();
+    nameInput.select();
+    normalActions.classList.add('d-none');
+    editActions.classList.remove('d-none');
+
+    // Allow Enter to save
+    nameInput.onkeydown = (e) => {
+      if (e.key === 'Enter') saveRename(id);
+      if (e.key === 'Escape') cancelRename(id);
+    };
+  }
+
+  function cancelRename(id) {
+    const nameDisplay = document.getElementById('tag-name-' + id);
+    const nameInput = document.getElementById('tag-input-' + id);
+    const normalActions = document.getElementById('tag-actions-' + id);
+    const editActions = document.getElementById('tag-edit-actions-' + id);
+
+    nameInput.value = nameDisplay.textContent;
+    nameDisplay.classList.remove('d-none');
+    nameInput.classList.add('d-none');
+    normalActions.classList.remove('d-none');
+    editActions.classList.add('d-none');
+  }
+
+  async function saveRename(id) {
+    const nameDisplay = document.getElementById('tag-name-' + id);
+    const nameInput = document.getElementById('tag-input-' + id);
+    const slugDisplay = document.getElementById('tag-slug-' + id);
+    const newName = nameInput.value.trim();
+
+    if (!newName || newName.length < 2) {
+      showToast('Tag name must be at least 2 characters.', 'warning');
+      return;
+    }
+
+    try {
+      const res = await fetch('/api/tags/' + id, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: newName })
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        showToast(data.error || 'Failed to rename tag.', 'danger');
+        return;
+      }
+
+      nameDisplay.textContent = data.name;
+      if (slugDisplay) slugDisplay.textContent = data.slug;
+
+      const row = document.getElementById('tag-row-' + id);
+      if (row) {
+        row.dataset.tagName = data.name.toLowerCase();
+        row.dataset.tagSlug = data.slug;
+      }
+
+      cancelRename(id);
+      showToast('Tag renamed successfully.', 'success');
+    } catch (err) {
+      showToast('Network error while renaming tag.', 'danger');
+    }
+  }
+
+  function escapeHtml(str) {
+    if (!str) return '';
+    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+  }
+
+  function showToast(message, type = 'info') {
+    const container = document.getElementById('toastContainer') || createToastContainer();
+    const id = 'toast-' + Date.now();
+    const iconMap = { success: 'check-circle-fill', danger: 'exclamation-triangle-fill', warning: 'exclamation-circle-fill', info: 'info-circle-fill' };
+    const icon = iconMap[type] || 'info-circle-fill';
+
+    const toastEl = document.createElement('div');
+    toastEl.id = id;
+    toastEl.className = \`toast align-items-center text-bg-\${type} border-0\`;
+    toastEl.setAttribute('role', 'alert');
+    toastEl.setAttribute('aria-live', 'assertive');
+    toastEl.innerHTML = \`
+      <div class="d-flex">
+        <div class="toast-body"><i class="bi bi-\${icon} me-2"></i>\${escapeHtml(message)}</div>
+        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+      </div>
+    \`;
+    container.appendChild(toastEl);
+    const toast = new bootstrap.Toast(toastEl, { delay: 3500 });
+    toast.show();
+    toastEl.addEventListener('hidden.bs.toast', () => toastEl.remove());
+  }
+
+  function createToastContainer() {
+    const div = document.createElement('div');
+    div.id = 'toastContainer';
+    div.className = 'toast-container position-fixed bottom-0 end-0 p-3';
+    div.style.zIndex = '9999';
+    document.body.appendChild(div);
+    return div;
+  }
+</script>
 ` }) %>
