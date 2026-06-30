@@ -1,35 +1,25 @@
 const { Sequelize } = require('sequelize');
 const config = require('../config');
 
-const sequelize = new Sequelize(
-  config.database.database,
-  config.database.username,
-  config.database.password,
-  {
-    host: config.database.host,
-    port: config.database.port,
-    dialect: config.database.dialect,
-    logging: config.database.logging,
-    pool: config.database.pool
-  }
-);
+const sequelize = new Sequelize(config.database);
 
-const db = {};
-
-db.sequelize = sequelize;
-db.Sequelize = Sequelize;
-
-// Load models
-db.Image = require('./Image')(sequelize);
-db.Tag = require('./Tag')(sequelize);
-db.ImageTag = require('./ImageTag')(sequelize);
-db.ThumbnailCache = require('./ThumbnailCache')(sequelize);
+const Image = require('./Image')(sequelize);
+const Tag = require('./Tag')(sequelize);
+const ImageTag = require('./ImageTag')(sequelize);
+const ThumbnailCache = require('./ThumbnailCache')(sequelize);
 
 // Run associations
-Object.keys(db).forEach(modelName => {
-  if (db[modelName] && db[modelName].associate) {
-    db[modelName].associate(db);
+[Image, Tag, ImageTag, ThumbnailCache].forEach(model => {
+  if (model.associate) {
+    model.associate({ Image, Tag, ImageTag, ThumbnailCache });
   }
 });
 
-module.exports = db;
+module.exports = {
+  sequelize,
+  Sequelize,
+  Image,
+  Tag,
+  ImageTag,
+  ThumbnailCache
+};

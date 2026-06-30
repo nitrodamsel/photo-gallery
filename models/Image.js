@@ -1,27 +1,44 @@
-const { DataTypes } = require('sequelize');
+const { Model, DataTypes } = require('sequelize');
 
 module.exports = (sequelize) => {
-  const Image = sequelize.define('Image', {
+  class Image extends Model {
+    static associate(models) {
+      Image.belongsToMany(models.Tag, {
+        through: models.ImageTag,
+        foreignKey: 'imageId',
+        otherKey: 'tagId',
+        as: 'Tags'
+      });
+      Image.hasMany(models.ImageTag, {
+        foreignKey: 'imageId'
+      });
+      Image.hasMany(models.ThumbnailCache, {
+        foreignKey: 'imageId',
+        as: 'Thumbnails'
+      });
+    }
+  }
+
+  Image.init({
     id: {
       type: DataTypes.INTEGER,
       primaryKey: true,
       autoIncrement: true
     },
-    originalName: {
-      type: DataTypes.STRING(255),
+    filename: {
+      type: DataTypes.STRING,
       allowNull: false
     },
-    storedName: {
-      type: DataTypes.STRING(255),
-      allowNull: false,
-      unique: true
+    originalName: {
+      type: DataTypes.STRING,
+      allowNull: false
     },
     mimeType: {
-      type: DataTypes.STRING(100),
+      type: DataTypes.STRING,
       allowNull: true
     },
     fileSize: {
-      type: DataTypes.BIGINT,
+      type: DataTypes.INTEGER,
       allowNull: true
     },
     width: {
@@ -32,17 +49,17 @@ module.exports = (sequelize) => {
       type: DataTypes.INTEGER,
       allowNull: true
     },
-    exifData: {
+    title: {
+      type: DataTypes.STRING,
+      allowNull: true
+    },
+    description: {
       type: DataTypes.TEXT,
-      allowNull: true,
-      get() {
-        const raw = this.getDataValue('exifData');
-        if (!raw) return null;
-        try { return JSON.parse(raw); } catch { return raw; }
-      },
-      set(val) {
-        this.setDataValue('exifData', val ? JSON.stringify(val) : null);
-      }
+      allowNull: true
+    },
+    exifData: {
+      type: DataTypes.JSON,
+      allowNull: true
     },
     latitude: {
       type: DataTypes.FLOAT,
@@ -52,28 +69,16 @@ module.exports = (sequelize) => {
       type: DataTypes.FLOAT,
       allowNull: true
     },
-    description: {
-      type: DataTypes.TEXT,
+    takenAt: {
+      type: DataTypes.DATE,
       allowNull: true
     }
   }, {
+    sequelize,
+    modelName: 'Image',
     tableName: 'images',
     timestamps: true
   });
-
-  Image.associate = (models) => {
-    Image.belongsToMany(models.Tag, {
-      through: models.ImageTag,
-      foreignKey: 'imageId',
-      otherKey: 'tagId'
-    });
-    Image.hasMany(models.ImageTag, {
-      foreignKey: 'imageId'
-    });
-    Image.hasMany(models.ThumbnailCache, {
-      foreignKey: 'imageId'
-    });
-  };
 
   return Image;
 };

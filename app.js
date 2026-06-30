@@ -1,19 +1,19 @@
 const express = require('express');
 const path = require('path');
 const morgan = require('morgan');
+const ejsLayouts = require('express-ejs-layouts');
 
-const { errorHandler } = require('./middleware/errorHandler');
-const indexRouter = require('./routes/index');
-const galleryRouter = require('./routes/gallery');
-const uploadRouter = require('./routes/upload');
-const tagsRouter = require('./routes/tags');
-const imageTagsRouter = require('./routes/imageTags');
+const config = require('./config');
+const errorHandler = require('./middleware/errorHandler');
+const routes = require('./routes');
 
 const app = express();
 
-// View engine setup
-app.set('views', path.join(__dirname, 'views'));
+// View engine
 app.set('view engine', 'ejs');
+app.set('views', path.join(__dirname, 'views'));
+app.use(ejsLayouts);
+app.set('layout', 'layouts/base');
 
 // Middleware
 app.use(morgan('dev'));
@@ -23,26 +23,11 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Routes
-app.use('/', indexRouter);
-app.use('/gallery', galleryRouter);
-app.use('/upload', uploadRouter);
-
-// Tag routes: page + API
-app.use('/tags', tagsRouter);
-
-// Tag API shortcut for autocomplete: GET /api/tags
-app.use('/api/tags', (req, res, next) => {
-  // Proxy to tags router's /api handler
-  req.url = '/api' + (req.url === '/' ? '' : req.url);
-  tagsRouter(req, res, next);
-});
-
-// Image tags API
-app.use('/api/images', imageTagsRouter);
+app.use('/', routes);
 
 // 404 handler
 app.use((req, res) => {
-  res.status(404).render('404', { title: 'Page Not Found' });
+  res.status(404).render('404', { title: '404 - Not Found' });
 });
 
 // Error handler

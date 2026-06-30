@@ -1,42 +1,31 @@
-<div class="card h-100 shadow-sm image-card">
-  <a href="/gallery/images/<%= image.id %>" class="text-decoration-none">
-    <div class="overflow-hidden" style="height: 200px;">
-      <img src="/uploads/<%= image.filename %>" 
-           alt="<%= image.title || image.originalName || 'Photo' %>"
+<div class="col">
+  <div class="card h-100 shadow-sm image-card">
+    <a href="/gallery/<%= image.id %>" class="text-decoration-none">
+      <img src="/uploads/<%= image.filename %>"
            class="card-img-top"
-           style="width: 100%; height: 100%; object-fit: cover;"
-           loading="lazy"
-           onerror="this.src='https://via.placeholder.com/300x200?text=Image+Not+Found'">
-    </div>
-  </a>
-  <div class="card-body p-2">
-    <% if (image.title) { %>
-    <h6 class="card-title mb-1 text-truncate" title="<%= image.title %>">
-      <a href="/gallery/images/<%= image.id %>" class="text-decoration-none text-dark">
-        <%= image.title %>
-      </a>
-    </h6>
-    <% } %>
-    
-    <!-- Tags -->
-    <% if (image.Tags && image.Tags.length > 0) { %>
-    <div class="mt-1">
-      <% image.Tags.slice(0, 3).forEach(function(tag) { %>
-      <a href="/gallery?tag=<%= tag.slug %>" 
-         class="badge text-decoration-none me-1"
-         style="background-color: <%= tag.color || '#6c757d' %>; font-size: 0.7em;">
-        <%= tag.name %>
-      </a>
-      <% }) %>
-      <% if (image.Tags.length > 3) { %>
-      <span class="badge bg-secondary" style="font-size: 0.7em;">+<%= image.Tags.length - 3 %></span>
+           alt="<%= image.title || image.originalName %>"
+           style="height: 180px; object-fit: cover;">
+    </a>
+    <div class="card-body p-2">
+      <p class="card-title mb-1 text-truncate small fw-semibold">
+        <a href="/gallery/<%= image.id %>" class="text-decoration-none text-dark">
+          <%= image.title || image.originalName %>
+        </a>
+      </p>
+      <% if (image.Tags && image.Tags.length > 0) { %>
+        <div class="d-flex flex-wrap gap-1 mt-1">
+          <% image.Tags.slice(0, 3).forEach(function(tag) { %>
+            <a href="/gallery?tag=<%= encodeURIComponent(tag.slug) %>"
+               class="badge text-decoration-none"
+               style="background-color: <%= tag.color || '#6c757d' %>; font-size: 0.7rem;">
+              <%= tag.name %>
+            </a>
+          <% }); %>
+          <% if (image.Tags.length > 3) { %>
+            <span class="badge bg-light text-muted" style="font-size: 0.7rem;">+<%= image.Tags.length - 3 %></span>
+          <% } %>
+        </div>
       <% } %>
     </div>
-    <% } %>
-  </div>
-  <div class="card-footer bg-transparent border-top-0 p-2">
-    <small class="text-muted">
-      <i class="bi bi-calendar3 me-1"></i><%= new Date(image.createdAt).toLocaleDateString() %>
-    </small>
   </div>
 </div>

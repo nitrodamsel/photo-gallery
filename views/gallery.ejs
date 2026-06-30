@@ -1,56 +1,44 @@
-<%- include('layouts/base', { title: title || 'Gallery', body: `
+<%- include('layouts/base', { title: title, body: `
 <div class="container-fluid mt-4">
-  <div class="row g-4">
+  <div class="row">
     <!-- Sidebar -->
-    <div class="col-lg-3 col-xl-2">
-      <div class="sticky-top pt-2" style="top:70px;">
-        <!-- Search -->
-        <div class="card shadow-sm mb-3">
-          <div class="card-body">
-            <form action="/gallery" method="GET">
-              <div class="input-group input-group-sm">
-                <input
-                  type="text"
-                  name="search"
-                  class="form-control"
-                  placeholder="Search images..."
-                  value="${typeof search !== 'undefined' ? escapeHtml(search) : ''}"
-                />
-                <button class="btn btn-primary" type="submit">
-                  <i class="bi bi-search"></i>
-                </button>
-              </div>
-              ${typeof tag !== 'undefined' && tag ? \`<input type="hidden" name="tag" value="\${escapeHtml(tag)}" />\` : ''}
-            </form>
-          </div>
+    <div class="col-lg-3 col-xl-2 mb-4">
+      <!-- Search -->
+      <div class="card shadow-sm mb-3">
+        <div class="card-header">
+          <h6 class="mb-0"><i class="bi bi-search me-2"></i>Search</h6>
         </div>
-
-        <!-- Tag Cloud -->
-        <div class="card shadow-sm mb-3">
-          <div class="card-body">
-            <%- include('partials/tag-cloud', { tags: allTags || [], title: 'Browse by Tag' }) %>
-          </div>
-        </div>
-
-        <!-- Active Filters -->
-        ${typeof tag !== 'undefined' && tag ? \`
-        <div class="card shadow-sm mb-3 border-info">
-          <div class="card-body py-2">
-            <div class="d-flex justify-content-between align-items-center">
-              <small class="text-muted">Filtered by tag:</small>
-              <a href="/gallery" class="btn btn-sm btn-outline-secondary"><i class="bi bi-x"></i></a>
+        <div class="card-body">
+          <form action="/gallery" method="get">
+            <div class="input-group input-group-sm">
+              <input type="text" class="form-control" name="search"
+                value="${search || ''}" placeholder="Search images...">
+              <button class="btn btn-outline-primary" type="submit">
+                <i class="bi bi-search"></i>
+              </button>
             </div>
-            <span class="badge bg-info text-dark mt-1">\${escapeHtml(tag)}</span>
-          </div>
-        </div>\` : ''}
+          </form>
+        </div>
+      </div>
 
-        <!-- Upload Button -->
-        <a href="/upload" class="btn btn-primary w-100 mb-2">
-          <i class="bi bi-cloud-upload me-2"></i>Upload Images
-        </a>
-        <a href="/tags" class="btn btn-outline-secondary w-100">
-          <i class="bi bi-tags me-2"></i>Manage Tags
-        </a>
+      <!-- Tag Cloud -->
+      <div class="card shadow-sm mb-3">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <h6 class="mb-0"><i class="bi bi-tags me-2"></i>Tags</h6>
+          <a href="/tags" class="btn btn-outline-secondary btn-sm" title="Manage Tags">
+            <i class="bi bi-gear"></i>
+          </a>
+        </div>
+        <div class="card-body">
+          ${currentTag ? `
+            <div class="mb-2">
+              <a href="/gallery" class="btn btn-sm btn-outline-secondary w-100">
+                <i class="bi bi-x me-1"></i>Clear filter: #${currentTag.name}
+              </a>
+            </div>
+          ` : ''}
+          <%- include('partials/tag-cloud', { tags: tags }) %>
+        </div>
       </div>
     </div>
 
@@ -58,65 +46,32 @@
     <div class="col-lg-9 col-xl-10">
       <div class="d-flex justify-content-between align-items-center mb-3">
         <h4 class="mb-0">
-          ${typeof tag !== 'undefined' && tag
-            ? \`<i class="bi bi-tag-fill me-2 text-info"></i>Tag: \${escapeHtml(tag)}\`
-            : '<i class="bi bi-images me-2"></i>All Images'
-          }
-          ${typeof totalCount !== 'undefined'
-            ? \`<span class="badge bg-secondary ms-2 fs-6">\${totalCount}</span>\`
-            : ''
-          }
+          ${currentTag ? `<span class="badge me-2" style="background:${currentTag.color || '#6c757d'}">#${currentTag.name}</span>` : ''}
+          ${count} image${count !== 1 ? 's' : ''}
+          ${search ? ` matching "<strong>${search}</strong>"` : ''}
         </h4>
-        <!-- Sort controls -->
-        <div class="d-flex gap-2 align-items-center">
-          <label class="form-label mb-0 small text-muted">Sort:</label>
-          <select class="form-select form-select-sm" style="width:auto;" onchange="location.href=this.value">
-            <option value="/gallery?sort=newest${typeof tag !== 'undefined' && tag ? '&tag=' + encodeURIComponent(tag) : ''}"
-              ${typeof sort === 'undefined' || sort === 'newest' ? 'selected' : ''}>Newest</option>
-            <option value="/gallery?sort=oldest${typeof tag !== 'undefined' && tag ? '&tag=' + encodeURIComponent(tag) : ''}"
-              ${typeof sort !== 'undefined' && sort === 'oldest' ? 'selected' : ''}>Oldest</option>
-            <option value="/gallery?sort=name${typeof tag !== 'undefined' && tag ? '&tag=' + encodeURIComponent(tag) : ''}"
-              ${typeof sort !== 'undefined' && sort === 'name' ? 'selected' : ''}>Name</option>
-          </select>
-        </div>
+        <a href="/upload" class="btn btn-primary">
+          <i class="bi bi-cloud-upload me-1"></i>Upload
+        </a>
       </div>
 
-      <!-- Image Grid -->
-      ${typeof images !== 'undefined' && images.length > 0 ? \`
-      <div class="row row-cols-2 row-cols-md-3 row-cols-xl-4 g-3" id="imageGrid">
-        \${images.map(img => {
-          const imgCount = img.Tags ? img.Tags.length : 0;
-          return \`
-          <div class="col">
-            <%- include('partials/image-card', { image: img }) %>
-          </div>\`;
-        }).join('')}
-      </div>\` : \`
-      <div class="text-center py-5 text-muted">
-        <i class="bi bi-images display-1 d-block mb-3"></i>
-        <h5>No images found</h5>
-        <p>Try adjusting your filters or <a href="/upload">upload some images</a>.</p>
-      </div>\`}
+      ${images.length === 0 ? `
+        <div class="text-center py-5 text-muted">
+          <i class="bi bi-images fs-1 d-block mb-3"></i>
+          <p class="fs-5">No images found.</p>
+          ${!currentTag && !search ? `<a href="/upload" class="btn btn-primary">Upload your first image</a>` : ''}
+        </div>
+      ` : `
+        <div class="row row-cols-2 row-cols-md-3 row-cols-xl-4 g-3">
+          ${images.map(image => `
+            <%- include('partials/image-card', { image: image }) %>
+          `).join('')}
+        </div>
+      `}
 
       <!-- Pagination -->
-      ${typeof totalPages !== 'undefined' && totalPages > 1 ? \`
-      <%- include('partials/pagination', {
-        currentPage: currentPageNum || 1,
-        totalPages: totalPages,
-        baseUrl: '/gallery'
-      }) %>\` : ''}
+      ${totalPages > 1 ? `<%- include('partials/pagination', { page: page, totalPages: totalPages, search: search, currentTag: currentTag }) %>` : ''}
     </div>
   </div>
 </div>
-<script>
-function escapeHtml(str) {
-  if (!str) return '';
-  return String(str)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
-</script>
 ` }) %>

@@ -1,418 +1,413 @@
 /**
- * Client-side tagging logic for the photo gallery application.
- * Handles tag input autocomplete, adding/removing tags from image detail page,
- * and tag management page interactions.
+ * Client-side tagging logic
+ * Handles tag input autocomplete, add/remove tags via API, and inline rename
  */
 
-// ─── Tag Input Autocomplete ──────────────────────────────────────────────────
+(function () {
+  'use strict';
 
-/**
- * Initialize autocomplete on a tag input field using a datalist element.
- * @param {HTMLInputElement} inputEl - The input element
- * @param {HTMLDataListElement} datalistEl - The datalist element
- */
-function initTagAutocomplete(inputEl, datalistEl) {
-  if (!inputEl || !datalistEl) return;
+  // ─── Autocomplete Setup ───────────────────────────────────────────────────
 
-  let debounceTimer;
+  function setupTagAutocomplete(inputEl, datalistEl) {
+    if (!inputEl || !datalistEl) return;
 
-  inputEl.addEventListener('input', function () {
-    clearTimeout(debounceTimer);
-    const q = this.value.trim();
+    let debounceTimer = null;
 
-    if (q.length < 1) {
-      datalistEl.innerHTML = '';
-      return;
-    }
+    inputEl.addEventListener('input', function () {
+      clearTimeout(debounceTimer);
+      const q = this.value.trim();
 
-    debounceTimer = setTimeout(async () => {
-      try {
-        const res = await fetch(`/api/tags?q=${encodeURIComponent(q)}`);
-        if (!res.ok) return;
-        const tags = await res.json();
-        datalistEl.innerHTML = tags
-          .map(tag => `<option value="${escapeHtml(tag.name)}"></option>`)
-          .join('');
-      } catch (err) {
-        console.error('Autocomplete error:', err);
+      if (q.length < 1) {
+        datalistEl.innerHTML = '';
+        return;
       }
-    }, 200);
-  });
-}
 
-// ─── Image Detail Page: Add / Remove Tags ────────────────────────────────────
-
-/**
- * Add a tag to an image via API and re-render the tag list.
- * @param {number|string} imageId
- * @param {string} tagName
- */
-async function addTag(imageId, tagName) {
-  if (!tagName || tagName.trim().length < 2) {
-    showTagError('Tag name must be at least 2 characters.');
-    return;
+      debounceTimer = setTimeout(async () => {
+        try {
+          const res = await fetch(`/api/tags?q=${encodeURIComponent(q)}`);
+          if (!res.ok) return;
+          const tags = await res.json();
+          datalistEl.innerHTML = tags
+            .map(t => `<option value="${escapeHtml(t.name)}"></option>`)
+            .join('');
+        } catch (err) {
+          console.error('Autocomplete fetch error:', err);
+        }
+      }, 200);
+    });
   }
 
-  try {
-    const res = await fetch(`/api/images/${imageId}/tags`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ tagName: tagName.trim() })
-    });
+  // ─── Add Tag ─────────────────────────────────────────────────────────────
 
-    const data = await res.json();
-
-    if (!res.ok) {
-      showTagError(data.error || 'Failed to add tag.');
+  async function addTag(imageId, tagName, containerEl) {
+    if (!tagName || tagName.trim().length < 2) {
+      showTagMessage(containerEl, 'Tag name must be at least 2 characters.', 'danger');
       return;
     }
 
-    renderTagList(imageId, data.tags);
-    clearTagInput();
-    hideTagError();
-  } catch (err) {
-    console.error('addTag error:', err);
-    showTagError('Network error. Please try again.');
+    try {
+      const res = await fetch(`/api/images/${imageId}/tags`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tagName: tagName.trim() })
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        showTagMessage(containerEl, data.error || 'Failed to add tag.', 'danger');
+        return;
+      }
+
+      renderTagList(imageId, data.tags, containerEl);
+      showTagMessage(containerEl, `Tag "${tagName}" added.`, 'success');
+    } catch (err) {
+      console.error('addTag error:', err);
+      showTagMessage(containerEl, 'Network error. Please try again.', 'danger');
+    }
   }
-}
 
-/**
- * Remove a tag from an image via API and update the DOM.
- * @param {number|string} imageId
- * @param {number|string} tagId
- */
-async function removeTag(imageId, tagId) {
-  try {
-    const res = await fetch(`/api/images/${imageId}/tags/${tagId}`, {
-      method: 'DELETE'
-    });
+  // ─── Remove Tag ──────────────────────────────────────────────────────────
 
-    const data = await res.json();
+  async function removeTag(imageId, tagId, containerEl) {
+    try {
+      const res = await fetch(`/api/images/${imageId}/tags/${tagId}`, {
+        method: 'DELETE'
+      });
 
-    if (!res.ok) {
-      showTagError(data.error || 'Failed to remove tag.');
+      const data = await res.json();
+
+      if (!res.ok) {
+        showTagMessage(containerEl, data.error || 'Failed to remove tag.', 'danger');
+        return;
+      }
+
+      renderTagList(imageId, data.tags, containerEl);
+    } catch (err) {
+      console.error('removeTag error:', err);
+      showTagMessage(containerEl, 'Network error. Please try again.', 'danger');
+    }
+  }
+
+  // ─── Render Tag List ─────────────────────────────────────────────────────
+
+  function renderTagList(imageId, tags, containerEl) {
+    const tagListEl = document.getElementById('tag-list');
+    if (!tagListEl) return;
+
+    if (!tags || tags.length === 0) {
+      tagListEl.innerHTML = '<span class="text-muted small">No tags yet.</span>';
       return;
     }
 
-    renderTagList(imageId, data.tags);
-    hideTagError();
-  } catch (err) {
-    console.error('removeTag error:', err);
-    showTagError('Network error. Please try again.');
-  }
-}
-
-/**
- * Re-render the tag badge list in the DOM.
- * @param {number|string} imageId
- * @param {Array} tags
- */
-function renderTagList(imageId, tags) {
-  const container = document.getElementById('tag-list-container');
-  if (!container) return;
-
-  if (!tags || tags.length === 0) {
-    container.innerHTML = '<span class="text-muted fst-italic">No tags yet.</span>';
-    return;
+    tagListEl.innerHTML = tags.map(tag => `
+      <span class="badge me-1 mb-1 d-inline-flex align-items-center tag-badge"
+            style="background-color: ${tag.color || '#6c757d'}; font-size: 0.85rem; padding: 0.4em 0.6em;">
+        <a href="/gallery?tag=${encodeURIComponent(tag.slug)}"
+           class="text-white text-decoration-none me-1">${escapeHtml(tag.name)}</a>
+        <button type="button"
+                class="btn-close btn-close-white btn-sm ms-1"
+                style="font-size: 0.6em;"
+                aria-label="Remove tag"
+                onclick="TaggingModule.removeTag(${imageId}, ${tag.id}, document.getElementById('tag-section'))">
+        </button>
+      </span>
+    `).join('');
   }
 
-  container.innerHTML = tags.map(tag => `
-    <span class="badge me-1 mb-1 tag-badge d-inline-flex align-items-center"
-          style="background-color:${tag.color || '#6c757d'}; font-size:0.9rem;">
-      <a href="/gallery?tag=${encodeURIComponent(tag.name)}"
-         class="text-white text-decoration-none me-1">
-        ${escapeHtml(tag.name)}
-      </a>
-      <button
-        type="button"
-        class="btn-close btn-close-white ms-1"
-        style="font-size:0.6rem;"
-        aria-label="Remove tag"
-        onclick="removeTag(${imageId}, ${tag.id})"
-      ></button>
-    </span>
-  `).join('');
-}
+  // ─── Show Message ─────────────────────────────────────────────────────────
 
-/**
- * Clear the tag input field.
- */
-function clearTagInput() {
-  const input = document.getElementById('tagInput');
-  if (input) input.value = '';
-}
+  function showTagMessage(containerEl, message, type) {
+    const msgEl = document.getElementById('tag-message');
+    if (!msgEl) return;
 
-/**
- * Show a tag error message.
- */
-function showTagError(msg) {
-  const el = document.getElementById('tagError');
-  if (el) {
-    el.textContent = msg;
-    el.classList.remove('d-none');
-  }
-}
+    msgEl.className = `alert alert-${type} py-1 px-2 mt-2 small`;
+    msgEl.textContent = message;
+    msgEl.style.display = 'block';
 
-/**
- * Hide tag error message.
- */
-function hideTagError() {
-  const el = document.getElementById('tagError');
-  if (el) el.classList.add('d-none');
-}
-
-// ─── Tag Management Page ─────────────────────────────────────────────────────
-
-/**
- * Initialize all tag management page interactions.
- */
-function initTagManagement() {
-  // Create tag form
-  const createForm = document.getElementById('createTagForm');
-  if (createForm) {
-    createForm.addEventListener('submit', handleCreateTag);
+    setTimeout(() => {
+      msgEl.style.display = 'none';
+    }, 3000);
   }
 
-  // Rename buttons
-  document.querySelectorAll('.rename-btn').forEach(btn => {
-    btn.addEventListener('click', handleRenameClick);
-  });
+  // ─── Escape HTML ──────────────────────────────────────────────────────────
 
-  // Save buttons
-  document.querySelectorAll('.save-btn').forEach(btn => {
-    btn.addEventListener('click', handleSaveClick);
-  });
+  function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.appendChild(document.createTextNode(str));
+    return div.innerHTML;
+  }
 
-  // Cancel buttons
-  document.querySelectorAll('.cancel-btn').forEach(btn => {
-    btn.addEventListener('click', handleCancelClick);
-  });
+  // ─── Tag Management Page: Inline Rename ───────────────────────────────────
 
-  // Delete buttons
-  document.querySelectorAll('.delete-btn').forEach(btn => {
-    btn.addEventListener('click', handleDeleteClick);
-  });
+  function initTagManagementPage() {
+    const tableBody = document.getElementById('tagsTableBody');
+    if (!tableBody) return;
 
-  // Search/filter
-  const searchInput = document.getElementById('tagSearch');
-  if (searchInput) {
-    searchInput.addEventListener('input', function () {
-      filterTagsTable(this.value.toLowerCase());
+    // Create tag form
+    const createForm = document.getElementById('createTagForm');
+    if (createForm) {
+      createForm.addEventListener('submit', async function (e) {
+        e.preventDefault();
+        const name = document.getElementById('newTagName').value.trim();
+        const color = document.getElementById('newTagColor').value;
+        const msgEl = document.getElementById('createTagMessage');
+
+        try {
+          const res = await fetch('/api/tags', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, color })
+          });
+          const data = await res.json();
+
+          if (!res.ok) {
+            msgEl.className = 'alert alert-danger';
+            msgEl.textContent = data.error || 'Failed to create tag.';
+            msgEl.style.display = 'block';
+            return;
+          }
+
+          msgEl.className = 'alert alert-success';
+          msgEl.textContent = `Tag "${data.name}" created successfully!`;
+          msgEl.style.display = 'block';
+
+          // Add new row to table
+          addTagRow(data);
+          updateTagCount(1);
+
+          createForm.reset();
+          document.getElementById('newTagColor').value = '#6c757d';
+
+          setTimeout(() => { msgEl.style.display = 'none'; }, 3000);
+        } catch (err) {
+          console.error('Create tag error:', err);
+          msgEl.className = 'alert alert-danger';
+          msgEl.textContent = 'Network error. Please try again.';
+          msgEl.style.display = 'block';
+        }
+      });
+    }
+
+    // Delegate events for rename/delete/save/cancel
+    tableBody.addEventListener('click', async function (e) {
+      const renameBtn = e.target.closest('.btn-rename');
+      const deleteBtn = e.target.closest('.btn-delete');
+      const saveBtn = e.target.closest('.btn-save');
+      const cancelBtn = e.target.closest('.btn-cancel');
+
+      if (renameBtn) {
+        const tagId = renameBtn.dataset.tagId;
+        enterEditMode(tagId);
+      } else if (deleteBtn) {
+        const tagId = deleteBtn.dataset.tagId;
+        const tagName = deleteBtn.dataset.tagName;
+        await handleDelete(tagId, tagName);
+      } else if (saveBtn) {
+        const tagId = saveBtn.dataset.tagId;
+        await handleSave(tagId);
+      } else if (cancelBtn) {
+        const tagId = cancelBtn.dataset.tagId;
+        exitEditMode(tagId);
+      }
     });
   }
-}
 
-async function handleCreateTag(e) {
-  e.preventDefault();
-  const nameInput = document.getElementById('newTagName');
-  const colorInput = document.getElementById('newTagColor');
-  const errorEl = document.getElementById('createTagError');
-  const successEl = document.getElementById('createTagSuccess');
+  function enterEditMode(tagId) {
+    const nameDisplay = document.getElementById(`tag-name-${tagId}`);
+    const nameInput = document.getElementById(`tag-input-${tagId}`);
+    const actions = document.getElementById(`tag-actions-${tagId}`);
+    const editActions = document.getElementById(`tag-edit-actions-${tagId}`);
 
-  const name = nameInput.value.trim();
-  const color = colorInput.value;
+    if (nameDisplay) nameDisplay.classList.add('d-none');
+    if (nameInput) {
+      nameInput.style.removeProperty('display');
+      nameInput.classList.remove('d-none');
+      nameInput.classList.add('d-block');
+      nameInput.focus();
+      nameInput.select();
+    }
+    if (actions) actions.classList.add('d-none');
+    if (editActions) editActions.classList.remove('d-none');
+  }
 
-  errorEl.classList.add('d-none');
-  successEl.classList.add('d-none');
+  function exitEditMode(tagId) {
+    const nameDisplay = document.getElementById(`tag-name-${tagId}`);
+    const nameInput = document.getElementById(`tag-input-${tagId}`);
+    const actions = document.getElementById(`tag-actions-${tagId}`);
+    const editActions = document.getElementById(`tag-edit-actions-${tagId}`);
 
-  try {
-    const res = await fetch('/api/tags', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, color })
-    });
+    if (nameDisplay) nameDisplay.classList.remove('d-none');
+    if (nameInput) {
+      nameInput.classList.remove('d-block');
+      nameInput.classList.add('d-none');
+      // Reset to displayed value
+      nameInput.value = nameDisplay ? nameDisplay.textContent : '';
+    }
+    if (actions) actions.classList.remove('d-none');
+    if (editActions) editActions.classList.add('d-none');
+  }
 
-    const data = await res.json();
+  async function handleSave(tagId) {
+    const nameInput = document.getElementById(`tag-input-${tagId}`);
+    const newName = nameInput ? nameInput.value.trim() : '';
 
-    if (!res.ok) {
-      errorEl.textContent = data.error || 'Failed to create tag.';
-      errorEl.classList.remove('d-none');
+    if (!newName || newName.length < 2 || newName.length > 30) {
+      alert('Tag name must be between 2 and 30 characters.');
       return;
     }
 
-    successEl.textContent = `Tag "${data.name}" created successfully! Refreshing...`;
-    successEl.classList.remove('d-none');
-    nameInput.value = '';
+    try {
+      const res = await fetch(`/api/tags/${tagId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: newName })
+      });
+      const data = await res.json();
 
-    // Reload to show new tag in table
-    setTimeout(() => window.location.reload(), 1000);
-  } catch (err) {
-    console.error('createTag error:', err);
-    errorEl.textContent = 'Network error. Please try again.';
-    errorEl.classList.remove('d-none');
-  }
-}
+      if (!res.ok) {
+        alert(data.error || 'Failed to rename tag.');
+        return;
+      }
 
-function handleRenameClick(e) {
-  const id = this.dataset.id;
-  const row = document.getElementById(`tag-row-${id}`);
-  if (!row) return;
+      // Update display
+      const nameDisplay = document.getElementById(`tag-name-${tagId}`);
+      const slugDisplay = document.getElementById(`tag-slug-${tagId}`);
+      if (nameDisplay) nameDisplay.textContent = data.name;
+      if (slugDisplay) slugDisplay.textContent = data.slug;
 
-  row.querySelector('.tag-name-display').classList.add('d-none');
-  row.querySelector('.tag-name-edit').classList.remove('d-none');
-  row.querySelector('.rename-btn').classList.add('d-none');
-  row.querySelector('.delete-btn').classList.add('d-none');
-  row.querySelector('.save-btn').classList.remove('d-none');
-  row.querySelector('.cancel-btn').classList.remove('d-none');
-  row.querySelector('.tag-name-edit').focus();
-}
+      // Update the delete button's data-tag-name
+      const deleteBtn = document.querySelector(`#tag-actions-${tagId} .btn-delete`);
+      if (deleteBtn) deleteBtn.dataset.tagName = data.name;
 
-function handleCancelClick(e) {
-  const id = this.dataset.id;
-  const row = document.getElementById(`tag-row-${id}`);
-  if (!row) return;
-
-  const nameDisplay = row.querySelector('.tag-name-display');
-  const nameEdit = row.querySelector('.tag-name-edit');
-  nameEdit.value = nameDisplay.textContent.trim();
-
-  row.querySelector('.tag-name-display').classList.remove('d-none');
-  row.querySelector('.tag-name-edit').classList.add('d-none');
-  row.querySelector('.rename-btn').classList.remove('d-none');
-  row.querySelector('.delete-btn').classList.remove('d-none');
-  row.querySelector('.save-btn').classList.add('d-none');
-  row.querySelector('.cancel-btn').classList.add('d-none');
-  row.querySelector('.tag-error').textContent = '';
-}
-
-async function handleSaveClick(e) {
-  const id = this.dataset.id;
-  const row = document.getElementById(`tag-row-${id}`);
-  if (!row) return;
-
-  const newName = row.querySelector('.tag-name-edit').value.trim();
-  const errorEl = row.querySelector('.tag-error');
-  errorEl.textContent = '';
-
-  if (newName.length < 2 || newName.length > 30) {
-    errorEl.textContent = 'Tag name must be 2–30 characters.';
-    return;
-  }
-  if (!/^[a-zA-Z0-9\- ]+$/.test(newName)) {
-    errorEl.textContent = 'Only letters, numbers, hyphens, spaces allowed.';
-    return;
+      exitEditMode(tagId);
+    } catch (err) {
+      console.error('Save tag error:', err);
+      alert('Network error. Please try again.');
+    }
   }
 
-  try {
-    const res = await fetch(`/api/tags/${id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: newName })
-    });
+  async function handleDelete(tagId, tagName) {
+    const imageCount = document.querySelector(`#tag-row-${tagId} .badge`)?.textContent?.trim() || '0';
+    const confirmMsg = parseInt(imageCount) > 0
+      ? `Delete tag "${tagName}"? This will remove it from ${imageCount} image(s).`
+      : `Delete tag "${tagName}"? This cannot be undone.`;
 
-    const data = await res.json();
+    if (!confirm(confirmMsg)) return;
 
-    if (!res.ok) {
-      errorEl.textContent = data.error || 'Failed to rename tag.';
+    try {
+      const res = await fetch(`/api/tags/${tagId}`, { method: 'DELETE' });
+      const data = await res.json();
+
+      if (!res.ok) {
+        alert(data.error || 'Failed to delete tag.');
+        return;
+      }
+
+      const row = document.getElementById(`tag-row-${tagId}`);
+      if (row) {
+        row.style.transition = 'opacity 0.3s';
+        row.style.opacity = '0';
+        setTimeout(() => {
+          row.remove();
+          updateTagCount(-1);
+        }, 300);
+      }
+    } catch (err) {
+      console.error('Delete tag error:', err);
+      alert('Network error. Please try again.');
+    }
+  }
+
+  function addTagRow(tag) {
+    const tableBody = document.getElementById('tagsTableBody');
+    if (!tableBody) return;
+
+    // If "no tags" message is shown, replace with table
+    const noTagsMsg = document.querySelector('.tag-cloud + p, .text-center.text-muted.py-5');
+    if (noTagsMsg) {
+      location.reload();
       return;
     }
 
-    // Update display
-    row.querySelector('.tag-name-display').textContent = data.name;
-    row.querySelector('.tag-name-edit').value = data.name;
-    row.querySelector('.tag-slug-display').textContent = data.slug || '';
-
-    row.querySelector('.tag-name-display').classList.remove('d-none');
-    row.querySelector('.tag-name-edit').classList.add('d-none');
-    row.querySelector('.rename-btn').classList.remove('d-none');
-    row.querySelector('.delete-btn').classList.remove('d-none');
-    row.querySelector('.save-btn').classList.add('d-none');
-    row.querySelector('.cancel-btn').classList.add('d-none');
-  } catch (err) {
-    console.error('renameTag error:', err);
-    errorEl.textContent = 'Network error. Please try again.';
+    const tr = document.createElement('tr');
+    tr.id = `tag-row-${tag.id}`;
+    tr.dataset.tagId = tag.id;
+    tr.innerHTML = `
+      <td>
+        <span class="d-inline-block rounded" style="width:24px;height:24px;background:${tag.color || '#6c757d'};border:1px solid #dee2e6;"></span>
+      </td>
+      <td>
+        <span class="tag-name-display" id="tag-name-${tag.id}">${escapeHtml(tag.name)}</span>
+        <input type="text" class="form-control form-control-sm tag-name-input d-none"
+          id="tag-input-${tag.id}" value="${escapeHtml(tag.name)}" minlength="2" maxlength="30"
+          style="display:none!important;">
+      </td>
+      <td><code class="tag-slug-display" id="tag-slug-${tag.id}">${escapeHtml(tag.slug)}</code></td>
+      <td class="text-center">
+        <a href="/gallery?tag=${encodeURIComponent(tag.slug)}" class="badge bg-secondary text-decoration-none">0</a>
+      </td>
+      <td><small class="text-muted">${new Date(tag.createdAt).toLocaleDateString()}</small></td>
+      <td class="text-center">
+        <div class="btn-group btn-group-sm" id="tag-actions-${tag.id}">
+          <button class="btn btn-outline-primary btn-rename" data-tag-id="${tag.id}" title="Rename">
+            <i class="bi bi-pencil"></i>
+          </button>
+          <button class="btn btn-outline-danger btn-delete" data-tag-id="${tag.id}" data-tag-name="${escapeHtml(tag.name)}" title="Delete">
+            <i class="bi bi-trash"></i>
+          </button>
+        </div>
+        <div class="btn-group btn-group-sm d-none" id="tag-edit-actions-${tag.id}">
+          <button class="btn btn-success btn-save" data-tag-id="${tag.id}" title="Save">
+            <i class="bi bi-check-lg"></i> Save
+          </button>
+          <button class="btn btn-secondary btn-cancel" data-tag-id="${tag.id}" title="Cancel">
+            <i class="bi bi-x-lg"></i>
+          </button>
+        </div>
+      </td>
+    `;
+    tableBody.insertBefore(tr, tableBody.firstChild);
   }
-}
 
-async function handleDeleteClick(e) {
-  const id = this.dataset.id;
-  const name = this.dataset.name;
-
-  if (!confirm(`Delete tag "${name}"? This will remove it from all images.`)) {
-    return;
+  function updateTagCount(delta) {
+    const countEl = document.getElementById('tagCount');
+    if (countEl) {
+      const current = parseInt(countEl.textContent) || 0;
+      countEl.textContent = Math.max(0, current + delta);
+    }
   }
 
-  try {
-    const res = await fetch(`/api/tags/${id}`, {
-      method: 'DELETE'
-    });
+  // ─── Image Detail Page: Tag Input Form ───────────────────────────────────
 
-    const data = await res.json();
+  function initImageDetailTagging() {
+    const tagForm = document.getElementById('tag-add-form');
+    if (!tagForm) return;
 
-    if (!res.ok) {
-      alert(data.error || 'Failed to delete tag.');
-      return;
-    }
+    const imageId = tagForm.dataset.imageId;
+    const tagInput = document.getElementById('tag-input');
+    const tagDatalist = document.getElementById('tag-suggestions');
+    const containerEl = document.getElementById('tag-section');
 
-    // Remove row from table
-    const row = document.getElementById(`tag-row-${id}`);
-    if (row) {
-      row.style.transition = 'opacity 0.3s';
-      row.style.opacity = '0';
-      setTimeout(() => row.remove(), 300);
-    }
-  } catch (err) {
-    console.error('deleteTag error:', err);
-    alert('Network error. Please try again.');
-  }
-}
+    setupTagAutocomplete(tagInput, tagDatalist);
 
-function filterTagsTable(query) {
-  const rows = document.querySelectorAll('#tagsTableBody tr');
-  rows.forEach(row => {
-    const name = row.querySelector('.tag-name-display');
-    const slug = row.querySelector('.tag-slug-display');
-    const nameText = name ? name.textContent.toLowerCase() : '';
-    const slugText = slug ? slug.textContent.toLowerCase() : '';
-    if (nameText.includes(query) || slugText.includes(query)) {
-      row.style.display = '';
-    } else {
-      row.style.display = 'none';
-    }
-  });
-}
-
-// ─── Image Detail Page Initialization ───────────────────────────────────────
-
-/**
- * Initialize tagging UI on the image detail page.
- * @param {number|string} imageId
- */
-function initImageTagging(imageId) {
-  const tagInput = document.getElementById('tagInput');
-  const tagDatalist = document.getElementById('tagSuggestions');
-  const addTagBtn = document.getElementById('addTagBtn');
-  const tagForm = document.getElementById('tagForm');
-
-  // Autocomplete
-  initTagAutocomplete(tagInput, tagDatalist);
-
-  // Form submit
-  if (tagForm) {
-    tagForm.addEventListener('submit', function (e) {
+    tagForm.addEventListener('submit', async function (e) {
       e.preventDefault();
-      const name = tagInput ? tagInput.value.trim() : '';
-      if (name) addTag(imageId, name);
+      const tagName = tagInput.value.trim();
+      if (!tagName) return;
+      await addTag(imageId, tagName, containerEl);
+      tagInput.value = '';
     });
   }
 
-  // Add button click
-  if (addTagBtn) {
-    addTagBtn.addEventListener('click', function () {
-      const name = tagInput ? tagInput.value.trim() : '';
-      if (name) addTag(imageId, name);
-    });
-  }
-}
+  // ─── Init ─────────────────────────────────────────────────────────────────
 
-// ─── Utility ─────────────────────────────────────────────────────────────────
+  document.addEventListener('DOMContentLoaded', function () {
+    initTagManagementPage();
+    initImageDetailTagging();
+  });
 
-function escapeHtml(str) {
-  if (!str) return '';
-  return String(str)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
+  // Expose for inline event handlers
+  window.TaggingModule = { addTag, removeTag };
+
+})();

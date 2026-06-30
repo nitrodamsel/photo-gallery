@@ -1,48 +1,50 @@
-const { DataTypes } = require('sequelize');
+const { Model, DataTypes } = require('sequelize');
 
 module.exports = (sequelize) => {
-  const Tag = sequelize.define('Tag', {
+  class Tag extends Model {
+    static associate(models) {
+      Tag.belongsToMany(models.Image, {
+        through: models.ImageTag,
+        foreignKey: 'tagId',
+        otherKey: 'imageId',
+        as: 'Images'
+      });
+      Tag.hasMany(models.ImageTag, {
+        foreignKey: 'tagId'
+      });
+    }
+  }
+
+  Tag.init({
     id: {
       type: DataTypes.INTEGER,
       primaryKey: true,
       autoIncrement: true
     },
     name: {
-      type: DataTypes.STRING(50),
+      type: DataTypes.STRING(30),
       allowNull: false,
-      unique: true,
       validate: {
         len: [2, 30],
-        notEmpty: true
+        is: /^[a-zA-Z0-9\s-]+$/
       }
     },
     slug: {
-      type: DataTypes.STRING(60),
+      type: DataTypes.STRING(30),
       allowNull: false,
       unique: true
     },
     color: {
       type: DataTypes.STRING(7),
-      defaultValue: '#6c757d',
-      validate: {
-        is: /^#[0-9a-fA-F]{6}$/
-      }
+      allowNull: true,
+      defaultValue: '#6c757d'
     }
   }, {
+    sequelize,
+    modelName: 'Tag',
     tableName: 'tags',
     timestamps: true
   });
-
-  Tag.associate = (models) => {
-    Tag.belongsToMany(models.Image, {
-      through: models.ImageTag,
-      foreignKey: 'tagId',
-      otherKey: 'imageId'
-    });
-    Tag.hasMany(models.ImageTag, {
-      foreignKey: 'tagId'
-    });
-  };
 
   return Tag;
 };

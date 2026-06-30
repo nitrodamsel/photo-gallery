@@ -1,7 +1,14 @@
-const { DataTypes } = require('sequelize');
+const { Model, DataTypes } = require('sequelize');
 
 module.exports = (sequelize) => {
-  const ImageTag = sequelize.define('ImageTag', {
+  class ImageTag extends Model {
+    static associate(models) {
+      ImageTag.belongsTo(models.Image, { foreignKey: 'imageId' });
+      ImageTag.belongsTo(models.Tag, { foreignKey: 'tagId' });
+    }
+  }
+
+  ImageTag.init({
     id: {
       type: DataTypes.INTEGER,
       primaryKey: true,
@@ -24,20 +31,11 @@ module.exports = (sequelize) => {
       }
     }
   }, {
+    sequelize,
+    modelName: 'ImageTag',
     tableName: 'image_tags',
-    timestamps: true,
-    indexes: [
-      {
-        unique: true,
-        fields: ['imageId', 'tagId']
-      }
-    ]
+    timestamps: true
   });
-
-  ImageTag.associate = (models) => {
-    ImageTag.belongsTo(models.Image, { foreignKey: 'imageId' });
-    ImageTag.belongsTo(models.Tag, { foreignKey: 'tagId' });
-  };
 
   return ImageTag;
 };
