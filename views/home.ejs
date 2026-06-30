@@ -1,66 +1,88 @@
-<%- include('layouts/base', { title: 'Photo Gallery - Home', body: `
-<div class="container mt-4">
-  <!-- Hero Section -->
-  <div class="p-5 mb-4 bg-light rounded-3 shadow-sm">
-    <div class="container-fluid py-3">
-      <h1 class="display-5 fw-bold"><i class="bi bi-camera2 me-3 text-primary"></i>Photo Gallery</h1>
-      <p class="col-md-8 fs-4 text-muted">
-        Organize, tag, and browse your photo collection with ease.
+<%- include('layouts/base', { title: title || 'Home', activePage: 'home', body: `
+<div class="container py-5">
+  <div class="row align-items-center mb-5">
+    <div class="col-md-8">
+      <h1 class="display-4 fw-bold mb-3">
+        <i class="bi bi-images text-primary me-3"></i>Photo Gallery
+      </h1>
+      <p class="lead text-muted">
+        Organize and browse your photos with tags, EXIF data, and more.
       </p>
-      <div class="d-flex gap-3 flex-wrap">
+      <div class="d-flex gap-3 mt-4">
         <a href="/gallery" class="btn btn-primary btn-lg">
-          <i class="bi bi-images me-2"></i>Browse Gallery
+          <i class="bi bi-grid me-2"></i>Browse Gallery
         </a>
         <a href="/upload" class="btn btn-outline-primary btn-lg">
-          <i class="bi bi-cloud-upload me-2"></i>Upload Photos
-        </a>
-        <a href="/tags" class="btn btn-outline-secondary btn-lg">
-          <i class="bi bi-tags me-2"></i>Manage Tags
+          <i class="bi bi-cloud-upload me-2"></i>Upload
         </a>
       </div>
     </div>
   </div>
 
   <div class="row g-4">
-    <!-- Tag Cloud -->
+    <!-- Stats Cards -->
+    ${typeof stats !== 'undefined' && stats ? `
     <div class="col-md-4">
-      <div class="card shadow-sm h-100">
-        <div class="card-header bg-primary text-white">
-          <h5 class="mb-0"><i class="bi bi-tags-fill me-2"></i>Tag Cloud</h5>
+      <div class="card text-center shadow-sm h-100">
+        <div class="card-body py-4">
+          <div class="display-5 fw-bold text-primary">${stats.imageCount || 0}</div>
+          <div class="text-muted mt-1">Photos</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="card text-center shadow-sm h-100">
+        <div class="card-body py-4">
+          <div class="display-5 fw-bold text-success">${stats.tagCount || 0}</div>
+          <div class="text-muted mt-1">Tags</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="card text-center shadow-sm h-100">
+        <div class="card-body py-4">
+          <div class="display-5 fw-bold text-info">${stats.recentCount || 0}</div>
+          <div class="text-muted mt-1">Uploaded This Week</div>
+        </div>
+      </div>
+    </div>
+    ` : ''}
+
+    <!-- Tag Cloud -->
+    ${typeof popularTags !== 'undefined' && popularTags && popularTags.length > 0 ? `
+    <div class="col-12">
+      <div class="card shadow-sm">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <h5 class="mb-0"><i class="bi bi-tags me-2"></i>Popular Tags</h5>
+          <a href="/tags" class="btn btn-outline-secondary btn-sm">Manage Tags</a>
         </div>
         <div class="card-body">
-          <%- include('partials/tag-cloud', { tags: tags || [], title: null }) %>
-          <div class="mt-3">
-            <a href="/tags" class="btn btn-sm btn-outline-primary w-100">
-              <i class="bi bi-gear me-1"></i>Manage Tags
-            </a>
+          <%- include('partials/tag-cloud', { tags: popularTags }) %>
+        </div>
+      </div>
+    </div>
+    ` : ''}
+
+    <!-- Recent Images -->
+    ${typeof recentImages !== 'undefined' && recentImages && recentImages.length > 0 ? `
+    <div class="col-12">
+      <div class="card shadow-sm">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <h5 class="mb-0"><i class="bi bi-clock-history me-2"></i>Recent Uploads</h5>
+          <a href="/gallery" class="btn btn-outline-primary btn-sm">View All</a>
+        </div>
+        <div class="card-body">
+          <div class="row g-3">
+            ${recentImages.slice(0, 8).map(image => `
+            <div class="col-6 col-md-3">
+              <%- include('partials/image-card', { image }) %>
+            </div>
+            `).join('')}
           </div>
         </div>
       </div>
     </div>
-
-    <!-- Quick Stats -->
-    <div class="col-md-4">
-      <div class="card shadow-sm mb-3">
-        <div class="card-body text-center">
-          <i class="bi bi-images display-4 text-primary d-block mb-2"></i>
-          <h5 class="card-title">Browse Gallery</h5>
-          <p class="card-text text-muted">View and manage your uploaded photos.</p>
-          <a href="/gallery" class="btn btn-primary">Open Gallery</a>
-        </div>
-      </div>
-    </div>
-
-    <div class="col-md-4">
-      <div class="card shadow-sm mb-3">
-        <div class="card-body text-center">
-          <i class="bi bi-cloud-upload display-4 text-success d-block mb-2"></i>
-          <h5 class="card-title">Upload Photos</h5>
-          <p class="card-text text-muted">Add new photos with drag & drop support.</p>
-          <a href="/upload" class="btn btn-success">Upload Now</a>
-        </div>
-      </div>
-    </div>
+    ` : ''}
   </div>
 </div>
 ` }) %>

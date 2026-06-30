@@ -1,4 +1,5 @@
 <% if (typeof tags !== 'undefined' && tags && tags.length > 0) { %>
+<div class="tag-cloud">
   <%
     const counts = tags.map(t => t.imageCount || 0);
     const minCount = Math.min(...counts);
@@ -6,34 +7,30 @@
     const minSize = 0.8;
     const maxSize = 2.0;
 
-    function getTagFontSize(count) {
-      if (maxCount === minCount) return ((minSize + maxSize) / 2).toFixed(2);
+    function getTagSize(count) {
+      if (maxCount === minCount) return (minSize + maxSize) / 2;
+      // Logarithmic scaling
       const logMin = Math.log(Math.max(minCount, 1));
       const logMax = Math.log(Math.max(maxCount, 1));
       const logCount = Math.log(Math.max(count, 1));
-      if (logMax === logMin) return ((minSize + maxSize) / 2).toFixed(2);
+      if (logMax === logMin) return (minSize + maxSize) / 2;
       const scale = (logCount - logMin) / (logMax - logMin);
-      return (minSize + scale * (maxSize - minSize)).toFixed(2);
+      return minSize + scale * (maxSize - minSize);
     }
   %>
-  <div class="tag-cloud">
-    <% tags.forEach(tag => { %>
-      <%
-        const fontSize = getTagFontSize(tag.imageCount || 0);
-        const color = tag.color || '#6c757d';
-      %>
-      <a
-        href="/gallery?tag=<%= tag.slug %>"
-        class="tag-cloud-item text-decoration-none"
-        style="font-size: <%= fontSize %>rem; color: <%= color %>;"
-        title="<%= tag.name %> (<%= tag.imageCount || 0 %> image<%= (tag.imageCount || 0) !== 1 ? 's' : '' %>)"
-      >
-        <%= tag.name %>
-      </a>
-    <% }) %>
-  </div>
+  <% tags.forEach(function(tag) { %>
+    <%
+      const fontSize = getTagSize(tag.imageCount || 0).toFixed(2);
+      const color = tag.color || '#6c757d';
+    %>
+    <a href="/gallery?tag=<%= tag.slug %>"
+       class="tag-cloud-item text-decoration-none"
+       style="font-size: <%= fontSize %>rem; color: <%= color %>;"
+       title="<%= tag.name %> (<%= tag.imageCount || 0 %> <%= (tag.imageCount || 0) === 1 ? 'image' : 'images' %>)">
+      <%= tag.name %>
+    </a>
+  <% }); %>
+</div>
 <% } else { %>
-  <p class="text-muted small mb-0">
-    <i class="bi bi-tags me-1"></i>No tags yet.
-  </p>
+<p class="text-muted small mb-0">No tags yet.</p>
 <% } %>

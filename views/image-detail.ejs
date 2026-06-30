@@ -1,180 +1,158 @@
-<%- include('layouts/base', { title: title, activePage: 'gallery', body: `
+<%- include('layouts/base', { title: title || 'Image Detail', activePage: 'gallery', body: `
 <div class="container py-4">
-
-  <!-- Breadcrumb -->
   <nav aria-label="breadcrumb" class="mb-3">
     <ol class="breadcrumb">
       <li class="breadcrumb-item"><a href="/">Home</a></li>
       <li class="breadcrumb-item"><a href="/gallery">Gallery</a></li>
-      <li class="breadcrumb-item active" aria-current="page">${typeof image !== 'undefined' ? escapeForTemplate(image.title || image.filename) : 'Image'}</li>
+      <li class="breadcrumb-item active" aria-current="page">${image.originalName || image.filename}</li>
     </ol>
   </nav>
 
   <div class="row g-4">
-    <!-- Image Column -->
+    <!-- Image -->
     <div class="col-lg-8">
       <div class="card shadow-sm">
-        <div class="card-body p-2 text-center bg-dark rounded">
-          <img
-            src="/uploads/${typeof image !== 'undefined' ? escapeForTemplate(image.filename) : ''}"
-            alt="${typeof image !== 'undefined' ? escapeForTemplate(image.title || image.filename) : 'Image'}"
-            class="img-fluid rounded"
-            style="max-height: 70vh; object-fit: contain;"
-            id="mainImage"
-          />
+        <div class="text-center bg-dark rounded-top" style="max-height:600px;overflow:hidden;">
+          <img src="/uploads/${image.filename}"
+            class="img-fluid"
+            style="max-height:600px;object-fit:contain;"
+            alt="${image.originalName || image.filename}">
         </div>
-      </div>
+        <div class="card-body">
+          <h1 class="h4 card-title">${image.originalName || image.filename}</h1>
 
-      <!-- Image Actions -->
-      <div class="d-flex gap-2 mt-3 flex-wrap">
-        <a href="/uploads/${typeof image !== 'undefined' ? escapeForTemplate(image.filename) : ''}" class="btn btn-outline-primary" download>
-          <i class="bi bi-download me-1"></i>Download
-        </a>
-        <a href="/gallery" class="btn btn-outline-secondary">
-          <i class="bi bi-arrow-left me-1"></i>Back to Gallery
-        </a>
+          <!-- Tags Section -->
+          <div class="mb-3">
+            <h6 class="text-muted mb-2"><i class="bi bi-tags me-1"></i>Tags</h6>
+            <div id="tagContainer" class="d-flex flex-wrap align-items-center gap-1 mb-2">
+              ${(image.Tags || []).map(tag => `
+                <span class="badge me-1 mb-1 tag-badge d-inline-flex align-items-center"
+                  style="background-color:${tag.color || '#6c757d'};font-size:0.85rem;"
+                  data-tag-id="${tag.id}">
+                  <a href="/gallery?tag=${tag.slug}" class="text-white text-decoration-none me-1">${tag.name}</a>
+                  <button type="button"
+                    class="btn-close btn-close-white btn-sm ms-1 tag-remove-btn"
+                    aria-label="Remove tag"
+                    style="font-size:0.6rem;filter:brightness(2);"
+                    onclick="removeTag(${image.id}, ${tag.id})">
+                  </button>
+                </span>
+              `).join('')}
+
+              <!-- Add tag form -->
+              <span class="tag-add-form">
+                <form id="tagAddForm" class="d-inline-flex align-items-center gap-1">
+                  <input type="text" id="tagInput" class="form-control form-control-sm"
+                    list="tagSuggestions"
+                    placeholder="Add tag..."
+                    style="width:140px;"
+                    minlength="2" maxlength="30"
+                    autocomplete="off">
+                  <datalist id="tagSuggestions"></datalist>
+                  <button type="submit" class="btn btn-sm btn-outline-primary">
+                    <i class="bi bi-plus-lg"></i>
+                  </button>
+                </form>
+              </span>
+            </div>
+            <div id="tagAlert" class="d-none"></div>
+          </div>
+
+          <!-- Description if available -->
+          ${image.description ? `<p class="card-text text-muted">${image.description}</p>` : ''}
+        </div>
       </div>
     </div>
 
-    <!-- Info Column -->
+    <!-- Sidebar: Metadata -->
     <div class="col-lg-4">
-
-      <!-- Title & Description -->
-      <div class="card shadow-sm mb-3">
-        <div class="card-body">
-          <h1 class="h4 card-title mb-1">${typeof image !== 'undefined' ? escapeForTemplate(image.title || image.filename) : 'Untitled'}</h1>
-          ${typeof image !== 'undefined' && image.description
-            ? `<p class="text-muted mb-0">${escapeForTemplate(image.description)}</p>`
-            : '<p class="text-muted small mb-0">No description.</p>'
-          }
-        </div>
-      </div>
-
-      <!-- Tags Section -->
-      <div class="card shadow-sm mb-3">
-        <div class="card-header">
-          <h5 class="mb-0"><i class="bi bi-tags-fill text-primary me-2"></i>Tags</h5>
-        </div>
-        <div class="card-body">
-          <!-- Existing Tags -->
-          <div id="tagBadgesContainer" class="mb-3 min-height-badges">
-            ${typeof image !== 'undefined' && image.Tags && image.Tags.length > 0
-              ? image.Tags.map(tag => `
-                <span
-                  class="badge tag-badge me-1 mb-1 d-inline-flex align-items-center"
-                  id="tag-badge-${tag.id}"
-                  style="background-color: ${escapeForTemplate(tag.color || '#6c757d')}; color: ${isLightColor(tag.color) ? '#000' : '#fff'};"
-                >
-                  ${escapeForTemplate(tag.name)}
-                  <button
-                    type="button"
-                    class="btn-close btn-close-sm ms-2 tag-remove-btn"
-                    aria-label="Remove tag ${escapeForTemplate(tag.name)}"
-                    data-tag-id="${tag.id}"
-                    data-image-id="${typeof image !== 'undefined' ? image.id : ''}"
-                    style="filter: ${isLightColor(tag.color) ? 'none' : 'invert(1)'}; width: 0.6em; height: 0.6em;"
-                  ></button>
-                </span>
-              `).join('')
-              : '<span class="text-muted small" id="no-tags-msg">No tags yet. Add one below.</span>'
-            }
-          </div>
-
-          <!-- Add Tag Form -->
-          <form
-            id="tagAddForm"
-            data-image-id="${typeof image !== 'undefined' ? image.id : ''}"
-            class="d-flex gap-2 align-items-start"
-          >
-            <div class="flex-grow-1">
-              <input
-                type="text"
-                id="tagInput"
-                class="form-control form-control-sm"
-                placeholder="Add tag..."
-                list="tagSuggestions"
-                autocomplete="off"
-                maxlength="30"
-              />
-              <datalist id="tagSuggestions"></datalist>
-              <div id="tag-feedback" class="mt-1"></div>
-            </div>
-            <button type="submit" class="btn btn-sm btn-primary">
-              <i class="bi bi-plus-lg"></i>
-            </button>
-          </form>
-        </div>
-      </div>
-
       <!-- File Info -->
       <div class="card shadow-sm mb-3">
         <div class="card-header">
-          <h5 class="mb-0"><i class="bi bi-info-circle text-secondary me-2"></i>File Info</h5>
+          <h5 class="mb-0"><i class="bi bi-info-circle me-2"></i>File Info</h5>
         </div>
         <div class="card-body p-0">
           <table class="table table-sm mb-0">
             <tbody>
-              ${typeof image !== 'undefined' ? `
-                <tr><th class="ps-3">Filename</th><td>${escapeForTemplate(image.filename)}</td></tr>
-                ${image.fileSize ? `<tr><th class="ps-3">Size</th><td>${formatFileSize(image.fileSize)}</td></tr>` : ''}
-                ${image.mimeType ? `<tr><th class="ps-3">Type</th><td>${escapeForTemplate(image.mimeType)}</td></tr>` : ''}
-                ${image.width && image.height ? `<tr><th class="ps-3">Dimensions</th><td>${image.width} × ${image.height}</td></tr>` : ''}
-                <tr><th class="ps-3">Uploaded</th><td>${new Date(image.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}</td></tr>
-              ` : ''}
+              <tr>
+                <td class="text-muted">Filename</td>
+                <td class="text-break small">${image.filename}</td>
+              </tr>
+              ${image.fileSize ? `
+              <tr>
+                <td class="text-muted">Size</td>
+                <td>${formatFileSize(image.fileSize)}</td>
+              </tr>` : ''}
+              ${image.mimeType ? `
+              <tr>
+                <td class="text-muted">Type</td>
+                <td>${image.mimeType}</td>
+              </tr>` : ''}
+              ${image.width && image.height ? `
+              <tr>
+                <td class="text-muted">Dimensions</td>
+                <td>${image.width} × ${image.height}</td>
+              </tr>` : ''}
+              <tr>
+                <td class="text-muted">Uploaded</td>
+                <td>${new Date(image.createdAt).toLocaleDateString()}</td>
+              </tr>
             </tbody>
           </table>
         </div>
       </div>
 
-      <!-- EXIF Data (if available) -->
-      ${typeof exifData !== 'undefined' && exifData && Object.keys(exifData).length > 0
-        ? `<div class="card shadow-sm">
-             <div class="card-header">
-               <h5 class="mb-0"><i class="bi bi-camera text-secondary me-2"></i>Camera Info</h5>
-             </div>
-             <div class="card-body p-0">
-               <%- include('partials/exif-table', { exifData }) %>
-             </div>
-           </div>`
-        : ''
-      }
+      <!-- EXIF Data -->
+      ${typeof exifData !== 'undefined' && exifData ? `
+      <div class="card shadow-sm mb-3">
+        <div class="card-header">
+          <h5 class="mb-0"><i class="bi bi-camera me-2"></i>EXIF Data</h5>
+        </div>
+        <div class="card-body p-0">
+          <%- include('partials/exif-table', { exifData }) %>
+        </div>
+      </div>` : ''}
 
+      <!-- Map -->
+      ${typeof hasGps !== 'undefined' && hasGps ? `
+      <div class="card shadow-sm mb-3">
+        <div class="card-header">
+          <h5 class="mb-0"><i class="bi bi-geo-alt me-2"></i>Location</h5>
+        </div>
+        <div class="card-body p-0">
+          <%- include('partials/map', { lat, lng }) %>
+        </div>
+      </div>` : ''}
+
+      <!-- Actions -->
+      <div class="card shadow-sm">
+        <div class="card-body">
+          <div class="d-grid gap-2">
+            <a href="/uploads/${image.filename}" class="btn btn-outline-primary" download>
+              <i class="bi bi-download me-2"></i>Download
+            </a>
+            <a href="/gallery" class="btn btn-outline-secondary">
+              <i class="bi bi-arrow-left me-2"></i>Back to Gallery
+            </a>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </div>
 
-<style>
-  .tag-badge { font-size: 0.85rem; padding: 0.35em 0.65em; }
-  .min-height-badges { min-height: 2rem; }
-</style>
-
 <script src="/js/tagging.js"></script>
-`) %>
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    initImageTagging(${image.id});
+  });
 
-<%
-function escapeForTemplate(str) {
-  if (!str) return '';
-  return String(str)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/`/g, '&#96;')
-    .replace(/\$/g, '&#36;');
-}
-function isLightColor(hexColor) {
-  try {
-    const hex = (hexColor || '#6c757d').replace('#', '');
-    const r = parseInt(hex.substring(0,2),16);
-    const g = parseInt(hex.substring(2,4),16);
-    const b = parseInt(hex.substring(4,6),16);
-    return (0.299*r + 0.587*g + 0.114*b)/255 > 0.5;
-  } catch { return false; }
-}
-function formatFileSize(bytes) {
-  if (!bytes) return '';
-  if (bytes < 1024) return bytes + ' B';
-  if (bytes < 1024*1024) return (bytes/1024).toFixed(1) + ' KB';
-  return (bytes/(1024*1024)).toFixed(1) + ' MB';
-}
-%>
+  function formatFileSize(bytes) {
+    if (!bytes) return 'Unknown';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+  }
+</script>
+` }) %>

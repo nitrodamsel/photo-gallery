@@ -1,11 +1,10 @@
 /**
- * upload.js - Drag-and-drop file upload with progress tracking
- * Uses XMLHttpRequest for upload progress events.
+ * upload.js - Drag-and-drop upload with XMLHttpRequest progress tracking
+ * Updates progress bar, shows thumbnail preview on completion,
+ * appends success/error messages.
  */
 
-(function () {
-  'use strict';
-
+document.addEventListener('DOMContentLoaded', function () {
   const dropZone = document.getElementById('dropZone');
   const fileInput = document.getElementById('fileInput');
   const uploadForm = document.getElementById('uploadForm');
@@ -13,288 +12,273 @@
   const progressBar = document.getElementById('uploadProgressBar');
   const progressText = document.getElementById('progressText');
   const previewContainer = document.getElementById('previewContainer');
-  const uploadMessages = document.getElementById('uploadMessages');
-  const browseBtn = document.getElementById('browseBtn');
+  const messagesContainer = document.getElementById('uploadMessages');
+  const submitBtn = document.getElementById('submitBtn');
 
   if (!dropZone || !fileInput) return;
 
-  // ─── Browse Button ──────────────────────────────────────────────────────────
-  if (browseBtn) {
-    browseBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      fileInput.click();
-    });
-  }
+  // ─── Drag and drop events ──────────────────────────────────────────────────
 
-  // ─── Drop Zone Events ───────────────────────────────────────────────────────
+  ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+    dropZone.addEventListener(eventName, preventDefaults, false);
+    document.body.addEventListener(eventName, preventDefaults, false);
+  });
+
   ['dragenter', 'dragover'].forEach(eventName => {
-    dropZone.addEventListener(eventName, (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      dropZone.classList.add('drag-over');
-    });
+    dropZone.addEventListener(eventName, () => dropZone.classList.add('drag-over'), false);
   });
 
   ['dragleave', 'drop'].forEach(eventName => {
-    dropZone.addEventListener(eventName, (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      dropZone.classList.remove('drag-over');
-    });
+    dropZone.addEventListener(eventName, () => dropZone.classList.remove('drag-over'), false);
   });
 
-  dropZone.addEventListener('drop', (e) => {
+  dropZone.addEventListener('drop', function (e) {
     const files = e.dataTransfer.files;
     if (files.length > 0) {
-      handleFiles(files);
+      fileInput.files = files;
+      handleFileSelection(files);
     }
   });
 
-  dropZone.addEventListener('click', () => {
+  dropZone.addEventListener('click', function () {
     fileInput.click();
   });
 
-  fileInput.addEventListener('change', () => {
-    if (fileInput.files.length > 0) {
-      handleFiles(fileInput.files);
+  fileInput.addEventListener('change', function () {
+    if (this.files.length > 0) {
+      handleFileSelection(this.files);
     }
   });
 
-  // ─── File Handling ──────────────────────────────────────────────────────────
+  // ─── File selection preview ────────────────────────────────────────────────
 
-  function handleFiles(files) {
-    // Filter to only accept images
-    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp', 'image/tiff'];
-    const validFiles = Array.from(files).filter(f => allowedTypes.includes(f.type));
-
-    if (validFiles.length === 0) {
-      showMessage('Please select valid image files (JPEG, PNG, GIF, WebP, TIFF).', 'danger');
-      return;
-    }
-
-    if (validFiles.length !== files.length) {
-      showMessage('Some files were skipped (unsupported format).', 'warning');
-    }
-
-    // Show preview for first file
-    if (validFiles.length === 1) {
-      showPreview(validFiles[0]);
-    } else {
-      showMultiplePreview(validFiles);
-    }
-
-    // Upload files one by one
-    uploadFiles(validFiles);
-  }
-
-  function showPreview(file) {
+  function handleFileSelection(files) {
     if (!previewContainer) return;
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      previewContainer.innerHTML = `
-        <div class="text-center">
-          <p class="text-muted small mb-2">Preview:</p>
-          <img
-            src="${e.target.result}"
-            alt="Preview"
-            class="img-thumbnail"
-            style="max-width: 200px; max-height: 150px; object-fit: cover;"
-          />
-          <p class="small text-muted mt-1 mb-0">${escapeHtml(file.name)} (${formatFileSize(file.size)})</p>
-        </div>
-      `;
-    };
-    reader.readAsDataURL(file);
-  }
+    previewContainer.innerHTML = '';
 
-  function showMultiplePreview(files) {
-    if (!previewContainer) return;
-    previewContainer.innerHTML = `
-      <p class="text-muted small mb-2">${files.length} files selected:</p>
-      <ul class="list-unstyled small mb-0">
-        ${files.map(f => `<li><i class="bi bi-image me-1 text-primary"></i>${escapeHtml(f.name)} <span class="text-muted">(${formatFileSize(f.size)})</span></li>`).join('')}
-      </ul>
-    `;
-  }
-
-  // ─── Upload Logic ───────────────────────────────────────────────────────────
-
-  async function uploadFiles(files) {
-    clearMessages();
-
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
-      const label = files.length > 1 ? `File ${i + 1}/${files.length}: ${file.name}` : file.name;
-      await uploadSingleFile(file, label);
-    }
-  }
-
-  function uploadSingleFile(file, label) {
-    return new Promise((resolve) => {
-      const formData = new FormData();
-      formData.append('image', file);
-
-      // Grab other form fields if present
-      if (uploadForm) {
-        const titleInput = uploadForm.querySelector('[name="title"]');
-        const descInput = uploadForm.querySelector('[name="description"]');
-        const tagsInput = uploadForm.querySelector('[name="tags"]');
-        const albumInput = uploadForm.querySelector('[name="album"]');
-
-        if (titleInput && titleInput.value) formData.append('title', titleInput.value);
-        if (descInput && descInput.value) formData.append('description', descInput.value);
-        if (tagsInput && tagsInput.value) formData.append('tags', tagsInput.value);
-        if (albumInput && albumInput.value) formData.append('album', albumInput.value);
+    Array.from(files).forEach(file => {
+      if (!file.type.startsWith('image/')) {
+        appendMessage('warning', `"${file.name}" is not an image file and will be skipped.`);
+        return;
       }
 
-      showProgress(0, label);
+      const reader = new FileReader();
+      reader.onload = function (e) {
+        const col = document.createElement('div');
+        col.className = 'col-6 col-md-4 col-lg-3';
+        col.innerHTML = `
+          <div class="card h-100">
+            <img src="${e.target.result}" class="card-img-top object-fit-cover"
+              style="height:120px;" alt="${escapeHtml(file.name)}">
+            <div class="card-body p-2">
+              <p class="card-text small text-truncate mb-0" title="${escapeHtml(file.name)}">${escapeHtml(file.name)}</p>
+              <p class="card-text small text-muted">${formatFileSize(file.size)}</p>
+            </div>
+          </div>
+        `;
+        previewContainer.appendChild(col);
+      };
+      reader.readAsDataURL(file);
+    });
 
+    // Update drop zone text
+    const dropText = dropZone.querySelector('.drop-zone-text');
+    if (dropText) {
+      const count = files.length;
+      dropText.textContent = `${count} file${count !== 1 ? 's' : ''} selected`;
+    }
+
+    // Show submit button if hidden
+    if (submitBtn) submitBtn.classList.remove('d-none');
+  }
+
+  // ─── Form submission with XHR ──────────────────────────────────────────────
+
+  if (uploadForm) {
+    uploadForm.addEventListener('submit', function (e) {
+      e.preventDefault();
+
+      if (!fileInput.files || fileInput.files.length === 0) {
+        appendMessage('warning', 'Please select at least one image to upload.');
+        return;
+      }
+
+      const formData = new FormData(uploadForm);
       const xhr = new XMLHttpRequest();
-      xhr.open('POST', '/upload', true);
+
+      // Show progress
+      if (progressContainer) progressContainer.classList.remove('d-none');
+      setProgress(0);
+
+      // Disable submit
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Uploading...';
+      }
 
       // Progress tracking
-      xhr.upload.addEventListener('progress', (e) => {
+      xhr.upload.addEventListener('progress', function (e) {
         if (e.lengthComputable) {
           const pct = Math.round((e.loaded / e.total) * 100);
-          showProgress(pct, label);
+          setProgress(pct);
         }
       });
 
-      xhr.addEventListener('load', () => {
+      xhr.upload.addEventListener('loadstart', function () {
+        setProgress(0);
+        if (progressText) progressText.textContent = 'Starting upload...';
+      });
+
+      xhr.upload.addEventListener('load', function () {
+        setProgress(100);
+        if (progressText) progressText.textContent = 'Processing...';
+      });
+
+      // Response handling
+      xhr.addEventListener('load', function () {
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.innerHTML = '<i class="bi bi-cloud-upload me-2"></i>Upload';
+        }
+
         if (xhr.status >= 200 && xhr.status < 300) {
           try {
-            // Try to parse JSON response
-            const data = JSON.parse(xhr.responseText);
-            showProgress(100, label);
-            showMessage(
-              `<i class="bi bi-check-circle-fill text-success me-1"></i>
-               <strong>${escapeHtml(file.name)}</strong> uploaded successfully!
-               ${data.image ? `<a href="/gallery/${data.image.id}" class="ms-2 btn btn-sm btn-outline-success">View Image</a>` : ''}`,
-              'success'
-            );
-            if (data.image) {
-              appendSuccessThumb(data.image);
+            const response = JSON.parse(xhr.responseText);
+            handleUploadSuccess(response);
+          } catch (parseErr) {
+            // Non-JSON response – redirect if location header present
+            const location = xhr.getResponseHeader('Location');
+            if (location) {
+              window.location.href = location;
+            } else {
+              appendMessage('success', 'Upload completed successfully!');
+              uploadForm.reset();
+              if (previewContainer) previewContainer.innerHTML = '';
             }
-          } catch {
-            // HTML response (redirect) — treat as success
-            showProgress(100, label);
-            showMessage(
-              `<i class="bi bi-check-circle-fill text-success me-1"></i>
-               <strong>${escapeHtml(file.name)}</strong> uploaded successfully!`,
-              'success'
-            );
           }
         } else {
-          showProgress(0, label);
-          let errorMsg = 'Upload failed.';
           try {
             const err = JSON.parse(xhr.responseText);
-            errorMsg = err.error || err.message || errorMsg;
-          } catch {}
-          showMessage(
-            `<i class="bi bi-exclamation-triangle-fill text-danger me-1"></i>
-             <strong>${escapeHtml(file.name)}</strong>: ${escapeHtml(errorMsg)}`,
-            'danger'
-          );
+            appendMessage('danger', err.error || err.message || `Upload failed (${xhr.status})`);
+          } catch {
+            appendMessage('danger', `Upload failed with status ${xhr.status}`);
+          }
         }
-        hideProgressAfterDelay();
-        resolve();
+
+        if (progressContainer) {
+          setTimeout(() => progressContainer.classList.add('d-none'), 2000);
+        }
       });
 
-      xhr.addEventListener('error', () => {
-        showMessage(
-          `<i class="bi bi-wifi-off me-1 text-danger"></i>
-           Network error uploading <strong>${escapeHtml(file.name)}</strong>.`,
-          'danger'
-        );
-        hideProgressAfterDelay();
-        resolve();
+      xhr.addEventListener('error', function () {
+        appendMessage('danger', 'Network error. Please check your connection and try again.');
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.innerHTML = '<i class="bi bi-cloud-upload me-2"></i>Upload';
+        }
+        if (progressContainer) progressContainer.classList.add('d-none');
       });
 
-      xhr.addEventListener('abort', () => {
-        showMessage(
-          `<i class="bi bi-x-circle me-1 text-warning"></i>
-           Upload of <strong>${escapeHtml(file.name)}</strong> was cancelled.`,
-          'warning'
-        );
-        hideProgressAfterDelay();
-        resolve();
+      xhr.addEventListener('abort', function () {
+        appendMessage('warning', 'Upload cancelled.');
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.innerHTML = '<i class="bi bi-cloud-upload me-2"></i>Upload';
+        }
+        if (progressContainer) progressContainer.classList.add('d-none');
       });
 
+      xhr.open('POST', uploadForm.action || '/upload', true);
+      xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
       xhr.send(formData);
     });
   }
 
-  // ─── UI Helpers ─────────────────────────────────────────────────────────────
+  // ─── Success handler ───────────────────────────────────────────────────────
 
-  function showProgress(percent, label) {
-    if (!progressContainer || !progressBar) return;
-    progressContainer.classList.remove('d-none');
-    progressBar.style.width = percent + '%';
-    progressBar.setAttribute('aria-valuenow', percent);
-    progressBar.textContent = percent + '%';
-    if (progressText) {
-      progressText.textContent = label ? `Uploading: ${label}` : 'Uploading...';
+  function handleUploadSuccess(response) {
+    // Support array of uploaded images or single
+    const images = Array.isArray(response) ? response : (response.images || [response]);
+
+    if (previewContainer) {
+      previewContainer.innerHTML = '';
+
+      images.forEach(img => {
+        if (!img || !img.filename) return;
+        const col = document.createElement('div');
+        col.className = 'col-6 col-md-4 col-lg-3';
+        col.innerHTML = `
+          <div class="card h-100 border-success">
+            <div class="position-relative">
+              <img src="/uploads/${escapeHtml(img.filename)}"
+                class="card-img-top object-fit-cover"
+                style="height:120px;"
+                alt="${escapeHtml(img.originalName || img.filename)}"
+                onerror="this.src='/img/placeholder.png'">
+              <span class="position-absolute top-0 end-0 m-1 badge bg-success">
+                <i class="bi bi-check-lg"></i>
+              </span>
+            </div>
+            <div class="card-body p-2">
+              <p class="card-text small text-truncate mb-1"
+                title="${escapeHtml(img.originalName || img.filename)}">
+                ${escapeHtml(img.originalName || img.filename)}
+              </p>
+              ${img.id ? `<a href="/image/${img.id}" class="btn btn-outline-primary btn-sm w-100">View</a>` : ''}
+            </div>
+          </div>
+        `;
+        previewContainer.appendChild(col);
+      });
     }
 
-    if (percent === 100) {
-      progressBar.classList.remove('progress-bar-animated');
-      progressBar.classList.add('bg-success');
-    } else {
-      progressBar.classList.add('progress-bar-animated');
-      progressBar.classList.remove('bg-success');
-    }
+    const count = images.length;
+    appendMessage('success', `Successfully uploaded ${count} image${count !== 1 ? 's' : ''}!`);
+
+    // Reset form but keep previews visible
+    uploadForm.reset();
+
+    if (submitBtn) submitBtn.classList.add('d-none');
   }
 
-  function hideProgressAfterDelay() {
-    setTimeout(() => {
-      if (progressContainer) progressContainer.classList.add('d-none');
-      if (progressBar) {
-        progressBar.style.width = '0%';
-        progressBar.textContent = '0%';
-        progressBar.classList.remove('bg-success', 'progress-bar-animated');
-      }
-    }, 2000);
+  // ─── Helpers ───────────────────────────────────────────────────────────────
+
+  function setProgress(pct) {
+    if (!progressBar) return;
+    progressBar.style.width = `${pct}%`;
+    progressBar.setAttribute('aria-valuenow', pct);
+    if (progressText) progressText.textContent = `${pct}%`;
   }
 
-  function showMessage(html, type) {
-    if (!uploadMessages) return;
-    const div = document.createElement('div');
-    div.className = `alert alert-${type} alert-dismissible fade show py-2 mb-2`;
-    div.innerHTML = html + '<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>';
-    uploadMessages.appendChild(div);
-  }
+  function appendMessage(type, message) {
+    if (!messagesContainer) return;
 
-  function clearMessages() {
-    if (uploadMessages) uploadMessages.innerHTML = '';
-  }
-
-  function appendSuccessThumb(image) {
-    // Append a small thumbnail to the preview area after successful upload
-    const thumbsContainer = document.getElementById('successThumbs');
-    if (!thumbsContainer) return;
-
-    const div = document.createElement('div');
-    div.className = 'success-thumb d-inline-block m-1 text-center';
-    div.innerHTML = `
-      <a href="/gallery/${image.id}" title="${escapeHtml(image.title || image.filename)}">
-        <img
-          src="/uploads/${escapeHtml(image.filename)}"
-          alt="${escapeHtml(image.title || image.filename)}"
-          class="img-thumbnail"
-          style="width: 80px; height: 80px; object-fit: cover;"
-          onerror="this.src='/img/placeholder.png'"
-        />
-      </a>
+    const alert = document.createElement('div');
+    alert.className = `alert alert-${type} alert-dismissible fade show`;
+    alert.innerHTML = `
+      ${message}
+      <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
     `;
-    thumbsContainer.appendChild(div);
-    thumbsContainer.classList.remove('d-none');
+    messagesContainer.appendChild(alert);
+
+    // Auto-dismiss after 8 seconds
+    setTimeout(() => {
+      alert.classList.remove('show');
+      setTimeout(() => alert.remove(), 300);
+    }, 8000);
   }
 
   function formatFileSize(bytes) {
-    if (bytes < 1024) return bytes + ' B';
-    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
-    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
+  }
+
+  function preventDefaults(e) {
+    e.preventDefault();
+    e.stopPropagation();
   }
 
   function escapeHtml(str) {
@@ -304,7 +288,6 @@
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#39;');
+      .replace(/'/g, '&#039;');
   }
-
-})();
+});
