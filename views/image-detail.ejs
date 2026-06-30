@@ -1,158 +1,188 @@
-<%- include('layouts/base', { title: title || 'Image Detail', activePage: 'gallery', body: `
-<div class="container py-4">
-  <nav aria-label="breadcrumb" class="mb-3">
-    <ol class="breadcrumb">
-      <li class="breadcrumb-item"><a href="/">Home</a></li>
-      <li class="breadcrumb-item"><a href="/gallery">Gallery</a></li>
-      <li class="breadcrumb-item active" aria-current="page">${image.originalName || image.filename}</li>
-    </ol>
-  </nav>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= image.title || image.originalFilename || 'Image Detail' %> — Photo Gallery</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+  <link rel="stylesheet" href="/css/main.css">
+</head>
+<body>
+  <%- include('partials/navbar') %>
 
-  <div class="row g-4">
-    <!-- Image -->
-    <div class="col-lg-8">
-      <div class="card shadow-sm">
-        <div class="text-center bg-dark rounded-top" style="max-height:600px;overflow:hidden;">
-          <img src="/uploads/${image.filename}"
-            class="img-fluid"
-            style="max-height:600px;object-fit:contain;"
-            alt="${image.originalName || image.filename}">
+  <div class="container py-4">
+
+    <!-- Breadcrumb -->
+    <nav aria-label="breadcrumb" class="mb-3">
+      <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="/">Home</a></li>
+        <li class="breadcrumb-item"><a href="/gallery">Gallery</a></li>
+        <li class="breadcrumb-item active" aria-current="page">
+          <%= image.title || image.originalFilename || 'Image' %>
+        </li>
+      </ol>
+    </nav>
+
+    <div class="row g-4">
+
+      <!-- Image Column -->
+      <div class="col-lg-8">
+        <div class="card shadow-sm">
+          <div class="card-body p-2 text-center bg-dark rounded">
+            <img
+              src="/uploads/<%= image.filename %>"
+              alt="<%= image.title || image.originalFilename %>"
+              class="img-fluid rounded"
+              style="max-height: 70vh; object-fit: contain;"
+            >
+          </div>
         </div>
-        <div class="card-body">
-          <h1 class="h4 card-title">${image.originalName || image.filename}</h1>
 
-          <!-- Tags Section -->
-          <div class="mb-3">
-            <h6 class="text-muted mb-2"><i class="bi bi-tags me-1"></i>Tags</h6>
-            <div id="tagContainer" class="d-flex flex-wrap align-items-center gap-1 mb-2">
-              ${(image.Tags || []).map(tag => `
-                <span class="badge me-1 mb-1 tag-badge d-inline-flex align-items-center"
-                  style="background-color:${tag.color || '#6c757d'};font-size:0.85rem;"
-                  data-tag-id="${tag.id}">
-                  <a href="/gallery?tag=${tag.slug}" class="text-white text-decoration-none me-1">${tag.name}</a>
-                  <button type="button"
-                    class="btn-close btn-close-white btn-sm ms-1 tag-remove-btn"
-                    aria-label="Remove tag"
-                    style="font-size:0.6rem;filter:brightness(2);"
-                    onclick="removeTag(${image.id}, ${tag.id})">
-                  </button>
-                </span>
-              `).join('')}
+        <!-- Tags section -->
+        <div class="card shadow-sm mt-3">
+          <div class="card-body">
+            <h5 class="card-title mb-3">
+              <i class="bi bi-tags me-2 text-primary"></i>Tags
+            </h5>
 
-              <!-- Add tag form -->
-              <span class="tag-add-form">
-                <form id="tagAddForm" class="d-inline-flex align-items-center gap-1">
-                  <input type="text" id="tagInput" class="form-control form-control-sm"
-                    list="tagSuggestions"
-                    placeholder="Add tag..."
-                    style="width:140px;"
-                    minlength="2" maxlength="30"
-                    autocomplete="off">
-                  <datalist id="tagSuggestions"></datalist>
-                  <button type="submit" class="btn btn-sm btn-outline-primary">
-                    <i class="bi bi-plus-lg"></i>
-                  </button>
-                </form>
-              </span>
+            <div id="tagAlertContainer"></div>
+
+            <!-- Tag list -->
+            <div id="tagList" class="mb-3">
+              <% if (image.Tags && image.Tags.length > 0) { %>
+                <% image.Tags.forEach(tag => { %>
+                  <span class="badge me-1 mb-1 tag-badge d-inline-flex align-items-center gap-1"
+                        style="background-color: <%= tag.color || '#6c757d' %>; font-size: 0.85rem; padding: 0.4em 0.65em;">
+                    <a href="/gallery?tag=<%= tag.slug %>" class="text-white text-decoration-none">
+                      <%= tag.name %>
+                    </a>
+                    <button
+                      type="button"
+                      class="btn-close btn-close-white btn-sm"
+                      style="font-size: 0.6em;"
+                      aria-label="Remove tag"
+                      onclick="removeTag(<%= image.id %>, <%= tag.id %>)"
+                    ></button>
+                  </span>
+                <% }) %>
+              <% } else { %>
+                <span class="text-muted fst-italic small">No tags yet</span>
+              <% } %>
             </div>
-            <div id="tagAlert" class="d-none"></div>
-          </div>
 
-          <!-- Description if available -->
-          ${image.description ? `<p class="card-text text-muted">${image.description}</p>` : ''}
-        </div>
-      </div>
-    </div>
-
-    <!-- Sidebar: Metadata -->
-    <div class="col-lg-4">
-      <!-- File Info -->
-      <div class="card shadow-sm mb-3">
-        <div class="card-header">
-          <h5 class="mb-0"><i class="bi bi-info-circle me-2"></i>File Info</h5>
-        </div>
-        <div class="card-body p-0">
-          <table class="table table-sm mb-0">
-            <tbody>
-              <tr>
-                <td class="text-muted">Filename</td>
-                <td class="text-break small">${image.filename}</td>
-              </tr>
-              ${image.fileSize ? `
-              <tr>
-                <td class="text-muted">Size</td>
-                <td>${formatFileSize(image.fileSize)}</td>
-              </tr>` : ''}
-              ${image.mimeType ? `
-              <tr>
-                <td class="text-muted">Type</td>
-                <td>${image.mimeType}</td>
-              </tr>` : ''}
-              ${image.width && image.height ? `
-              <tr>
-                <td class="text-muted">Dimensions</td>
-                <td>${image.width} × ${image.height}</td>
-              </tr>` : ''}
-              <tr>
-                <td class="text-muted">Uploaded</td>
-                <td>${new Date(image.createdAt).toLocaleDateString()}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <!-- EXIF Data -->
-      ${typeof exifData !== 'undefined' && exifData ? `
-      <div class="card shadow-sm mb-3">
-        <div class="card-header">
-          <h5 class="mb-0"><i class="bi bi-camera me-2"></i>EXIF Data</h5>
-        </div>
-        <div class="card-body p-0">
-          <%- include('partials/exif-table', { exifData }) %>
-        </div>
-      </div>` : ''}
-
-      <!-- Map -->
-      ${typeof hasGps !== 'undefined' && hasGps ? `
-      <div class="card shadow-sm mb-3">
-        <div class="card-header">
-          <h5 class="mb-0"><i class="bi bi-geo-alt me-2"></i>Location</h5>
-        </div>
-        <div class="card-body p-0">
-          <%- include('partials/map', { lat, lng }) %>
-        </div>
-      </div>` : ''}
-
-      <!-- Actions -->
-      <div class="card shadow-sm">
-        <div class="card-body">
-          <div class="d-grid gap-2">
-            <a href="/uploads/${image.filename}" class="btn btn-outline-primary" download>
-              <i class="bi bi-download me-2"></i>Download
-            </a>
-            <a href="/gallery" class="btn btn-outline-secondary">
-              <i class="bi bi-arrow-left me-2"></i>Back to Gallery
-            </a>
+            <!-- Add tag form -->
+            <form id="addTagForm" class="d-flex gap-2 align-items-center flex-wrap">
+              <div class="position-relative flex-grow-1" style="min-width: 200px;">
+                <input
+                  type="text"
+                  id="tagInput"
+                  class="form-control form-control-sm"
+                  placeholder="Add a tag..."
+                  list="tagSuggestions"
+                  autocomplete="off"
+                  maxlength="30"
+                >
+                <datalist id="tagSuggestions"></datalist>
+              </div>
+              <button type="submit" class="btn btn-primary btn-sm">
+                <i class="bi bi-plus-lg me-1"></i>Add Tag
+              </button>
+            </form>
           </div>
         </div>
       </div>
+
+      <!-- Sidebar / Metadata Column -->
+      <div class="col-lg-4">
+        <div class="card shadow-sm">
+          <div class="card-header">
+            <h5 class="mb-0"><i class="bi bi-info-circle me-2"></i>Image Details</h5>
+          </div>
+          <div class="card-body">
+            <dl class="row mb-0 small">
+              <dt class="col-5 text-muted">Filename</dt>
+              <dd class="col-7 text-truncate" title="<%= image.originalFilename %>">
+                <%= image.originalFilename %>
+              </dd>
+
+              <% if (image.title) { %>
+              <dt class="col-5 text-muted">Title</dt>
+              <dd class="col-7"><%= image.title %></dd>
+              <% } %>
+
+              <% if (image.description) { %>
+              <dt class="col-5 text-muted">Description</dt>
+              <dd class="col-7"><%= image.description %></dd>
+              <% } %>
+
+              <% if (image.width && image.height) { %>
+              <dt class="col-5 text-muted">Dimensions</dt>
+              <dd class="col-7"><%= image.width %> × <%= image.height %></dd>
+              <% } %>
+
+              <% if (image.fileSize) { %>
+              <dt class="col-5 text-muted">File Size</dt>
+              <dd class="col-7"><%= (image.fileSize / 1024 / 1024).toFixed(2) %> MB</dd>
+              <% } %>
+
+              <% if (image.mimeType) { %>
+              <dt class="col-5 text-muted">Type</dt>
+              <dd class="col-7"><%= image.mimeType %></dd>
+              <% } %>
+
+              <dt class="col-5 text-muted">Uploaded</dt>
+              <dd class="col-7"><%= new Date(image.createdAt).toLocaleString() %></dd>
+            </dl>
+          </div>
+        </div>
+
+        <!-- EXIF Data -->
+        <% if (typeof exifData !== 'undefined' && exifData && Object.keys(exifData).length > 0) { %>
+        <div class="card shadow-sm mt-3">
+          <div class="card-header">
+            <h5 class="mb-0"><i class="bi bi-camera me-2"></i>EXIF Data</h5>
+          </div>
+          <div class="card-body p-0">
+            <%- include('partials/exif-table', { exifData }) %>
+          </div>
+        </div>
+        <% } %>
+
+        <!-- Map (if GPS available) -->
+        <% if (typeof gpsData !== 'undefined' && gpsData && gpsData.lat && gpsData.lng) { %>
+        <div class="card shadow-sm mt-3">
+          <div class="card-header">
+            <h5 class="mb-0"><i class="bi bi-geo-alt me-2"></i>Location</h5>
+          </div>
+          <div class="card-body p-0">
+            <%- include('partials/map', { gpsData }) %>
+          </div>
+        </div>
+        <% } %>
+
+        <!-- Actions -->
+        <div class="card shadow-sm mt-3">
+          <div class="card-body d-flex flex-wrap gap-2">
+            <a href="/uploads/<%= image.filename %>" download class="btn btn-outline-primary btn-sm">
+              <i class="bi bi-download me-1"></i>Download
+            </a>
+            <a href="/gallery" class="btn btn-outline-secondary btn-sm">
+              <i class="bi bi-arrow-left me-1"></i>Back to Gallery
+            </a>
+          </div>
+        </div>
+      </div>
+
     </div>
   </div>
-</div>
 
-<script src="/js/tagging.js"></script>
-<script>
-  document.addEventListener('DOMContentLoaded', function() {
-    initImageTagging(${image.id});
-  });
-
-  function formatFileSize(bytes) {
-    if (!bytes) return 'Unknown';
-    const k = 1024;
-    const sizes = ['B', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
-  }
-</script>
-` }) %>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="/js/tagging.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      initImageTagging(<%= image.id %>);
+    });
+  </script>
+</body>
+</html>

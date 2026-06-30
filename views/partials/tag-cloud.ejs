@@ -7,30 +7,26 @@
     const minSize = 0.8;
     const maxSize = 2.0;
 
-    function getTagSize(count) {
-      if (maxCount === minCount) return (minSize + maxSize) / 2;
+    function tagFontSize(count) {
+      if (maxCount === minCount) return ((minSize + maxSize) / 2).toFixed(2);
       // Logarithmic scaling
       const logMin = Math.log(Math.max(minCount, 1));
       const logMax = Math.log(Math.max(maxCount, 1));
       const logCount = Math.log(Math.max(count, 1));
-      if (logMax === logMin) return (minSize + maxSize) / 2;
+      if (logMax === logMin) return ((minSize + maxSize) / 2).toFixed(2);
       const scale = (logCount - logMin) / (logMax - logMin);
-      return minSize + scale * (maxSize - minSize);
+      return (minSize + scale * (maxSize - minSize)).toFixed(2);
     }
   %>
-  <% tags.forEach(function(tag) { %>
-    <%
-      const fontSize = getTagSize(tag.imageCount || 0).toFixed(2);
-      const color = tag.color || '#6c757d';
-    %>
-    <a href="/gallery?tag=<%= tag.slug %>"
-       class="tag-cloud-item text-decoration-none"
-       style="font-size: <%= fontSize %>rem; color: <%= color %>;"
-       title="<%= tag.name %> (<%= tag.imageCount || 0 %> <%= (tag.imageCount || 0) === 1 ? 'image' : 'images' %>)">
-      <%= tag.name %>
-    </a>
-  <% }); %>
+  <% tags.forEach(tag => { %>
+    <a
+      href="/gallery?tag=<%= tag.slug %>"
+      class="tag-cloud-link"
+      style="font-size: <%= tagFontSize(tag.imageCount || 0) %>rem; color: <%= tag.color || '#6c757d' %>;"
+      title="<%= tag.name %> (<%= tag.imageCount || 0 %> image<%= (tag.imageCount || 0) !== 1 ? 's' : '' %>)"
+    ><%= tag.name %></a>
+  <% }) %>
 </div>
 <% } else { %>
-<p class="text-muted small mb-0">No tags yet.</p>
+<p class="text-muted small mb-0"><em>No tags yet.</em></p>
 <% } %>

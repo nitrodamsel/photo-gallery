@@ -1,17 +1,36 @@
-const { Sequelize } = require('sequelize');
-const config = require('../config');
+'use strict';
+const { Sequelize, DataTypes } = require('sequelize');
+const config = require('../config/index');
 
-const sequelize = new Sequelize(config.database);
+const dbConfig = config.database;
 
-const Image = require('./Image')(sequelize);
-const Tag = require('./Tag')(sequelize);
-const ImageTag = require('./ImageTag')(sequelize);
-const ThumbnailCache = require('./ThumbnailCache')(sequelize);
+let sequelize;
+if (dbConfig.dialect === 'sqlite') {
+  sequelize = new Sequelize({
+    dialect: 'sqlite',
+    storage: dbConfig.storage,
+    logging: dbConfig.logging || false
+  });
+} else {
+  sequelize = new Sequelize(dbConfig.database, dbConfig.username, dbConfig.password, {
+    host: dbConfig.host,
+    dialect: dbConfig.dialect,
+    logging: dbConfig.logging || false
+  });
+}
+
+// Import models
+const Image = require('./Image')(sequelize, DataTypes);
+const Tag = require('./Tag')(sequelize, DataTypes);
+const ImageTag = require('./ImageTag')(sequelize, DataTypes);
+const ThumbnailCache = require('./ThumbnailCache')(sequelize, DataTypes);
+
+const models = { Image, Tag, ImageTag, ThumbnailCache };
 
 // Run associations
-[Image, Tag, ImageTag, ThumbnailCache].forEach(model => {
-  if (model.associate) {
-    model.associate({ Image, Tag, ImageTag, ThumbnailCache });
+Object.values(models).forEach(model => {
+  if (typeof model.associate === 'function') {
+    model.associate(models);
   }
 });
 

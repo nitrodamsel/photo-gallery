@@ -2,21 +2,17 @@ const express = require('express');
 const router = express.Router();
 const tagService = require('../services/tagService');
 
-// GET /tags - render tag management page
+// GET /tags — tag management page
 router.get('/', async (req, res, next) => {
   try {
     const tags = await tagService.getAllTagsWithCounts();
-    res.render('tags', {
-      title: 'Tag Management',
-      tags,
-      activePage: 'tags'
-    });
+    res.render('tags', { title: 'Tag Management', tags });
   } catch (err) {
     next(err);
   }
 });
 
-// GET /api/tags - return JSON array, supports ?q= search
+// GET /api/tags — returns JSON array, supports ?q= search
 router.get('/api', async (req, res, next) => {
   try {
     const { q } = req.query;
@@ -32,7 +28,7 @@ router.get('/api', async (req, res, next) => {
   }
 });
 
-// POST /api/tags - create new tag
+// POST /api/tags — create new tag
 router.post('/api', async (req, res, next) => {
   try {
     const { name, color } = req.body;
@@ -52,7 +48,7 @@ router.post('/api', async (req, res, next) => {
   }
 });
 
-// PATCH /api/tags/:id - rename tag
+// PATCH /api/tags/:id — rename tag
 router.patch('/api/:id', async (req, res, next) => {
   try {
     const { id } = req.params;
@@ -76,7 +72,7 @@ router.patch('/api/:id', async (req, res, next) => {
   }
 });
 
-// DELETE /api/tags/:id - delete tag and all associations
+// DELETE /api/tags/:id — delete tag and all associations
 router.delete('/api/:id', async (req, res, next) => {
   try {
     const { id } = req.params;

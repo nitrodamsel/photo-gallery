@@ -1,133 +1,129 @@
-<%- include('layouts/base', { title: title, activePage: activePage, body: `
+<%- include('layouts/base', { title: title, body: `
 <div class="container-fluid py-4">
   <div class="row">
     <div class="col-12">
       <div class="d-flex justify-content-between align-items-center mb-4">
         <h1 class="h2 mb-0">
-          <i class="bi bi-tags me-2"></i>Tag Management
+          <i class="bi bi-tags-fill me-2 text-primary"></i>Tag Management
         </h1>
-        <span class="badge bg-secondary fs-6">${tags.length} tags</span>
+        <a href="/gallery" class="btn btn-outline-secondary btn-sm">
+          <i class="bi bi-arrow-left me-1"></i>Back to Gallery
+        </a>
       </div>
 
+      <!-- Alert container -->
+      <div id="alertContainer"></div>
+
       <!-- Create New Tag Form -->
-      <div class="card mb-4 border-primary">
+      <div class="card shadow-sm mb-4">
         <div class="card-header bg-primary text-white">
           <h5 class="mb-0"><i class="bi bi-plus-circle me-2"></i>Create New Tag</h5>
         </div>
         <div class="card-body">
-          <form id="createTagForm" class="row g-3">
+          <form id="createTagForm" class="row g-3 align-items-end">
             <div class="col-md-5">
-              <label for="newTagName" class="form-label">Tag Name <span class="text-danger">*</span></label>
-              <input type="text" class="form-control" id="newTagName" name="name"
-                placeholder="e.g. nature, black-and-white" minlength="2" maxlength="30" required>
-              <div class="form-text">2–30 characters, letters, numbers, spaces, and hyphens only.</div>
+              <label for="newTagName" class="form-label fw-semibold">Tag Name</label>
+              <input
+                type="text"
+                id="newTagName"
+                class="form-control"
+                placeholder="e.g. landscape, black-and-white"
+                minlength="2"
+                maxlength="30"
+                required
+              >
+              <div class="form-text">2–30 characters, alphanumeric, spaces, and hyphens only.</div>
             </div>
             <div class="col-md-3">
-              <label for="newTagColor" class="form-label">Color</label>
-              <div class="input-group">
-                <span class="input-group-text p-1">
-                  <input type="color" class="form-control form-control-color border-0" id="newTagColor"
-                    name="color" value="#6c757d" title="Choose tag color" style="width:2rem;height:2rem;padding:0;">
-                </span>
-                <input type="text" class="form-control" id="newTagColorHex" value="#6c757d"
-                  pattern="^#[0-9A-Fa-f]{6}$" placeholder="#6c757d">
-              </div>
+              <label for="newTagColor" class="form-label fw-semibold">Color</label>
+              <input type="color" id="newTagColor" class="form-control form-control-color" value="#6c757d">
             </div>
-            <div class="col-md-2 d-flex align-items-end">
-              <button type="submit" class="btn btn-primary w-100">
+            <div class="col-md-4">
+              <button type="submit" class="btn btn-primary">
                 <i class="bi bi-plus-lg me-1"></i>Create Tag
               </button>
-            </div>
-            <div class="col-12">
-              <div id="createTagAlert" class="alert d-none" role="alert"></div>
             </div>
           </form>
         </div>
       </div>
 
       <!-- Tags Table -->
-      <div class="card">
+      <div class="card shadow-sm">
         <div class="card-header d-flex justify-content-between align-items-center">
-          <h5 class="mb-0"><i class="bi bi-list-ul me-2"></i>All Tags</h5>
-          <input type="search" class="form-control w-auto" id="tagSearch" placeholder="Filter tags...">
+          <h5 class="mb-0"><i class="bi bi-list-ul me-2"></i>All Tags (<span id="tagCount"><%= tags.length %></span>)</h5>
+          <div class="input-group" style="max-width: 250px;">
+            <span class="input-group-text"><i class="bi bi-search"></i></span>
+            <input type="text" id="tagSearch" class="form-control form-control-sm" placeholder="Filter tags...">
+          </div>
         </div>
         <div class="card-body p-0">
           <div class="table-responsive">
             <table class="table table-hover mb-0" id="tagsTable">
               <thead class="table-light">
                 <tr>
-                  <th style="width:40px">Color</th>
+                  <th style="width: 40px;">Color</th>
                   <th>Name</th>
                   <th>Slug</th>
                   <th class="text-center">Images</th>
                   <th>Created</th>
-                  <th style="width:160px">Actions</th>
+                  <th class="text-end">Actions</th>
                 </tr>
               </thead>
               <tbody id="tagsTableBody">
-                ${tags.map(tag => `
-                <tr data-tag-id="${tag.id}" data-tag-slug="${tag.slug}">
-                  <td>
-                    <span class="tag-color-swatch d-inline-block rounded"
-                      style="width:24px;height:24px;background:${tag.color || '#6c757d'};border:1px solid rgba(0,0,0,.15);"
-                      title="${tag.color || '#6c757d'}"></span>
-                  </td>
-                  <td>
-                    <span class="tag-name-display">
-                      <span class="badge" style="background-color:${tag.color || '#6c757d'};font-size:0.85rem;">${tag.name}</span>
-                    </span>
-                    <span class="tag-name-edit d-none">
-                      <div class="input-group input-group-sm" style="max-width:250px;">
-                        <input type="text" class="form-control tag-rename-input" value="${tag.name}"
-                          minlength="2" maxlength="30" data-original="${tag.name}">
-                        <input type="color" class="form-control form-control-color tag-color-input p-0 border-start-0"
-                          value="${tag.color || '#6c757d'}" style="width:2.5rem;" title="Color">
-                        <button class="btn btn-success btn-sm tag-save-btn" type="button">
-                          <i class="bi bi-check-lg"></i>
-                        </button>
-                        <button class="btn btn-outline-secondary btn-sm tag-cancel-btn" type="button">
-                          <i class="bi bi-x-lg"></i>
-                        </button>
-                      </div>
-                    </span>
-                  </td>
-                  <td>
-                    <code class="tag-slug-display small">${tag.slug}</code>
-                  </td>
-                  <td class="text-center">
-                    <a href="/gallery?tag=${tag.slug}" class="badge bg-light text-dark text-decoration-none tag-count"
-                      title="View images with this tag">
-                      ${tag.imageCount}
-                    </a>
-                  </td>
-                  <td class="text-muted small">
-                    ${new Date(tag.createdAt).toLocaleDateString()}
-                  </td>
-                  <td>
-                    <div class="btn-group btn-group-sm tag-action-btns">
-                      <button class="btn btn-outline-primary tag-edit-btn" title="Rename tag">
-                        <i class="bi bi-pencil"></i> Edit
-                      </button>
-                      <button class="btn btn-outline-danger tag-delete-btn" title="Delete tag">
-                        <i class="bi bi-trash"></i>
-                      </button>
-                    </div>
-                    <div class="tag-edit-actions d-none">
-                      <!-- shown inline with edit inputs -->
-                    </div>
+                <% if (tags.length === 0) { %>
+                <tr id="emptyRow">
+                  <td colspan="6" class="text-center text-muted py-5">
+                    <i class="bi bi-tags fs-1 d-block mb-2 opacity-25"></i>
+                    No tags yet. Create your first tag above!
                   </td>
                 </tr>
-                `).join('')}
+                <% } else { %>
+                <% tags.forEach(tag => { %>
+                <tr data-tag-id="<%= tag.id %>" data-tag-name="<%= tag.name.toLowerCase() %>">
+                  <td>
+                    <span
+                      class="tag-color-swatch"
+                      style="display:inline-block;width:24px;height:24px;border-radius:4px;background:<%= tag.color %>;"
+                      title="<%= tag.color %>"
+                    ></span>
+                  </td>
+                  <td>
+                    <span class="tag-name-display fw-semibold"><%= tag.name %></span>
+                    <div class="tag-edit-group d-none input-group input-group-sm" style="max-width: 300px;">
+                      <input type="text" class="form-control tag-name-input" value="<%= tag.name %>" maxlength="30">
+                      <input type="color" class="form-control form-control-color tag-color-input" value="<%= tag.color %>" style="max-width:50px;">
+                      <button class="btn btn-success btn-sm save-tag-btn" title="Save">
+                        <i class="bi bi-check-lg"></i>
+                      </button>
+                      <button class="btn btn-outline-secondary btn-sm cancel-edit-btn" title="Cancel">
+                        <i class="bi bi-x-lg"></i>
+                      </button>
+                    </div>
+                  </td>
+                  <td><code class="tag-slug text-muted"><%= tag.slug %></code></td>
+                  <td class="text-center">
+                    <a href="/gallery?tag=<%= tag.slug %>" class="badge rounded-pill bg-primary text-decoration-none tag-image-count">
+                      <%= tag.imageCount %>
+                    </a>
+                  </td>
+                  <td class="text-muted small"><%= new Date(tag.createdAt).toLocaleDateString() %></td>
+                  <td class="text-end">
+                    <button class="btn btn-sm btn-outline-secondary rename-tag-btn me-1" title="Rename tag">
+                      <i class="bi bi-pencil"></i>
+                    </button>
+                    <button class="btn btn-sm btn-outline-danger delete-tag-btn" title="Delete tag">
+                      <i class="bi bi-trash"></i>
+                    </button>
+                  </td>
+                </tr>
+                <% }) %>
+                <% } %>
               </tbody>
             </table>
-            ${tags.length === 0 ? `
-            <div class="text-center py-5 text-muted">
-              <i class="bi bi-tags display-4 d-block mb-2"></i>
-              <p>No tags yet. Create your first tag above!</p>
-            </div>` : ''}
           </div>
         </div>
       </div>
+
     </div>
   </div>
 </div>
@@ -135,7 +131,7 @@
 <script src="/js/tagging.js"></script>
 <script>
   document.addEventListener('DOMContentLoaded', function() {
-    initTagManagement();
+    initTagManagementPage();
   });
 </script>
 ` }) %>
