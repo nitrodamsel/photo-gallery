@@ -12,29 +12,16 @@ const ThumbnailCache = require('./ThumbnailCache')(sequelize);
 // Associations
 Image.belongsToMany(Tag, {
   through: ImageTag,
-  foreignKey: 'imageId',
-  otherKey: 'tagId',
+  foreignKey: 'image_id',
+  otherKey: 'tag_id',
   as: 'tags',
 });
 
 Tag.belongsToMany(Image, {
   through: ImageTag,
-  foreignKey: 'tagId',
-  otherKey: 'imageId',
+  foreignKey: 'tag_id',
+  otherKey: 'image_id',
   as: 'images',
-});
-
-Tag.hasMany(ImageTag, {
-  foreignKey: 'tagId',
-  as: 'imageTags',
-});
-
-ImageTag.belongsTo(Tag, {
-  foreignKey: 'tagId',
-});
-
-ImageTag.belongsTo(Image, {
-  foreignKey: 'imageId',
 });
 
 Image.hasMany(ThumbnailCache, {
@@ -44,6 +31,7 @@ Image.hasMany(ThumbnailCache, {
 
 ThumbnailCache.belongsTo(Image, {
   foreignKey: 'imageId',
+  as: 'image',
 });
 
 module.exports = {

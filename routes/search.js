@@ -13,18 +13,17 @@ router.get('/', async (req, res, next) => {
     const facets = await searchService.getFacets();
 
     res.render('search', {
-      title: 'Search Images',
+      title: 'Search',
       results: rows,
       pagination: {
-        total: count,
-        totalPages,
         currentPage: searchOptions.page,
+        totalPages,
+        totalCount: count,
         limit: searchOptions.limit,
       },
       query: req.query,
       searchOptions,
       facets,
-      activeFilters: buildActiveFilterSummary(req.query),
     });
   } catch (err) {
     next(err);
@@ -40,19 +39,18 @@ router.get('/api/search', async (req, res, next) => {
     res.json({
       results: rows,
       pagination: {
-        total: count,
-        totalPages,
         currentPage: searchOptions.page,
+        totalPages,
+        totalCount: count,
         limit: searchOptions.limit,
       },
-      query: searchOptions,
     });
   } catch (err) {
     next(err);
   }
 });
 
-// GET /api/search/facets — returns distinct camera makes and tags
+// GET /api/search/facets — returns distinct cameraMake values and tag list
 router.get('/api/search/facets', async (req, res, next) => {
   try {
     const facets = await searchService.getFacets();
@@ -61,31 +59,5 @@ router.get('/api/search/facets', async (req, res, next) => {
     next(err);
   }
 });
-
-function buildActiveFilterSummary(query) {
-  const filters = [];
-
-  if (query.q) {
-    filters.push({ label: 'Search', value: `"${query.q}"` });
-  }
-  if (query.dateFrom) {
-    filters.push({ label: 'From', value: query.dateFrom });
-  }
-  if (query.dateTo) {
-    filters.push({ label: 'To', value: query.dateTo });
-  }
-  if (query.cameraMake) {
-    filters.push({ label: 'Camera', value: query.cameraMake });
-  }
-  if (query.hasGps === 'true' || query.hasGps === '1') {
-    filters.push({ label: 'Has GPS', value: 'Yes' });
-  }
-  if (query.tags) {
-    const tagList = Array.isArray(query.tags) ? query.tags : [query.tags];
-    filters.push({ label: 'Tags', value: tagList.join(', ') });
-  }
-
-  return filters;
-}
 
 module.exports = router;

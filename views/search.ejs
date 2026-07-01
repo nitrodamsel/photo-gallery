@@ -1,182 +1,161 @@
-<%- include('./layouts/base', { title: title, body: `
-<div class="search-page">
+<%- include('layouts/base', { title: title || 'Search', body: `
+<div class="container-fluid py-4">
   <!-- Search Header -->
-  <div class="search-header mb-4">
-    <div class="row align-items-center">
-      <div class="col-md-8">
-        <h1 class="h3 mb-1">
-          <i class="bi bi-search me-2"></i>Search Images
-        </h1>
-        <% if (pagination.total > 0) { %>
-          <p class="text-muted mb-0">
-            Found <strong><%= pagination.total %></strong> result<%= pagination.total !== 1 ? 's' : '' %>
-            <% if (searchOptions.q) { %>
-              for "<strong><%= searchOptions.q %></strong>"
+  <div class="row mb-4">
+    <div class="col-12">
+      <h1 class="h3 mb-1">
+        <i class="bi bi-search me-2"></i>Search
+      </h1>
+      <% if (searchOptions.q || searchOptions.tags.length || searchOptions.dateFrom || searchOptions.dateTo || searchOptions.cameraMake || searchOptions.hasGps) { %>
+        <p class="text-muted mb-0">
+          Found <strong><%= pagination.totalCount %></strong> result<%= pagination.totalCount !== 1 ? 's' : '' %>
+          <% if (searchOptions.q) { %>
+            for "<strong><%= searchOptions.q %></strong>"
+          <% } %>
+          <!-- Active filter badges -->
+          <span class="ms-2" id="active-filters">
+            <% if (searchOptions.dateFrom) { %>
+              <span class="badge bg-secondary me-1">From: <%= searchOptions.dateFrom %></span>
             <% } %>
-          </p>
-        <% } %>
-      </div>
-      <div class="col-md-4 text-md-end">
-        <% if (activeFilters.length > 0) { %>
-          <a href="/search" class="btn btn-sm btn-outline-secondary">
-            <i class="bi bi-x-circle me-1"></i>Clear All Filters
-          </a>
-        <% } %>
-      </div>
-    </div>
-
-    <!-- Active Filter Summary -->
-    <% if (activeFilters.length > 0) { %>
-      <div class="active-filters mt-2 d-flex flex-wrap gap-2">
-        <% activeFilters.forEach(function(filter) { %>
-          <span class="badge bg-primary-subtle text-primary-emphasis border border-primary-subtle">
-            <strong><%= filter.label %>:</strong> <%= filter.value %>
+            <% if (searchOptions.dateTo) { %>
+              <span class="badge bg-secondary me-1">To: <%= searchOptions.dateTo %></span>
+            <% } %>
+            <% if (searchOptions.cameraMake) { %>
+              <span class="badge bg-secondary me-1">Camera: <%= searchOptions.cameraMake %></span>
+            <% } %>
+            <% if (searchOptions.hasGps) { %>
+              <span class="badge bg-secondary me-1"><i class="bi bi-geo-alt-fill"></i> Has GPS</span>
+            <% } %>
+            <% if (searchOptions.tags && searchOptions.tags.length > 0) { %>
+              <% searchOptions.tags.forEach(function(tag) { %>
+                <span class="badge bg-primary me-1"><i class="bi bi-tag"></i> <%= tag %></span>
+              <% }); %>
+            <% } %>
           </span>
-        <% }); %>
-      </div>
-    <% } %>
+        </p>
+      <% } else { %>
+        <p class="text-muted mb-0">Enter a search term or use the filters to find images.</p>
+      <% } %>
+    </div>
   </div>
 
-  <div class="row g-4">
-    <!-- Filter Panel (sidebar) -->
-    <div class="col-lg-3">
-      <%- include('./partials/filter-panel', { query: query, facets: facets }) %>
+  <div class="row">
+    <!-- Filter Panel -->
+    <div class="col-lg-3 col-xl-2 mb-4">
+      <%- include('partials/filter-panel', { query: query, facets: facets, searchOptions: searchOptions }) %>
     </div>
 
-    <!-- Search Results -->
-    <div class="col-lg-9">
-      <!-- Inline Search Bar -->
-      <div class="search-bar-inline mb-4">
-        <form action="/search" method="GET" id="quickSearchForm">
-          <!-- Preserve existing filters -->
-          <% if (query.tags) {
-            const tagList = Array.isArray(query.tags) ? query.tags : [query.tags];
-            tagList.forEach(function(tag) { %>
-              <input type="hidden" name="tags" value="<%= tag %>">
-            <% });
-          } %>
-          <% if (query.dateFrom) { %><input type="hidden" name="dateFrom" value="<%= query.dateFrom %>"><% } %>
-          <% if (query.dateTo) { %><input type="hidden" name="dateTo" value="<%= query.dateTo %>"><% } %>
-          <% if (query.cameraMake) { %><input type="hidden" name="cameraMake" value="<%= query.cameraMake %>"><% } %>
-          <% if (query.hasGps) { %><input type="hidden" name="hasGps" value="<%= query.hasGps %>"><% } %>
-          <% if (query.limit) { %><input type="hidden" name="limit" value="<%= query.limit %>"><% } %>
+    <!-- Results -->
+    <div class="col-lg-9 col-xl-10">
+      <!-- Quick search bar -->
+      <form method="GET" action="/search" class="mb-4" id="quick-search-form">
+        <div class="input-group input-group-lg">
+          <input
+            type="search"
+            class="form-control"
+            name="q"
+            id="search-input"
+            value="<%= searchOptions.q || '' %>"
+            placeholder="Search filenames, descriptions, camera data..."
+            autocomplete="off"
+            aria-label="Search"
+          >
+          <!-- Preserve other filters as hidden inputs -->
+          <% if (searchOptions.dateFrom) { %><input type="hidden" name="dateFrom" value="<%= searchOptions.dateFrom %>"><% } %>
+          <% if (searchOptions.dateTo) { %><input type="hidden" name="dateTo" value="<%= searchOptions.dateTo %>"><% } %>
+          <% if (searchOptions.cameraMake) { %><input type="hidden" name="cameraMake" value="<%= searchOptions.cameraMake %>"><% } %>
+          <% if (searchOptions.hasGps) { %><input type="hidden" name="hasGps" value="true"><% } %>
+          <% if (searchOptions.tags) { searchOptions.tags.forEach(function(tag) { %><input type="hidden" name="tags" value="<%= tag %>"><% }); } %>
+          <button class="btn btn-primary" type="submit">
+            <i class="bi bi-search"></i> Search
+          </button>
+          <% if (searchOptions.q || searchOptions.tags.length || searchOptions.dateFrom || searchOptions.dateTo || searchOptions.cameraMake || searchOptions.hasGps) { %>
+            <a href="/search" class="btn btn-outline-secondary">
+              <i class="bi bi-x-circle"></i> Clear
+            </a>
+          <% } %>
+        </div>
+      </form>
 
-          <div class="input-group input-group-lg shadow-sm">
-            <span class="input-group-text bg-white">
-              <i class="bi bi-search text-muted"></i>
+      <!-- Results grid -->
+      <div id="results-container">
+        <% if (results && results.length > 0) { %>
+          <!-- Sort controls -->
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <span class="text-muted small">
+              Showing <%= (pagination.currentPage - 1) * pagination.limit + 1 %>–<%= Math.min(pagination.currentPage * pagination.limit, pagination.totalCount) %> of <%= pagination.totalCount %>
             </span>
-            <input
-              type="text"
-              class="form-control border-start-0"
-              name="q"
-              id="searchInput"
-              value="<%= query.q || '' %>"
-              placeholder="Search by filename, description, camera model..."
-              autocomplete="off"
-            >
-            <% if (query.q) { %>
-              <a href="/search?<%= Object.entries(query).filter(([k]) => k !== 'q' && k !== 'page').map(([k,v]) => Array.isArray(v) ? v.map(val => `${k}=${encodeURIComponent(val)}`).join('&') : `${k}=${encodeURIComponent(v)}`).join('&') %>" class="btn btn-outline-secondary" title="Clear search">
-                <i class="bi bi-x-lg"></i>
-              </a>
-            <% } %>
-            <button class="btn btn-primary" type="submit">Search</button>
-          </div>
-        </form>
-      </div>
-
-      <!-- Sort & View Controls -->
-      <% if (pagination.total > 0) { %>
-        <div class="d-flex justify-content-between align-items-center mb-3">
-          <div class="text-muted small">
-            Showing <%= (searchOptions.page - 1) * searchOptions.limit + 1 %>–<%= Math.min(searchOptions.page * searchOptions.limit, pagination.total) %>
-            of <%= pagination.total %> results
-          </div>
-          <div class="d-flex gap-2 align-items-center">
-            <label class="text-muted small me-1" for="sortSelect">Sort:</label>
-            <select class="form-select form-select-sm w-auto" id="sortSelect" onchange="applySortChange(this.value)">
-              <option value="relevance" <%= (query.sortBy || 'relevance') === 'relevance' ? 'selected' : '' %>>Relevance</option>
-              <option value="date_desc" <%= query.sortBy === 'date_desc' ? 'selected' : '' %>>Newest First</option>
-              <option value="date_asc" <%= query.sortBy === 'date_asc' ? 'selected' : '' %>>Oldest First</option>
-              <option value="name_asc" <%= query.sortBy === 'name_asc' ? 'selected' : '' %>>Name A–Z</option>
-              <option value="name_desc" <%= query.sortBy === 'name_desc' ? 'selected' : '' %>>Name Z–A</option>
-            </select>
-          </div>
-        </div>
-      <% } %>
-
-      <!-- Results Grid -->
-      <% if (results.length > 0) { %>
-        <div class="row g-3" id="resultsGrid">
-          <% results.forEach(function(image) { %>
-            <div class="col-sm-6 col-md-4 col-xl-3">
-              <%- include('./partials/image-card', { image: image }) %>
+            <div class="d-flex align-items-center gap-2">
+              <label class="text-muted small mb-0">Sort:</label>
+              <select class="form-select form-select-sm w-auto" id="sort-select">
+                <option value="relevance" <%= (searchOptions.sort === 'relevance' || !searchOptions.sort) ? 'selected' : '' %>>Relevance</option>
+                <option value="newest" <%= searchOptions.sort === 'newest' ? 'selected' : '' %>>Newest</option>
+                <option value="oldest" <%= searchOptions.sort === 'oldest' ? 'selected' : '' %>>Oldest</option>
+              </select>
             </div>
-          <% }); %>
-        </div>
+          </div>
 
-        <!-- Pagination -->
-        <% if (pagination.totalPages > 1) { %>
-          <nav class="mt-4" aria-label="Search results pagination">
-            <%- include('./partials/pagination', {
+          <div class="row g-3" id="results-grid">
+            <% results.forEach(function(image) { %>
+              <div class="col-6 col-md-4 col-xl-3">
+                <%- include('partials/image-card', { image: image }) %>
+              </div>
+            <% }); %>
+          </div>
+
+          <!-- Pagination -->
+          <% if (pagination.totalPages > 1) { %>
+            <%- include('partials/pagination', {
               currentPage: pagination.currentPage,
               totalPages: pagination.totalPages,
-              buildUrl: function(p) {
-                const params = Object.assign({}, query, { page: p });
-                return '/search?' + Object.entries(params)
-                  .map(([k, v]) => Array.isArray(v)
-                    ? v.map(val => encodeURIComponent(k) + '=' + encodeURIComponent(val)).join('&')
-                    : encodeURIComponent(k) + '=' + encodeURIComponent(v))
-                  .join('&');
-              }
+              baseUrl: '/search',
+              query: query
             }) %>
-          </nav>
-        <% } %>
+          <% } %>
 
-      <% } else { %>
-        <!-- No Results State -->
-        <div class="no-results text-center py-5">
-          <div class="mb-4">
-            <i class="bi bi-search display-1 text-muted opacity-50"></i>
-          </div>
-          <h2 class="h4 text-muted">No images found</h2>
-          <% if (activeFilters.length > 0 || searchOptions.q) { %>
-            <p class="text-muted">
-              Try adjusting your search terms or filters.
-            </p>
-            <div class="d-flex gap-2 justify-content-center flex-wrap mt-3">
-              <% if (searchOptions.q) { %>
-                <span class="text-muted">Suggestions:</span>
-                <span class="badge bg-light text-dark border">Try broader terms</span>
-                <span class="badge bg-light text-dark border">Check your spelling</span>
-                <span class="badge bg-light text-dark border">Remove some filters</span>
-              <% } %>
+        <% } else { %>
+          <!-- No results state -->
+          <div class="text-center py-5">
+            <div class="mb-4">
+              <i class="bi bi-search" style="font-size: 4rem; color: #dee2e6;"></i>
             </div>
-            <div class="mt-4">
+            <h3 class="h5 text-muted mb-3">No images found</h3>
+            <% if (searchOptions.q || searchOptions.tags.length || searchOptions.dateFrom || searchOptions.dateTo || searchOptions.cameraMake || searchOptions.hasGps) { %>
+              <p class="text-muted mb-4">
+                Try adjusting your search terms or filters.
+              </p>
+              <div class="d-flex gap-2 justify-content-center flex-wrap mb-4">
+                <span class="text-muted small">Suggestions:</span>
+                <span class="text-muted small">• Use fewer or shorter keywords</span>
+                <span class="text-muted small">• Remove some filters</span>
+                <span class="text-muted small">• Try different tag combinations</span>
+              </div>
               <a href="/search" class="btn btn-outline-primary me-2">
                 <i class="bi bi-x-circle me-1"></i>Clear All Filters
               </a>
               <a href="/gallery" class="btn btn-primary">
                 <i class="bi bi-images me-1"></i>Browse All Images
               </a>
-            </div>
-          <% } else { %>
-            <p class="text-muted">
-              No images have been uploaded yet.
-            </p>
-            <a href="/upload" class="btn btn-primary">
-              <i class="bi bi-upload me-1"></i>Upload Images
-            </a>
-          <% } %>
+            <% } else { %>
+              <p class="text-muted mb-4">
+                Start by entering a search term above, or browse the gallery.
+              </p>
+              <a href="/gallery" class="btn btn-primary">
+                <i class="bi bi-images me-1"></i>Browse Gallery
+              </a>
+            <% } %>
+          </div>
+        <% } %>
+      </div>
+
+      <!-- Loading overlay -->
+      <div id="search-loading" class="d-none text-center py-5">
+        <div class="spinner-border text-primary" role="status">
+          <span class="visually-hidden">Searching...</span>
         </div>
-      <% } %>
+        <p class="mt-2 text-muted">Searching...</p>
+      </div>
     </div>
   </div>
 </div>
-
-<script>
-  // Pass current query to client-side search script
-  window.__SEARCH_QUERY__ = <%- JSON.stringify(query) %>;
-  window.__SEARCH_OPTIONS__ = <%- JSON.stringify(searchOptions) %>;
-</script>
-<script src="/js/search.js"></script>
 ` }) %>
