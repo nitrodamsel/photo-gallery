@@ -1,13 +1,25 @@
-<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark shadow-sm">
   <div class="container-fluid">
-    <a class="navbar-brand" href="/gallery">
-      <i class="bi bi-camera-fill me-2"></i>Photo Gallery
+    <!-- Brand -->
+    <a class="navbar-brand fw-bold" href="/">
+      <i class="bi bi-camera2 me-1"></i>PhotoGallery
     </a>
-    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+
+    <!-- Mobile toggler -->
+    <button class="navbar-toggler" type="button"
+            data-bs-toggle="collapse" data-bs-target="#navbarMain"
+            aria-controls="navbarMain" aria-expanded="false" aria-label="Toggle navigation">
       <span class="navbar-toggler-icon"></span>
     </button>
-    <div class="collapse navbar-collapse" id="navbarNav">
-      <ul class="navbar-nav me-auto">
+
+    <div class="collapse navbar-collapse" id="navbarMain">
+      <!-- Left links -->
+      <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+        <li class="nav-item">
+          <a class="nav-link" href="/">
+            <i class="bi bi-house me-1"></i>Home
+          </a>
+        </li>
         <li class="nav-item">
           <a class="nav-link" href="/gallery">
             <i class="bi bi-images me-1"></i>Gallery
@@ -24,6 +36,26 @@
           </a>
         </li>
       </ul>
+
+      <!-- Navbar search form -->
+      <form class="d-flex" method="GET" action="/search" role="search">
+        <div class="input-group input-group-sm">
+          <input
+            class="form-control"
+            type="search"
+            name="q"
+            placeholder="Search images…"
+            aria-label="Search"
+            style="min-width:180px;"
+          >
+          <a href="/search" class="btn btn-outline-light d-none d-sm-inline-flex align-items-center px-2" title="Advanced search">
+            <i class="bi bi-funnel"></i>
+          </a>
+          <button class="btn btn-primary" type="submit">
+            <i class="bi bi-search"></i>
+          </button>
+        </div>
+      </form>
     </div>
   </div>
 </nav>

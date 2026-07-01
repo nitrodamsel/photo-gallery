@@ -1,0 +1,157 @@
+<%- include('layouts/base', { title: title || 'Search', body: `
+
+<div class="container-fluid py-4">
+
+  <!-- ── Page header ── -->
+  <div class="row mb-3">
+    <div class="col">
+      <h1 class="h3 mb-1">
+        <i class="bi bi-search me-2"></i>Search
+      </h1>
+
+      <% if (count !== undefined) { %>
+        <p class="text-muted mb-0">
+          <% if (opts.q || opts.tags.length || opts.dateFrom || opts.dateTo || opts.cameraMake || opts.hasGps) { %>
+            Found <strong>${count}</strong> result<%= count !== 1 ? 's' : '' %>
+          <% } %>
+        </p>
+      <% } %>
+
+      <!-- Active filter summary badges -->
+      <% if (filterSummary && filterSummary.length > 0) { %>
+        <div class="mt-2 d-flex flex-wrap gap-1" id="filter-summary">
+          <% filterSummary.forEach(function(label) { %>
+            <span class="badge bg-secondary"><%= label %></span>
+          <% }); %>
+          <a href="/search" class="badge bg-outline-secondary text-secondary border border-secondary text-decoration-none">
+            Clear all
+          </a>
+        </div>
+      <% } %>
+    </div>
+  </div>
+
+  <div class="row g-4">
+
+    <!-- ── Filter panel (sidebar) ── -->
+    <div class="col-12 col-lg-3 col-xl-2">
+      <%- include('partials/filter-panel', {
+            opts:        opts,
+            cameraMakes: cameraMakes,
+            allTags:     allTags
+          }) %>
+    </div>
+
+    <!-- ── Results area ── -->
+    <div class="col-12 col-lg-9 col-xl-10">
+
+      <!-- Inline compact search bar (mirrors the filter panel text input for mobile) -->
+      <form method="GET" action="/search" class="d-lg-none mb-3" id="mobile-search-form">
+        <div class="input-group">
+          <input
+            type="search"
+            name="q"
+            class="form-control"
+            placeholder="Search images…"
+            value="<%= opts.q %>"
+            aria-label="Search"
+          >
+          <% if (opts.tags.length)  { %><input type="hidden" name="tags"  value="<%= opts.tags.join(',') %>"><% } %>
+          <% if (opts.dateFrom)     { %><input type="hidden" name="dateFrom"   value="<%= opts.dateFrom %>"><% } %>
+          <% if (opts.dateTo)       { %><input type="hidden" name="dateTo"     value="<%= opts.dateTo %>"><% } %>
+          <% if (opts.cameraMake)   { %><input type="hidden" name="cameraMake" value="<%= opts.cameraMake %>"><% } %>
+          <% if (opts.hasGps)       { %><input type="hidden" name="hasGps"     value="1"><% } %>
+          <button class="btn btn-primary" type="submit">
+            <i class="bi bi-search"></i>
+          </button>
+        </div>
+      </form>
+
+      <!-- Sort / view controls -->
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <span class="text-muted small">
+          <% if (totalPages > 1) { %>
+            Page <%= page %> of <%= totalPages %>
+          <% } %>
+        </span>
+      </div>
+
+      <!-- Results grid -->
+      <div id="search-results-grid" class="row row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-xl-4 g-3">
+        <% if (images && images.length > 0) { %>
+          <% images.forEach(function(image) { %>
+            <div class="col">
+              <%- include('partials/image-card', { image: image }) %>
+            </div>
+          <% }); %>
+        <% } else { %>
+          <!-- Empty state -->
+          <div class="col-12">
+            <div class="text-center py-5">
+              <i class="bi bi-images display-1 text-muted"></i>
+              <h4 class="mt-3">No images found</h4>
+              <p class="text-muted">
+                <% if (opts.q || opts.tags.length || opts.dateFrom || opts.dateTo || opts.cameraMake || opts.hasGps) { %>
+                  Try adjusting your filters or
+                  <a href="/search">clear all filters</a>.
+                <% } else { %>
+                  Upload some images to get started.
+                <% } %>
+              </p>
+              <% if (opts.q) { %>
+                <p class="text-muted small">
+                  Suggestions: check your spelling, try fewer keywords, or use a broader date range.
+                </p>
+              <% } %>
+              <a href="/gallery" class="btn btn-outline-primary mt-2">
+                <i class="bi bi-images me-1"></i>Browse Gallery
+              </a>
+            </div>
+          </div>
+        <% } %>
+      </div>
+
+      <!-- Pagination -->
+      <% if (totalPages > 1) { %>
+        <nav class="mt-4" aria-label="Search results pagination">
+          <ul class="pagination justify-content-center flex-wrap">
+
+            <!-- Previous -->
+            <li class="page-item <%= page <= 1 ? 'disabled' : '' %>">
+              <a class="page-link" href="<%= page > 1 ? '/search?' + buildPageQuery(page - 1) : '#' %>">
+                <i class="bi bi-chevron-left"></i>
+              </a>
+            </li>
+
+            <% for (let p = 1; p <= totalPages; p++) { %>
+              <% if (p === 1 || p === totalPages || (p >= page - 2 && p <= page + 2)) { %>
+                <% if (p === page - 3 || p === page + 3) { %>
+                  <li class="page-item disabled"><span class="page-link">…</span></li>
+                <% } %>
+                <li class="page-item <%= p === page ? 'active' : '' %>">
+                  <a class="page-link" href="/search?<%= buildPageQuery(p) %>"><%= p %></a>
+                </li>
+              <% } %>
+            <% } %>
+
+            <!-- Next -->
+            <li class="page-item <%= page >= totalPages ? 'disabled' : '' %>">
+              <a class="page-link" href="<%= page < totalPages ? '/search?' + buildPageQuery(page + 1) : '#' %>">
+                <i class="bi bi-chevron-right"></i>
+              </a>
+            </li>
+
+          </ul>
+        </nav>
+      <% } %>
+
+    </div><!-- /results col -->
+  </div><!-- /row -->
+</div><!-- /container -->
+
+<!-- Pass server data to client-side JS -->
+<script>
+  window.__SEARCH_OPTS__ = <%- JSON.stringify(opts) %>;
+</script>
+<script src="/js/search.js" defer></script>
+` }) %>
