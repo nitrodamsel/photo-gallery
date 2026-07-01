@@ -1,207 +1,188 @@
-'use strict';
-
-const { Op, literal, fn, col } = require('sequelize');
-const { Image, Tag, ImageTag } = require('../models');
+const { Op, literal, fn, col, where } = require('sequelize');
+const { Image, Tag, ImageTag, sequelize } = require('../models');
 
 /**
- * SearchService — builds Sequelize queries from structured search options
- * and returns paginated, relevance-sorted results.
+ * Main search function
+ * @param {Object} options - Structured search options from queryBuilder
+ * @returns {{ rows: Image[], count: number, totalPages: number }}
  */
-
-/**
- * Main search function.
- *
- * @param {object} opts
- * @param {string}   [opts.q]          - Free-text query
- * @param {string[]} [opts.tags]        - Array of tag slugs/names to filter by
- * @param {string}   [opts.dateFrom]    - ISO date string (inclusive lower bound on capturedAt / createdAt)
- * @param {string}   [opts.dateTo]      - ISO date string (inclusive upper bound)
- * @param {string}   [opts.cameraMake]  - Exact camera make string
- * @param {boolean}  [opts.hasGps]      - If true, only images with GPS data
- * @param {number}   [opts.page]        - 1-based page number (default 1)
- * @param {number}   [opts.limit]       - Results per page (default 24)
- * @returns {Promise<{rows: Image[], count: number, totalPages: number, page: number, limit: number}>}
- */
-async function search(opts = {}) {
-  const {
-    q = '',
-    tags = [],
-    dateFrom = null,
-    dateTo = null,
-    cameraMake = '',
-    hasGps = false,
-    page = 1,
-    limit = 24,
-  } = opts;
-
+async function search({
+  q = '',
+  tags = [],
+  dateFrom = null,
+  dateTo = null,
+  cameraMake = '',
+  hasGps = null,
+  page = 1,
+  limit = 24,
+  sortBy = 'relevance',
+} = {}) {
   const offset = (page - 1) * limit;
   const conditions = [];
+  const includeOptions = [];
 
-  // ── Free-text search ───────────────────────────────────────────────────────
+  // Full-text search across filename, description, and EXIF data
   if (q && q.trim()) {
-    const pattern = `%${q.trim()}%`;
+    const searchTerm = q.trim();
+    const likeTerm = `%${searchTerm}%`;
+
     conditions.push({
       [Op.or]: [
-        { originalName: { [Op.like]: pattern } },
-        { description:  { [Op.like]: pattern } },
-        // SQLite JSON_EXTRACT on the exifData JSON column
-        literal(
-          `JSON_EXTRACT(exifData, '$.Make') LIKE ${escapeSQLite(pattern)}`
-        ),
-        literal(
-          `JSON_EXTRACT(exifData, '$.Model') LIKE ${escapeSQLite(pattern)}`
-        ),
-        literal(
-          `JSON_EXTRACT(exifData, '$.ImageDescription') LIKE ${escapeSQLite(pattern)}`
-        ),
-        literal(
-          `JSON_EXTRACT(exifData, '$.Artist') LIKE ${escapeSQLite(pattern)}`
-        ),
-        literal(
-          `JSON_EXTRACT(exifData, '$.Copyright') LIKE ${escapeSQLite(pattern)}`
-        ),
+        { originalName: { [Op.like]: likeTerm } },
+        { description: { [Op.like]: likeTerm } },
+        literal(`JSON_EXTRACT(exifData, '$.Make') LIKE '${escapeSql(likeTerm)}'`),
+        literal(`JSON_EXTRACT(exifData, '$.Model') LIKE '${escapeSql(likeTerm)}'`),
+        literal(`JSON_EXTRACT(exifData, '$.Software') LIKE '${escapeSql(likeTerm)}'`),
+        literal(`JSON_EXTRACT(exifData, '$.Artist') LIKE '${escapeSql(likeTerm)}'`),
+        literal(`JSON_EXTRACT(exifData, '$.Copyright') LIKE '${escapeSql(likeTerm)}'`),
       ],
     });
   }
 
-  // ── Date range ─────────────────────────────────────────────────────────────
-  if (dateFrom || dateTo) {
-    const dateCondition = {};
-    if (dateFrom) dateCondition[Op.gte] = new Date(dateFrom);
-    if (dateTo) {
-      // Include the full end day
-      const end = new Date(dateTo);
-      end.setHours(23, 59, 59, 999);
-      dateCondition[Op.lte] = end;
-    }
-    // Try capturedAt first; fall back to createdAt via OR
+  // Date range filter using uploadedAt
+  if (dateFrom) {
     conditions.push({
-      [Op.or]: [
-        { capturedAt: dateCondition },
-        { createdAt:  dateCondition },
-      ],
+      uploadedAt: { [Op.gte]: new Date(dateFrom) },
+    });
+  }
+  if (dateTo) {
+    // Include the full day of dateTo
+    const toDate = new Date(dateTo);
+    toDate.setHours(23, 59, 59, 999);
+    conditions.push({
+      uploadedAt: { [Op.lte]: toDate },
     });
   }
 
-  // ── Camera make ────────────────────────────────────────────────────────────
+  // Camera make filter using EXIF data
   if (cameraMake && cameraMake.trim()) {
     conditions.push(
-      literal(
-        `JSON_EXTRACT(exifData, '$.Make') = ${escapeSQLite(cameraMake.trim())}`
-      )
+      literal(`JSON_EXTRACT(exifData, '$.Make') = '${escapeSql(cameraMake)}'`)
     );
   }
 
-  // ── GPS presence ───────────────────────────────────────────────────────────
-  if (hasGps) {
-    conditions.push({
-      [Op.and]: [
-        { latitude:  { [Op.not]: null } },
-        { longitude: { [Op.not]: null } },
-      ],
-    });
+  // GPS presence filter
+  if (hasGps === true) {
+    conditions.push(
+      literal(`(JSON_EXTRACT(exifData, '$.GPSLatitude') IS NOT NULL OR latitude IS NOT NULL)`)
+    );
+  } else if (hasGps === false) {
+    conditions.push(
+      literal(`(JSON_EXTRACT(exifData, '$.GPSLatitude') IS NULL AND (latitude IS NULL OR latitude = 0))`)
+    );
   }
 
-  // ── Tag filter ─────────────────────────────────────────────────────────────
-  // We resolve tags to their IDs then use a sub-query / required join
-  let tagIds = [];
+  // Tag filter — join via ImageTag
   if (tags && tags.length > 0) {
-    const foundTags = await Tag.findAll({
-      where: {
-        [Op.or]: [
-          { slug: { [Op.in]: tags } },
-          { name: { [Op.in]: tags } },
-        ],
-      },
-      attributes: ['id'],
-    });
-    tagIds = foundTags.map((t) => t.id);
+    // We'll use a subquery approach for filtering by tags
+    const tagSubquery = `(
+      SELECT DISTINCT image_id FROM image_tags
+      INNER JOIN tags ON tags.id = image_tags.tag_id
+      WHERE tags.name IN (${tags.map(t => `'${escapeSql(t)}'`).join(', ')})
+      GROUP BY image_id
+      HAVING COUNT(DISTINCT tags.name) = ${tags.length}
+    )`;
+    conditions.push(literal(`"Image"."id" IN ${tagSubquery}`));
   }
 
-  // ── Build include ──────────────────────────────────────────────────────────
-  const include = [
-    {
-      model: Tag,
-      as: 'tags',
-      through: { attributes: [] },
-      required: tagIds.length > 0,
-      ...(tagIds.length > 0 ? { where: { id: { [Op.in]: tagIds } } } : {}),
-    },
-  ];
+  // Build ORDER BY for relevance
+  let order;
+  if (q && q.trim()) {
+    const searchTerm = escapeSql(q.trim());
+    // Exact filename match ranks highest, then partial matches
+    order = [
+      literal(`CASE
+        WHEN originalName = '${searchTerm}' THEN 0
+        WHEN originalName LIKE '${escapeSql(q.trim())}%' THEN 1
+        WHEN originalName LIKE '%${searchTerm}%' THEN 2
+        WHEN description LIKE '%${searchTerm}%' THEN 3
+        ELSE 4
+      END`),
+      ['uploadedAt', 'DESC'],
+    ];
+  } else {
+    order = [['uploadedAt', 'DESC']];
+  }
 
-  // ── Relevance ORDER BY ─────────────────────────────────────────────────────
-  // Exact filename match → score 2, partial text match in name → score 1, else 0
-  const relevanceExpr = q && q.trim()
-    ? literal(
-        `CASE
-           WHEN originalName = ${escapeSQLite(q.trim())} THEN 2
-           WHEN originalName LIKE ${escapeSQLite(`%${q.trim()}%`)} THEN 1
-           ELSE 0
-         END`
-      )
-    : literal('0');
-
-  // ── Execute query ──────────────────────────────────────────────────────────
-  const where = conditions.length > 0 ? { [Op.and]: conditions } : {};
-
-  // When tag filtering is active we can get duplicate rows (one per matching tag).
-  // Use findAndCountAll with distinct:true to avoid inflating the count.
-  const { count, rows } = await Image.findAndCountAll({
-    where,
-    include,
-    distinct: true,
-    order: [
-      [relevanceExpr, 'DESC'],
-      ['createdAt', 'DESC'],
-    ],
-    limit,
-    offset,
-    subQuery: false, // needed when combining LIMIT with a JOIN on has-many
+  // Include Tags for display
+  includeOptions.push({
+    model: Tag,
+    as: 'tags',
+    through: { attributes: [] },
+    required: false,
   });
 
-  // If multiple tags required (ALL tags must match), filter post-query.
-  // Sequelize's required join gives us images matching ANY of the tag IDs.
-  // For ALL-match semantics we need an extra pass:
-  let finalRows = rows;
-  if (tagIds.length > 1) {
-    finalRows = rows.filter((img) => {
-      const imgTagIds = img.tags.map((t) => t.id);
-      return tagIds.every((id) => imgTagIds.includes(id));
-    });
-  }
+  const whereClause = conditions.length > 0 ? { [Op.and]: conditions } : {};
+
+  const { rows, count } = await Image.findAndCountAll({
+    where: whereClause,
+    include: includeOptions,
+    order,
+    limit,
+    offset,
+    distinct: true,
+  });
 
   const totalPages = Math.ceil(count / limit);
 
+  return { rows, count, totalPages };
+}
+
+/**
+ * Get facets for filter panel population
+ * @returns {{ cameraMakes: string[], tags: { name: string, count: number }[] }}
+ */
+async function getFacets() {
+  // Get distinct camera makes from EXIF data
+  const cameraMakeRows = await Image.findAll({
+    attributes: [
+      [literal(`DISTINCT JSON_EXTRACT(exifData, '$.Make')`), 'make'],
+    ],
+    where: literal(`JSON_EXTRACT(exifData, '$.Make') IS NOT NULL`),
+    raw: true,
+  });
+
+  const cameraMakes = cameraMakeRows
+    .map(row => row.make)
+    .filter(make => make && make.trim())
+    .sort();
+
+  // Get all tags with image counts
+  const tags = await Tag.findAll({
+    attributes: [
+      'id',
+      'name',
+      [fn('COUNT', col('imageTags.imageId')), 'imageCount'],
+    ],
+    include: [
+      {
+        model: ImageTag,
+        as: 'imageTags',
+        attributes: [],
+        required: false,
+      },
+    ],
+    group: ['Tag.id'],
+    order: [['name', 'ASC']],
+    raw: true,
+  });
+
   return {
-    rows: finalRows,
-    count,
-    totalPages,
-    page,
-    limit,
+    cameraMakes,
+    tags: tags.map(t => ({
+      id: t.id,
+      name: t.name,
+      count: parseInt(t.imageCount, 10) || 0,
+    })),
   };
 }
 
 /**
- * Returns distinct camera make values stored in exifData JSON.
+ * Escape single quotes in SQL strings to prevent injection
  */
-async function getDistinctCameraMakes() {
-  const [results] = await Image.sequelize.query(
-    `SELECT DISTINCT JSON_EXTRACT(exifData, '$.Make') AS make
-     FROM Images
-     WHERE JSON_EXTRACT(exifData, '$.Make') IS NOT NULL
-     ORDER BY make ASC`
-  );
-  return results.map((r) => r.make).filter(Boolean);
+function escapeSql(str) {
+  if (typeof str !== 'string') return '';
+  return str.replace(/'/g, "''");
 }
 
-// ── Helpers ────────────────────────────────────────────────────────────────
-
-/**
- * Very small SQLite string escaper for use inside literal().
- * Only used for values we've already sanitised (trimmed strings from opts).
- */
-function escapeSQLite(value) {
-  return `'${String(value).replace(/'/g, "''")}'`;
-}
-
-module.exports = { search, getDistinctCameraMakes };
+module.exports = { search, getFacets };

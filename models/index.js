@@ -1,37 +1,49 @@
-'use strict';
-const { Sequelize, DataTypes } = require('sequelize');
-const config = require('../config/index');
+const { Sequelize } = require('sequelize');
+const config = require('../config');
 
-const dbConfig = config.database;
-
-let sequelize;
-if (dbConfig.dialect === 'sqlite') {
-  sequelize = new Sequelize({
-    dialect: 'sqlite',
-    storage: dbConfig.storage,
-    logging: dbConfig.logging || false
-  });
-} else {
-  sequelize = new Sequelize(dbConfig.database, dbConfig.username, dbConfig.password, {
-    host: dbConfig.host,
-    dialect: dbConfig.dialect,
-    logging: dbConfig.logging || false
-  });
-}
+const sequelize = new Sequelize(config.database);
 
 // Import models
-const Image = require('./Image')(sequelize, DataTypes);
-const Tag = require('./Tag')(sequelize, DataTypes);
-const ImageTag = require('./ImageTag')(sequelize, DataTypes);
-const ThumbnailCache = require('./ThumbnailCache')(sequelize, DataTypes);
+const Image = require('./Image')(sequelize);
+const Tag = require('./Tag')(sequelize);
+const ImageTag = require('./ImageTag')(sequelize);
+const ThumbnailCache = require('./ThumbnailCache')(sequelize);
 
-const models = { Image, Tag, ImageTag, ThumbnailCache };
+// Associations
+Image.belongsToMany(Tag, {
+  through: ImageTag,
+  foreignKey: 'imageId',
+  otherKey: 'tagId',
+  as: 'tags',
+});
 
-// Run associations
-Object.values(models).forEach(model => {
-  if (typeof model.associate === 'function') {
-    model.associate(models);
-  }
+Tag.belongsToMany(Image, {
+  through: ImageTag,
+  foreignKey: 'tagId',
+  otherKey: 'imageId',
+  as: 'images',
+});
+
+Tag.hasMany(ImageTag, {
+  foreignKey: 'tagId',
+  as: 'imageTags',
+});
+
+ImageTag.belongsTo(Tag, {
+  foreignKey: 'tagId',
+});
+
+ImageTag.belongsTo(Image, {
+  foreignKey: 'imageId',
+});
+
+Image.hasMany(ThumbnailCache, {
+  foreignKey: 'imageId',
+  as: 'thumbnails',
+});
+
+ThumbnailCache.belongsTo(Image, {
+  foreignKey: 'imageId',
 });
 
 module.exports = {
@@ -40,5 +52,5 @@ module.exports = {
   Image,
   Tag,
   ImageTag,
-  ThumbnailCache
+  ThumbnailCache,
 };

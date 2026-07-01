@@ -1,108 +1,91 @@
-'use strict';
-
 const express = require('express');
-const router  = express.Router();
+const router = express.Router();
+const searchService = require('../services/searchService');
+const { buildSearchOptions } = require('../utils/queryBuilder');
 
-const searchService               = require('../services/searchService');
-const { buildSearchOptions,
-        searchOptionsToQuery,
-        buildFilterSummary }      = require('../utils/queryBuilder');
-const { Tag }                     = require('../models');
-
-// ── GET /search ───────────────────────────────────────────────────────────────
-// Full-page search results (SSR)
+// GET /search — renders search results page
 router.get('/', async (req, res, next) => {
   try {
-    const opts       = buildSearchOptions(req.query);
-    const { rows: images, count, totalPages, page, limit } =
-      await searchService.search(opts);
+    const searchOptions = buildSearchOptions(req.query);
+    const { rows, count, totalPages } = await searchService.search(searchOptions);
 
-    const cameraMakes    = await searchService.getDistinctCameraMakes();
-    const allTags        = await Tag.findAll({ order: [['name', 'ASC']] });
-    const filterSummary  = buildFilterSummary(opts);
-    const queryForLinks  = searchOptionsToQuery(opts);
+    // Get facets for filter panel
+    const facets = await searchService.getFacets();
 
     res.render('search', {
-      title:        'Search',
-      images,
-      count,
-      totalPages,
-      page,
-      limit,
-      opts,
-      filterSummary,
-      queryForLinks,
-      cameraMakes,
-      allTags,
-      // helpers for pagination links
-      buildPageQuery: (p) => new URLSearchParams({ ...queryForLinks, page: p }).toString(),
+      title: 'Search Images',
+      results: rows,
+      pagination: {
+        total: count,
+        totalPages,
+        currentPage: searchOptions.page,
+        limit: searchOptions.limit,
+      },
+      query: req.query,
+      searchOptions,
+      facets,
+      activeFilters: buildActiveFilterSummary(req.query),
     });
   } catch (err) {
     next(err);
   }
 });
 
-// ── GET /api/search ───────────────────────────────────────────────────────────
-// JSON endpoint for client-side / AJAX usage
+// GET /api/search — returns JSON results
 router.get('/api/search', async (req, res, next) => {
   try {
-    const opts = buildSearchOptions(req.query);
-    const { rows: images, count, totalPages, page, limit } =
-      await searchService.search(opts);
-
-    const serialised = images.map(serializeImage);
+    const searchOptions = buildSearchOptions(req.query);
+    const { rows, count, totalPages } = await searchService.search(searchOptions);
 
     res.json({
-      results:    serialised,
-      pagination: { page, limit, count, totalPages },
-      filters:    opts,
+      results: rows,
+      pagination: {
+        total: count,
+        totalPages,
+        currentPage: searchOptions.page,
+        limit: searchOptions.limit,
+      },
+      query: searchOptions,
     });
   } catch (err) {
     next(err);
   }
 });
 
-// ── GET /api/search/facets ────────────────────────────────────────────────────
-// Returns facet data (camera makes + tags) for populating filter panels
+// GET /api/search/facets — returns distinct camera makes and tags
 router.get('/api/search/facets', async (req, res, next) => {
   try {
-    const [cameraMakes, tags] = await Promise.all([
-      searchService.getDistinctCameraMakes(),
-      Tag.findAll({
-        order: [['name', 'ASC']],
-        attributes: ['id', 'name', 'slug'],
-      }),
-    ]);
-
-    res.json({
-      cameraMakes,
-      tags: tags.map((t) => ({ id: t.id, name: t.name, slug: t.slug })),
-    });
+    const facets = await searchService.getFacets();
+    res.json(facets);
   } catch (err) {
     next(err);
   }
 });
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+function buildActiveFilterSummary(query) {
+  const filters = [];
 
-function serializeImage(img) {
-  return {
-    id:           img.id,
-    originalName: img.originalName,
-    filename:     img.filename,
-    description:  img.description,
-    width:        img.width,
-    height:       img.height,
-    fileSize:     img.fileSize,
-    mimeType:     img.mimeType,
-    capturedAt:   img.capturedAt,
-    createdAt:    img.createdAt,
-    latitude:     img.latitude,
-    longitude:    img.longitude,
-    tags:         (img.tags || []).map((t) => ({ id: t.id, name: t.name, slug: t.slug })),
-    url:          `/uploads/${img.filename}`,
-    thumbnailUrl: `/uploads/thumbnails/${img.filename}`,
-  };
+  if (query.q) {
+    filters.push({ label: 'Search', value: `"${query.q}"` });
+  }
+  if (query.dateFrom) {
+    filters.push({ label: 'From', value: query.dateFrom });
+  }
+  if (query.dateTo) {
+    filters.push({ label: 'To', value: query.dateTo });
+  }
+  if (query.cameraMake) {
+    filters.push({ label: 'Camera', value: query.cameraMake });
+  }
+  if (query.hasGps === 'true' || query.hasGps === '1') {
+    filters.push({ label: 'Has GPS', value: 'Yes' });
+  }
+  if (query.tags) {
+    const tagList = Array.isArray(query.tags) ? query.tags : [query.tags];
+    filters.push({ label: 'Tags', value: tagList.join(', ') });
+  }
+
+  return filters;
 }
 
 module.exports = router;

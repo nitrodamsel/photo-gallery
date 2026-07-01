@@ -1,24 +1,78 @@
-<% if (totalPages > 1) { %>
-  <nav class="mt-4" aria-label="Gallery pagination">
-    <ul class="pagination justify-content-center">
-      <li class="page-item <%= page <= 1 ? 'disabled' : '' %>">
-        <a class="page-link" href="?page=<%= page - 1 %><%= search ? '&search=' + encodeURIComponent(search) : '' %><%= currentTag ? '&tag=' + encodeURIComponent(currentTag.slug) : '' %>">
-          <i class="bi bi-chevron-left"></i> Prev
-        </a>
+<%
+// pagination.ejs — reusable pagination partial
+// Expected locals: currentPage, totalPages, buildUrl (function)
+const paginationCurrentPage = typeof currentPage !== 'undefined' ? currentPage : 1;
+const paginationTotalPages = typeof totalPages !== 'undefined' ? totalPages : 1;
+
+function defaultBuildUrl(p) {
+  const params = new URLSearchParams();
+  params.set('page', p);
+  return '?' + params.toString();
+}
+
+const urlBuilder = typeof buildUrl === 'function' ? buildUrl : defaultBuildUrl;
+
+const startPage = Math.max(1, paginationCurrentPage - 2);
+const endPage = Math.min(paginationTotalPages, paginationCurrentPage + 2);
+%>
+
+<ul class="pagination justify-content-center">
+  <!-- Previous -->
+  <% if (paginationCurrentPage > 1) { %>
+    <li class="page-item">
+      <a class="page-link" href="<%= urlBuilder(paginationCurrentPage - 1) %>" aria-label="Previous">
+        <span aria-hidden="true">&laquo;</span> Prev
+      </a>
+    </li>
+  <% } else { %>
+    <li class="page-item disabled">
+      <span class="page-link"><span aria-hidden="true">&laquo;</span> Prev</span>
+    </li>
+  <% } %>
+
+  <!-- First page -->
+  <% if (startPage > 1) { %>
+    <li class="page-item">
+      <a class="page-link" href="<%= urlBuilder(1) %>">1</a>
+    </li>
+    <% if (startPage > 2) { %>
+      <li class="page-item disabled"><span class="page-link">…</span></li>
+    <% } %>
+  <% } %>
+
+  <!-- Page number window -->
+  <% for (let p = startPage; p <= endPage; p++) { %>
+    <% if (p === paginationCurrentPage) { %>
+      <li class="page-item active" aria-current="page">
+        <span class="page-link"><%= p %></span>
       </li>
-      <% for (var i = Math.max(1, page - 2); i <= Math.min(totalPages, page + 2); i++) { %>
-        <li class="page-item <%= i === page ? 'active' : '' %>">
-          <a class="page-link" href="?page=<%= i %><%= search ? '&search=' + encodeURIComponent(search) : '' %><%= currentTag ? '&tag=' + encodeURIComponent(currentTag.slug) : '' %>">
-            <%= i %>
-          </a>
-        </li>
-      <% } %>
-      <li class="page-item <%= page >= totalPages ? 'disabled' : '' %>">
-        <a class="page-link" href="?page=<%= page + 1 %><%= search ? '&search=' + encodeURIComponent(search) : '' %><%= currentTag ? '&tag=' + encodeURIComponent(currentTag.slug) : '' %>">
-          Next <i class="bi bi-chevron-right"></i>
-        </a>
+    <% } else { %>
+      <li class="page-item">
+        <a class="page-link" href="<%= urlBuilder(p) %>"><%= p %></a>
       </li>
-    </ul>
-    <p class="text-center text-muted small">Page <%= page %> of <%= totalPages %></p>
-  </nav>
-<% } %>
+    <% } %>
+  <% } %>
+
+  <!-- Last page -->
+  <% if (endPage < paginationTotalPages) { %>
+    <% if (endPage < paginationTotalPages - 1) { %>
+      <li class="page-item disabled"><span class="page-link">…</span></li>
+    <% } %>
+    <li class="page-item">
+      <a class="page-link" href="<%= urlBuilder(paginationTotalPages) %>"><%= paginationTotalPages %></a>
+    </li>
+  <% } %>
+
+  <!-- Next -->
+  <% if (paginationCurrentPage < paginationTotalPages) { %>
+    <li class="page-item">
+      <a class="page-link" href="<%= urlBuilder(paginationCurrentPage + 1) %>" aria-label="Next">
+        Next <span aria-hidden="true">&raquo;</span>
+      </a>
+    </li>
+  <% } else { %>
+    <li class="page-item disabled">
+      <span class="page-link">Next <span aria-hidden="true">&raquo;</span></span>
+    </li>
+  <% } %>
+</ul>

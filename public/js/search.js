@@ -1,346 +1,461 @@
 /**
- * search.js — client-side progressive enhancement for the search page.
- *
- * Features:
- *  - Debounced search-as-you-type (300 ms) via fetch → GET /api/search
- *  - Updates the results grid without a full page reload
- *  - Syncs the browser URL with history.pushState
- *  - Degrades gracefully: the plain <form> still works without JS
+ * search.js — Client-side search with debounce, fetch, and history.pushState
  */
 
 (function () {
   'use strict';
 
-  // ── Config ──────────────────────────────────────────────────────────────────
-  const DEBOUNCE_MS  = 300;
-  const RESULTS_GRID = document.getElementById('search-results-grid');
-  const FILTER_FORM  = document.getElementById('filter-form');
+  const DEBOUNCE_DELAY = 300;
+  const API_ENDPOINT = '/api/search';
 
-  if (!RESULTS_GRID || !FILTER_FORM) return; // not on search page
+  // State
+  let debounceTimer = null;
+  let currentController = null;
+  let isLiveSearchEnabled = false;
 
-  // ── State ────────────────────────────────────────────────────────────────────
-  let debounceTimer  = null;
-  let currentRequest = null; // AbortController
+  // DOM Elements (initialized on DOMContentLoaded)
+  let searchInput = null;
+  let resultsGrid = null;
+  let resultCount = null;
+  let noResults = null;
 
-  // ── Boot ─────────────────────────────────────────────────────────────────────
+  /**
+   * Initialize the search module
+   */
+  function init() {
+    searchInput = document.getElementById('searchInput');
+    resultsGrid = document.getElementById('resultsGrid');
 
-  // Listen to input events on the keyword field for live search
-  const qInput = FILTER_FORM.querySelector('[name="q"]');
-  if (qInput) {
-    qInput.addEventListener('input', () => debouncedSearch());
-  }
+    if (!searchInput) return;
 
-  // Intercept form submit to use fetch instead of full reload on capable browsers
-  FILTER_FORM.addEventListener('submit', (e) => {
-    e.preventDefault();
-    runSearch();
-  });
+    // Only enable live search if we have an API endpoint to call
+    isLiveSearchEnabled = true;
 
-  // Handle browser back/forward
-  window.addEventListener('popstate', (e) => {
-    if (e.state && e.state.searchParams) {
-      applyParamsToForm(new URLSearchParams(e.state.searchParams));
-      fetchAndRender(e.state.searchParams, false /* don't pushState again */);
+    // Listen for input changes with debounce
+    searchInput.addEventListener('input', handleSearchInput);
+
+    // Handle browser back/forward navigation
+    window.addEventListener('popstate', handlePopState);
+
+    // Sync sort select changes to URL
+    const sortSelect = document.getElementById('sortSelect');
+    if (sortSelect) {
+      // Already handled inline via applySortChange
     }
-  });
+  }
 
-  // ── Debounce ─────────────────────────────────────────────────────────────────
+  /**
+   * Handle input changes with debounce
+   */
+  function handleSearchInput(e) {
+    const query = e.target.value;
 
-  function debouncedSearch() {
     clearTimeout(debounceTimer);
-    debounceTimer = setTimeout(runSearch, DEBOUNCE_MS);
+    debounceTimer = setTimeout(() => {
+      performLiveSearch(query);
+    }, DEBOUNCE_DELAY);
   }
 
-  // ── Core ──────────────────────────────────────────────────────────────────────
+  /**
+   * Perform a live search via the API and update results grid
+   */
+  async function performLiveSearch(q) {
+    if (!isLiveSearchEnabled) return;
 
-  function runSearch() {
-    const params = serializeForm(FILTER_FORM);
-    // Reset to page 1 on new search
-    params.delete('page');
-    fetchAndRender(params.toString(), true);
+    // Build params from current URL + new query
+    const params = getCurrentParams();
+    params.set('q', q);
+    params.delete('page'); // Reset to page 1 on new search
+
+    // Update browser URL without reload
+    const newUrl = buildUrl(params);
+    history.pushState({ params: params.toString() }, '', newUrl);
+
+    // Fetch results
+    await fetchAndUpdateResults(params);
   }
 
-  async function fetchAndRender(queryString, pushToHistory) {
-    // Abort any in-flight request
-    if (currentRequest) currentRequest.abort();
-    currentRequest = new AbortController();
+  /**
+   * Fetch results from API and update the DOM
+   */
+  async function fetchAndUpdateResults(params) {
+    // Cancel any in-flight request
+    if (currentController) {
+      currentController.abort();
+    }
+    currentController = new AbortController();
 
-    showLoading();
+    // Show loading state
+    showLoadingState();
 
     try {
-      const url = `/api/search?${queryString}`;
-      const res = await fetch(url, { signal: currentRequest.signal });
+      const url = `${API_ENDPOINT}?${params.toString()}`;
+      const response = await fetch(url, {
+        signal: currentController.signal,
+        headers: { 'Accept': 'application/json' },
+      });
 
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      if (!response.ok) {
+        throw new Error(`Search API error: ${response.status}`);
+      }
 
-      const data = await res.json();
-
+      const data = await response.json();
       renderResults(data);
       updateResultCount(data.pagination);
-      updateFilterSummary(data.filters);
-      updatePagination(data.pagination, queryString);
-
-      if (pushToHistory) {
-        const newUrl = `/search?${queryString}`;
-        history.pushState({ searchParams: queryString }, '', newUrl);
-      }
     } catch (err) {
-      if (err.name === 'AbortError') return; // intentional cancel
-      console.error('[search.js] fetch error:', err);
-      showError();
+      if (err.name === 'AbortError') {
+        // Request was cancelled, ignore
+        return;
+      }
+      console.error('Search error:', err);
+      showErrorState();
     } finally {
-      hideLoading();
+      hideLoadingState();
     }
   }
 
-  // ── Rendering ─────────────────────────────────────────────────────────────────
-
+  /**
+   * Render search results into the grid
+   */
   function renderResults(data) {
-    const { results } = data;
+    const grid = document.getElementById('resultsGrid');
+    const noResultsEl = document.querySelector('.no-results');
 
-    if (!results || results.length === 0) {
-      RESULTS_GRID.innerHTML = buildEmptyState(data.filters);
+    if (!data.results || data.results.length === 0) {
+      // Show no-results state
+      if (grid) grid.innerHTML = '';
+      if (!noResultsEl) {
+        const container = grid ? grid.parentElement : document.querySelector('.col-lg-9');
+        if (container) {
+          const existing = container.querySelector('.no-results');
+          if (!existing) {
+            container.insertAdjacentHTML('beforeend', buildNoResultsHtml());
+          }
+        }
+      }
       return;
     }
 
-    RESULTS_GRID.innerHTML = results.map(buildImageCard).join('');
+    // Remove no-results if it exists
+    if (noResultsEl) noResultsEl.remove();
+
+    // Create grid if it doesn't exist
+    let gridEl = document.getElementById('resultsGrid');
+    if (!gridEl) {
+      const container = document.querySelector('.col-lg-9');
+      if (container) {
+        const newGrid = document.createElement('div');
+        newGrid.className = 'row g-3';
+        newGrid.id = 'resultsGrid';
+        // Insert before pagination or at end
+        const pagination = container.querySelector('nav');
+        if (pagination) {
+          container.insertBefore(newGrid, pagination);
+        } else {
+          container.appendChild(newGrid);
+        }
+        gridEl = newGrid;
+      }
+    }
+
+    if (!gridEl) return;
+
+    // Render image cards
+    gridEl.innerHTML = data.results.map(image => buildImageCardHtml(image)).join('');
+
+    // Update pagination
+    updatePagination(data.pagination, getCurrentParams());
   }
 
-  function buildImageCard(image) {
-    const thumbUrl = `/uploads/thumbnails/${image.filename}`;
-    const imgUrl   = `/uploads/${image.filename}`;
-    const detailUrl = `/image/${image.id}`;
-    const name     = escapeHtml(image.originalName || image.filename);
-    const tags     = (image.tags || [])
-      .map((t) => `<a href="/search?tags=${encodeURIComponent(t.slug || t.name)}"
-                       class="badge bg-secondary text-decoration-none me-1">${escapeHtml(t.name)}</a>`)
-      .join('');
+  /**
+   * Build image card HTML (simplified version matching the server partial)
+   */
+  function buildImageCardHtml(image) {
+    const tags = image.tags || [];
+    const tagBadges = tags.slice(0, 3).map(tag =>
+      `<a href="/search?tags=${encodeURIComponent(tag.name)}" class="badge bg-secondary text-decoration-none me-1">${escapeHtml(tag.name)}</a>`
+    ).join('');
+
+    const thumbnailUrl = image.thumbnailPath
+      ? `/uploads/${image.thumbnailPath.split('/').pop()}`
+      : (image.filePath ? `/uploads/${image.filePath.split('/').pop()}` : '/img/placeholder.jpg');
 
     return `
-      <div class="col">
-        <div class="card h-100 image-card shadow-sm">
-          <a href="${detailUrl}" class="card-img-link">
+      <div class="col-sm-6 col-md-4 col-xl-3">
+        <div class="card image-card h-100 shadow-sm">
+          <a href="/gallery/${image.id}" class="card-img-link">
             <img
-              src="${thumbUrl}"
-              class="card-img-top object-fit-cover"
-              style="height:180px;"
-              alt="${name}"
+              src="${thumbnailUrl}"
+              class="card-img-top"
+              alt="${escapeHtml(image.originalName || 'Image')}"
               loading="lazy"
-              onerror="this.src='${imgUrl}'"
+              style="height: 180px; object-fit: cover;"
+              onerror="this.src='/img/placeholder.jpg'"
             >
           </a>
           <div class="card-body p-2">
-            <p class="card-text small text-truncate mb-1" title="${name}">${name}</p>
-            <div class="d-flex flex-wrap gap-1">${tags}</div>
+            <h6 class="card-title text-truncate small mb-1" title="${escapeHtml(image.originalName || '')}">
+              ${escapeHtml(image.originalName || 'Untitled')}
+            </h6>
+            ${image.description ? `<p class="card-text text-muted small text-truncate mb-1">${escapeHtml(image.description)}</p>` : ''}
+            ${tagBadges ? `<div class="mt-1">${tagBadges}</div>` : ''}
           </div>
         </div>
       </div>
     `;
   }
 
-  function buildEmptyState(filters) {
-    const hasFilters = filters && (
-      filters.q || (filters.tags && filters.tags.length) ||
-      filters.dateFrom || filters.dateTo || filters.cameraMake || filters.hasGps
-    );
-
+  /**
+   * Build no-results HTML
+   */
+  function buildNoResultsHtml() {
     return `
-      <div class="col-12">
-        <div class="text-center py-5">
-          <i class="bi bi-images display-1 text-muted"></i>
-          <h4 class="mt-3">No images found</h4>
-          <p class="text-muted">
-            ${hasFilters
-              ? 'Try adjusting your filters or <a href="/search">clear all filters</a>.'
-              : 'Upload some images to get started.'}
-          </p>
-          <a href="/gallery" class="btn btn-outline-primary mt-2">
-            <i class="bi bi-images me-1"></i>Browse Gallery
+      <div class="no-results text-center py-5">
+        <div class="mb-4">
+          <i class="bi bi-search display-1 text-muted opacity-50"></i>
+        </div>
+        <h2 class="h4 text-muted">No images found</h2>
+        <p class="text-muted">Try adjusting your search terms or filters.</p>
+        <div class="mt-4">
+          <a href="/search" class="btn btn-outline-primary me-2">
+            <i class="bi bi-x-circle me-1"></i>Clear All Filters
+          </a>
+          <a href="/gallery" class="btn btn-primary">
+            <i class="bi bi-images me-1"></i>Browse All Images
           </a>
         </div>
       </div>
     `;
   }
 
-  // ── Result count ──────────────────────────────────────────────────────────────
-
+  /**
+   * Update the result count display
+   */
   function updateResultCount(pagination) {
-    const el = document.querySelector('.text-muted.mb-0');
-    if (!el) return;
-    const { count } = pagination;
-    el.innerHTML = count !== undefined
-      ? `Found <strong>${count}</strong> result${count !== 1 ? 's' : ''}`
-      : '';
+    const countEl = document.querySelector('.search-header p.text-muted');
+    if (!countEl || !pagination) return;
+
+    const total = pagination.total || 0;
+    const q = new URLSearchParams(window.location.search).get('q') || '';
+    countEl.innerHTML = `Found <strong>${total}</strong> result${total !== 1 ? 's' : ''}${q ? ` for "<strong>${escapeHtml(q)}</strong>"` : ''}`;
   }
 
-  // ── Filter summary badges ─────────────────────────────────────────────────────
+  /**
+   * Update pagination links
+   */
+  function updatePagination(pagination, params) {
+    const navEl = document.querySelector('nav[aria-label="Search results pagination"]');
 
-  function updateFilterSummary(filters) {
-    const container = document.getElementById('filter-summary');
-    if (!container) return;
-
-    const labels = buildFilterLabels(filters);
-    if (labels.length === 0) {
-      container.innerHTML = '';
+    if (!pagination || pagination.totalPages <= 1) {
+      if (navEl) navEl.remove();
       return;
     }
 
-    const badges = labels
-      .map((l) => `<span class="badge bg-secondary">${escapeHtml(l)}</span>`)
-      .join('');
-
-    container.innerHTML =
-      badges +
-      `<a href="/search" class="badge bg-outline-secondary text-secondary border border-secondary text-decoration-none">Clear all</a>`;
+    // Rebuild pagination — simple approach
+    const paginationHtml = buildPaginationHtml(pagination, params);
+    if (navEl) {
+      navEl.innerHTML = paginationHtml;
+    } else {
+      const container = document.querySelector('.col-lg-9');
+      if (container) {
+        container.insertAdjacentHTML('beforeend', `<nav class="mt-4" aria-label="Search results pagination">${paginationHtml}</nav>`);
+      }
+    }
   }
 
-  function buildFilterLabels(f) {
-    const out = [];
-    if (f.q)                                         out.push(`Search: "${f.q}"`);
-    if (f.dateFrom && f.dateTo)                      out.push(`Date: ${f.dateFrom} — ${f.dateTo}`);
-    else if (f.dateFrom)                             out.push(`From: ${f.dateFrom}`);
-    else if (f.dateTo)                               out.push(`To: ${f.dateTo}`);
-    if (f.cameraMake)                                out.push(`Camera: ${f.cameraMake}`);
-    if (f.hasGps)                                    out.push('Has GPS');
-    if (f.tags && f.tags.length)                     out.push(`Tags: ${f.tags.join(', ')}`);
-    return out;
-  }
+  /**
+   * Build pagination HTML
+   */
+  function buildPaginationHtml(pagination, params) {
+    const { currentPage, totalPages } = pagination;
+    let html = '<ul class="pagination justify-content-center">';
 
-  // ── Pagination ────────────────────────────────────────────────────────────────
-
-  function updatePagination(pagination, baseQuery) {
-    const existingNav = document.querySelector('nav[aria-label="Search results pagination"]');
-    const { page, totalPages } = pagination;
-
-    if (totalPages <= 1) {
-      if (existingNav) existingNav.remove();
-      return;
+    // Previous
+    if (currentPage > 1) {
+      const prevParams = new URLSearchParams(params.toString());
+      prevParams.set('page', currentPage - 1);
+      html += `<li class="page-item"><a class="page-link" href="/search?${prevParams.toString()}" onclick="navigatePage(event, this.href)">&laquo; Prev</a></li>`;
+    } else {
+      html += '<li class="page-item disabled"><span class="page-link">&laquo; Prev</span></li>';
     }
 
-    const params = new URLSearchParams(baseQuery);
-    const buildHref = (p) => {
-      params.set('page', p);
-      return `/search?${params.toString()}`;
-    };
-    const buildFetch = (p) => {
-      params.set('page', p);
-      return params.toString();
-    };
+    // Page numbers (show window of 5)
+    const startPage = Math.max(1, currentPage - 2);
+    const endPage = Math.min(totalPages, currentPage + 2);
 
-    const items = [];
+    if (startPage > 1) {
+      const p1 = new URLSearchParams(params.toString());
+      p1.set('page', 1);
+      html += `<li class="page-item"><a class="page-link" href="/search?${p1.toString()}" onclick="navigatePage(event, this.href)">1</a></li>`;
+      if (startPage > 2) html += '<li class="page-item disabled"><span class="page-link">…</span></li>';
+    }
 
-    // Prev
-    items.push(
-      page <= 1
-        ? `<li class="page-item disabled"><span class="page-link"><i class="bi bi-chevron-left"></i></span></li>`
-        : `<li class="page-item"><a class="page-link" href="${buildHref(page - 1)}" data-page="${page - 1}" data-query="${escapeHtml(buildFetch(page - 1))}"><i class="bi bi-chevron-left"></i></a></li>`
-    );
-
-    for (let p = 1; p <= totalPages; p++) {
-      if (p === 1 || p === totalPages || (p >= page - 2 && p <= page + 2)) {
-        if (p === page - 3 || p === page + 3) {
-          items.push(`<li class="page-item disabled"><span class="page-link">…</span></li>`);
-        }
-        items.push(
-          p === page
-            ? `<li class="page-item active"><span class="page-link">${p}</span></li>`
-            : `<li class="page-item"><a class="page-link" href="${buildHref(p)}" data-page="${p}" data-query="${escapeHtml(buildFetch(p))}">${p}</a></li>`
-        );
+    for (let p = startPage; p <= endPage; p++) {
+      const pageParams = new URLSearchParams(params.toString());
+      pageParams.set('page', p);
+      if (p === currentPage) {
+        html += `<li class="page-item active"><span class="page-link">${p}</span></li>`;
+      } else {
+        html += `<li class="page-item"><a class="page-link" href="/search?${pageParams.toString()}" onclick="navigatePage(event, this.href)">${p}</a></li>`;
       }
     }
 
+    if (endPage < totalPages) {
+      if (endPage < totalPages - 1) html += '<li class="page-item disabled"><span class="page-link">…</span></li>';
+      const lastParams = new URLSearchParams(params.toString());
+      lastParams.set('page', totalPages);
+      html += `<li class="page-item"><a class="page-link" href="/search?${lastParams.toString()}" onclick="navigatePage(event, this.href)">${totalPages}</a></li>`;
+    }
+
     // Next
-    items.push(
-      page >= totalPages
-        ? `<li class="page-item disabled"><span class="page-link"><i class="bi bi-chevron-right"></i></span></li>`
-        : `<li class="page-item"><a class="page-link" href="${buildHref(page + 1)}" data-page="${page + 1}" data-query="${escapeHtml(buildFetch(page + 1))}"><i class="bi bi-chevron-right"></i></a></li>`
-    );
-
-    const nav = document.createElement('nav');
-    nav.setAttribute('aria-label', 'Search results pagination');
-    nav.className = 'mt-4';
-    nav.innerHTML = `<ul class="pagination justify-content-center flex-wrap">${items.join('')}</ul>`;
-
-    // Attach click handlers
-    nav.querySelectorAll('a.page-link[data-query]').forEach((link) => {
-      link.addEventListener('click', (e) => {
-        e.preventDefault();
-        const q = link.dataset.query;
-        fetchAndRender(q, true);
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-      });
-    });
-
-    if (existingNav) {
-      existingNav.replaceWith(nav);
+    if (currentPage < totalPages) {
+      const nextParams = new URLSearchParams(params.toString());
+      nextParams.set('page', currentPage + 1);
+      html += `<li class="page-item"><a class="page-link" href="/search?${nextParams.toString()}" onclick="navigatePage(event, this.href)">Next &raquo;</a></li>`;
     } else {
-      RESULTS_GRID.closest('.col-12.col-lg-9, .col').parentElement.appendChild(nav);
+      html += '<li class="page-item disabled"><span class="page-link">Next &raquo;</span></li>';
+    }
+
+    html += '</ul>';
+    return html;
+  }
+
+  /**
+   * Handle browser back/forward navigation
+   */
+  function handlePopState(e) {
+    const params = new URLSearchParams(window.location.search);
+
+    // Update search input
+    if (searchInput) {
+      searchInput.value = params.get('q') || '';
+    }
+
+    // Fetch new results
+    fetchAndUpdateResults(params);
+  }
+
+  /**
+   * Get current URL params
+   */
+  function getCurrentParams() {
+    return new URLSearchParams(window.location.search);
+  }
+
+  /**
+   * Build full URL with params
+   */
+  function buildUrl(params) {
+    const qs = params.toString();
+    return `/search${qs ? '?' + qs : ''}`;
+  }
+
+  /**
+   * Show loading state in results grid
+   */
+  function showLoadingState() {
+    const grid = document.getElementById('resultsGrid');
+    if (grid) {
+      grid.style.opacity = '0.5';
+      grid.style.pointerEvents = 'none';
+    }
+
+    // Add spinner if not present
+    let spinner = document.getElementById('searchSpinner');
+    if (!spinner) {
+      const container = document.querySelector('.col-lg-9');
+      if (container) {
+        spinner = document.createElement('div');
+        spinner.id = 'searchSpinner';
+        spinner.className = 'text-center py-2 mb-2';
+        spinner.innerHTML = '<div class="spinner-border spinner-border-sm text-primary" role="status"><span class="visually-hidden">Searching...</span></div> <span class="small text-muted ms-1">Searching...</span>';
+        const sortRow = container.querySelector('.d-flex.justify-content-between');
+        if (sortRow) {
+          sortRow.parentNode.insertBefore(spinner, sortRow.nextSibling);
+        } else {
+          container.prepend(spinner);
+        }
+      }
     }
   }
 
-  // ── Loading / error states ────────────────────────────────────────────────────
-
-  function showLoading() {
-    RESULTS_GRID.style.opacity = '0.4';
-    RESULTS_GRID.style.pointerEvents = 'none';
-  }
-
-  function hideLoading() {
-    RESULTS_GRID.style.opacity = '';
-    RESULTS_GRID.style.pointerEvents = '';
-  }
-
-  function showError() {
-    RESULTS_GRID.innerHTML = `
-      <div class="col-12">
-        <div class="alert alert-danger" role="alert">
-          <i class="bi bi-exclamation-triangle me-2"></i>
-          Something went wrong while fetching results. Please try again.
-        </div>
-      </div>
-    `;
-  }
-
-  // ── Form helpers ──────────────────────────────────────────────────────────────
-
   /**
-   * Serialises the filter form into a URLSearchParams object,
-   * correctly handling multiple checkboxes with the same name (tags).
+   * Hide loading state
    */
-  function serializeForm(form) {
-    return new URLSearchParams(new FormData(form));
+  function hideLoadingState() {
+    const grid = document.getElementById('resultsGrid');
+    if (grid) {
+      grid.style.opacity = '';
+      grid.style.pointerEvents = '';
+    }
+
+    const spinner = document.getElementById('searchSpinner');
+    if (spinner) spinner.remove();
   }
 
   /**
-   * Populates form fields from a URLSearchParams object.
-   * Used when restoring state from popstate.
+   * Show error state
    */
-  function applyParamsToForm(params) {
-    // Text / date / select inputs
-    ['q', 'dateFrom', 'dateTo', 'cameraMake'].forEach((name) => {
-      const el = FILTER_FORM.querySelector(`[name="${name}"]`);
-      if (el) el.value = params.get(name) || '';
-    });
-
-    // Checkbox: hasGps
-    const gpsEl = FILTER_FORM.querySelector('[name="hasGps"]');
-    if (gpsEl) gpsEl.checked = params.has('hasGps');
-
-    // Checkboxes: tags
-    const tagValues = params.getAll('tags');
-    FILTER_FORM.querySelectorAll('[name="tags"]').forEach((cb) => {
-      cb.checked = tagValues.includes(cb.value);
-    });
+  function showErrorState() {
+    const grid = document.getElementById('resultsGrid');
+    if (grid) {
+      grid.style.opacity = '';
+      grid.style.pointerEvents = '';
+    }
+    // Could show a toast or inline error message
+    console.warn('Search failed. Please try again.');
   }
 
-  // ── Utils ─────────────────────────────────────────────────────────────────────
-
+  /**
+   * Escape HTML to prevent XSS
+   */
   function escapeHtml(str) {
+    if (!str) return '';
     return String(str)
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#039;');
+      .replace(/'/g, '&#39;');
+  }
+
+  // Global functions called from inline event handlers
+
+  /**
+   * Navigate to a page URL via fetch (prevents full reload)
+   */
+  window.navigatePage = function (e, href) {
+    e.preventDefault();
+    const url = new URL(href, window.location.origin);
+    const params = url.searchParams;
+    history.pushState({ params: params.toString() }, '', href);
+    if (searchInput) {
+      searchInput.value = params.get('q') || '';
+    }
+    fetchAndUpdateResults(params);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  /**
+   * Apply sort change
+   */
+  window.applySortChange = function (sortBy) {
+    const params = getCurrentParams();
+    if (sortBy === 'relevance') {
+      params.delete('sortBy');
+    } else {
+      params.set('sortBy', sortBy);
+    }
+    params.delete('page');
+    const newUrl = buildUrl(params);
+    history.pushState({ params: params.toString() }, '', newUrl);
+    fetchAndUpdateResults(params);
+  };
+
+  // Initialize on DOM ready
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
   }
 })();

@@ -1,23 +1,25 @@
-'use strict';
+const express = require('express');
+const router = express.Router();
 
-const express    = require('express');
-const router     = express.Router();
+const galleryRouter = require('./gallery');
+const uploadRouter = require('./upload');
+const tagsRouter = require('./tags');
+const searchRouter = require('./search');
+const imageTagsRouter = require('./imageTags');
 
-const indexRoute  = require('./gallery');    // home → gallery
-const galleryRoute = require('./gallery');
-const uploadRoute  = require('./upload');
-const tagsRoute    = require('./tags');
-const imageTagsRoute = require('./imageTags');
-const searchRoute  = require('./search');
+// Home page
+router.get('/', (req, res) => {
+  res.redirect('/gallery');
+});
 
-router.use('/',        indexRoute);
-router.use('/gallery', galleryRoute);
-router.use('/upload',  uploadRoute);
-router.use('/tags',    tagsRoute);
-router.use('/image-tags', imageTagsRoute);
+// Mount sub-routers
+router.use('/gallery', galleryRouter);
+router.use('/upload', uploadRouter);
+router.use('/tags', tagsRouter);
+router.use('/search', searchRouter);
+router.use('/image-tags', imageTagsRouter);
 
-// Search: both the HTML page and the API endpoints
-router.use('/search',     searchRoute);
-router.use('/api/search', searchRoute);
+// API routes — mount search API endpoints
+router.use('/api/search', searchRouter);
 
 module.exports = router;
