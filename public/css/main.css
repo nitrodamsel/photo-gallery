@@ -1,173 +1,169 @@
-/* =========================================================
-   main.css — Global styles for Image Gallery App
-   ========================================================= */
-
-/* ---- Variables ---- */
+/* ─── Base & Reset ─────────────────────────────────────────────────────────── */
 :root {
-  --navbar-height: 56px;
-  --card-transition: 0.2s ease;
-  --shadow-sm: 0 1px 3px rgba(0,0,0,0.08);
-  --shadow-md: 0 4px 12px rgba(0,0,0,0.1);
+  --card-border-radius: 0.75rem;
+  --transition-speed: 0.2s;
 }
 
-/* ---- Base ---- */
 body {
-  background-color: #f8f9fa;
-  min-height: 100vh;
-  padding-top: var(--navbar-height);
+  background-color: var(--bs-body-bg);
+  color: var(--bs-body-color);
 }
 
-/* ---- Image Cards ---- */
+/* ─── Navbar ────────────────────────────────────────────────────────────────── */
+.navbar-brand {
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+/* ─── Image Cards ───────────────────────────────────────────────────────────── */
 .image-card {
-  transition: transform var(--card-transition), box-shadow var(--card-transition);
+  border-radius: var(--card-border-radius);
   overflow: hidden;
-  border: 1px solid rgba(0,0,0,0.08);
+  transition: transform var(--transition-speed), box-shadow var(--transition-speed);
+  cursor: pointer;
 }
 
 .image-card:hover {
   transform: translateY(-3px);
-  box-shadow: var(--shadow-md) !important;
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.12) !important;
 }
 
-.image-card .card-img-top {
-  transition: transform 0.3s ease;
+.image-thumb-wrapper {
+  position: relative;
+  width: 100%;
+  padding-top: 75%; /* 4:3 aspect ratio */
+  overflow: hidden;
+  background-color: var(--bs-tertiary-bg);
+}
+
+.image-thumb {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
   object-fit: cover;
+  transition: transform var(--transition-speed);
 }
 
-.image-card:hover .card-img-top {
-  transform: scale(1.03);
+.image-card:hover .image-thumb {
+  transform: scale(1.05);
 }
 
 .card-img-link {
   display: block;
-  overflow: hidden;
+  text-decoration: none;
 }
 
-/* ---- Gallery Grid ---- */
-.gallery-grid {
-  min-height: 200px;
-}
-
-/* ---- Search Page ---- */
-.search-page {
-  padding: 1.5rem 0;
-}
-
-.search-header {
-  border-bottom: 1px solid #e9ecef;
-  padding-bottom: 1rem;
-}
-
-.active-filters .badge {
-  font-size: 0.8rem;
-  font-weight: 500;
-  padding: 0.4em 0.7em;
-}
-
-/* ---- Filter Panel ---- */
+/* ─── Filter Panel ──────────────────────────────────────────────────────────── */
 .filter-panel {
+  border-radius: var(--card-border-radius);
   position: sticky;
-  top: calc(var(--navbar-height) + 1rem);
+  top: 1rem;
 }
 
-.filter-label {
+.filter-section-title {
   letter-spacing: 0.05em;
-  font-size: 0.7rem;
 }
 
-.tag-filter-list {
-  scrollbar-width: thin;
-  scrollbar-color: #dee2e6 transparent;
+.tag-filter-item label {
+  cursor: pointer;
+  font-size: 0.875rem;
 }
 
 .tag-filter-list::-webkit-scrollbar {
   width: 4px;
 }
-
 .tag-filter-list::-webkit-scrollbar-track {
   background: transparent;
 }
-
 .tag-filter-list::-webkit-scrollbar-thumb {
-  background: #dee2e6;
+  background-color: var(--bs-border-color);
   border-radius: 2px;
 }
 
-.form-check-label {
-  cursor: pointer;
-  width: 100%;
+/* ─── Search Page ───────────────────────────────────────────────────────────── */
+.search-highlight {
+  background-color: rgba(255, 220, 0, 0.4);
+  border-radius: 2px;
+  padding: 0 2px;
 }
 
-/* ---- Upload Area ---- */
-.upload-dropzone {
-  border: 2px dashed #ced4da;
-  border-radius: 0.5rem;
-  padding: 3rem;
-  text-align: center;
-  transition: border-color 0.2s, background-color 0.2s;
-  cursor: pointer;
+#resultsGrid {
+  position: relative;
+  min-height: 200px;
+  transition: opacity 0.2s;
 }
 
-.upload-dropzone:hover,
-.upload-dropzone.dragover {
-  border-color: #0d6efd;
-  background-color: #f0f4ff;
+#resultsGrid.loading {
+  opacity: 0.5;
+  pointer-events: none;
 }
 
-/* ---- EXIF Table ---- */
-.exif-table {
-  font-size: 0.85rem;
+.active-filters .filter-badge {
+  font-size: 0.8rem;
 }
 
-.exif-table th {
-  width: 35%;
-  font-weight: 600;
-  color: #6c757d;
-}
-
-/* ---- Tag Cloud ---- */
-.tag-cloud .badge {
-  font-size: 0.85rem;
-  transition: opacity 0.15s;
-}
-
-.tag-cloud .badge:hover {
-  opacity: 0.8;
-}
-
-/* ---- Map Container ---- */
-.map-container {
-  border-radius: 0.375rem;
-  overflow: hidden;
-}
-
-/* ---- Navbar ---- */
-.navbar-brand {
-  font-weight: 700;
-  letter-spacing: -0.3px;
-}
-
-/* ---- No Results ---- */
+/* ─── No Results State ──────────────────────────────────────────────────────── */
 .no-results {
-  min-height: 300px;
+  background: var(--bs-tertiary-bg);
+  border-radius: 1rem;
+  padding: 3rem 2rem;
+}
+
+/* ─── Upload Area ───────────────────────────────────────────────────────────── */
+.upload-area {
+  border: 2px dashed var(--bs-border-color);
+  border-radius: var(--card-border-radius);
+  transition: border-color var(--transition-speed), background-color var(--transition-speed);
+  cursor: pointer;
+  min-height: 200px;
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
 }
 
-/* ---- Pagination ---- */
+.upload-area:hover,
+.upload-area.drag-over {
+  border-color: var(--bs-primary);
+  background-color: var(--bs-primary-bg-subtle);
+}
+
+/* ─── Pagination ────────────────────────────────────────────────────────────── */
 .pagination .page-link {
-  font-size: 0.9rem;
+  border-radius: 0.375rem;
+  margin: 0 2px;
 }
 
-/* ---- Loading States ---- */
-.results-loading {
-  opacity: 0.6;
-  pointer-events: none;
+/* ─── Tag Cloud ─────────────────────────────────────────────────────────────── */
+.tag-cloud .tag-item {
+  display: inline-block;
+  transition: transform var(--transition-speed);
 }
 
-/* ---- Responsive ---- */
+.tag-cloud .tag-item:hover {
+  transform: scale(1.05);
+}
+
+/* ─── EXIF Table ────────────────────────────────────────────────────────────── */
+.exif-table td:first-child {
+  white-space: nowrap;
+  font-weight: 500;
+  color: var(--bs-secondary);
+  width: 40%;
+}
+
+/* ─── Gallery Grid ──────────────────────────────────────────────────────────── */
+.gallery-grid .image-card {
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ─── Responsive Tweaks ─────────────────────────────────────────────────────── */
 @media (max-width: 991.98px) {
   .filter-panel {
     position: static;
@@ -175,11 +171,7 @@ body {
 }
 
 @media (max-width: 575.98px) {
-  .search-page {
-    padding: 1rem 0;
-  }
-
-  .upload-dropzone {
-    padding: 1.5rem;
+  .search-title {
+    font-size: 1.4rem;
   }
 }

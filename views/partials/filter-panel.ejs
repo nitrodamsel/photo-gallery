@@ -1,139 +1,147 @@
-<div class="card border-0 shadow-sm" id="filter-panel">
-  <div class="card-header bg-white border-bottom d-flex justify-content-between align-items-center py-2">
+<div class="filter-panel card shadow-sm">
+  <div class="card-header d-flex justify-content-between align-items-center">
     <h6 class="mb-0 fw-semibold">
-      <i class="bi bi-funnel me-1"></i> Filters
+      <i class="bi bi-funnel me-1"></i>Filters
+      <% 
+        let filterCount = 0;
+        if (searchOptions.dateFrom || searchOptions.dateTo) filterCount++;
+        if (searchOptions.cameraMake) filterCount++;
+        if (searchOptions.hasGps) filterCount++;
+        if (searchOptions.tags && searchOptions.tags.length > 0) filterCount++;
+      %>
+      <% if (filterCount > 0) { %>
+        <span class="badge bg-primary rounded-pill ms-1"><%= filterCount %></span>
+      <% } %>
     </h6>
     <button
-      class="btn btn-sm btn-link text-decoration-none p-0 d-lg-none"
+      class="btn btn-sm btn-link text-muted p-0 toggle-filters"
       type="button"
       data-bs-toggle="collapse"
-      data-bs-target="#filter-body"
+      data-bs-target="#filterPanelBody"
       aria-expanded="true"
+      aria-controls="filterPanelBody"
     >
-      <i class="bi bi-chevron-up" id="filter-toggle-icon"></i>
+      <i class="bi bi-chevron-up" id="filterToggleIcon"></i>
     </button>
   </div>
 
-  <div class="collapse show" id="filter-body">
+  <div class="collapse show" id="filterPanelBody">
     <div class="card-body p-3">
-      <form method="GET" action="/search" id="filter-form">
-        <!-- Preserve text query -->
-        <input type="hidden" name="q" value="<%= (searchOptions && searchOptions.q) ? searchOptions.q : (query && query.q ? query.q : '') %>">
+      <form id="filterForm" action="/search" method="GET">
+        <!-- Preserve search query -->
+        <% if (searchOptions.q) { %>
+          <input type="hidden" name="q" value="<%= searchOptions.q %>">
+        <% } %>
 
         <!-- Date Range -->
-        <div class="mb-3">
-          <label class="form-label fw-semibold small text-uppercase text-muted letter-spacing-1">
-            <i class="bi bi-calendar-range me-1"></i> Date Range
-          </label>
+        <div class="filter-section mb-4">
+          <h6 class="filter-section-title text-muted small text-uppercase fw-semibold mb-2">
+            <i class="bi bi-calendar3 me-1"></i>Date Range
+          </h6>
           <div class="mb-2">
-            <label class="form-label small mb-1 text-muted">From</label>
+            <label for="dateFrom" class="form-label form-label-sm text-muted mb-1">From</label>
             <input
               type="date"
               class="form-control form-control-sm"
+              id="dateFrom"
               name="dateFrom"
-              value="<%= (searchOptions && searchOptions.dateFrom) ? searchOptions.dateFrom : (query && query.dateFrom ? query.dateFrom : '') %>"
-              id="filter-dateFrom"
-            >
+              value="<%= searchOptions.dateFrom || '' %>"
+              max="<%= new Date().toISOString().split('T')[0] %>"
+            />
           </div>
           <div>
-            <label class="form-label small mb-1 text-muted">To</label>
+            <label for="dateTo" class="form-label form-label-sm text-muted mb-1">To</label>
             <input
               type="date"
               class="form-control form-control-sm"
+              id="dateTo"
               name="dateTo"
-              value="<%= (searchOptions && searchOptions.dateTo) ? searchOptions.dateTo : (query && query.dateTo ? query.dateTo : '') %>"
-              id="filter-dateTo"
-            >
+              value="<%= searchOptions.dateTo || '' %>"
+              max="<%= new Date().toISOString().split('T')[0] %>"
+            />
           </div>
         </div>
 
-        <hr class="my-2">
-
         <!-- Camera Make -->
-        <div class="mb-3">
-          <label class="form-label fw-semibold small text-uppercase text-muted" for="filter-cameraMake">
-            <i class="bi bi-camera me-1"></i> Camera Make
-          </label>
-          <select class="form-select form-select-sm" name="cameraMake" id="filter-cameraMake">
-            <option value="any">Any Camera</option>
-            <% if (facets && facets.cameraMakes && facets.cameraMakes.length > 0) { %>
+        <div class="filter-section mb-4">
+          <h6 class="filter-section-title text-muted small text-uppercase fw-semibold mb-2">
+            <i class="bi bi-camera me-1"></i>Camera Make
+          </h6>
+          <select class="form-select form-select-sm" id="cameraMake" name="cameraMake">
+            <option value="">Any camera</option>
+            <% if (facets && facets.cameraMakes) { %>
               <% facets.cameraMakes.forEach(function(make) { %>
-                <option value="<%= make %>"
-                  <%= ((searchOptions && searchOptions.cameraMake === make) || (query && query.cameraMake === make)) ? 'selected' : '' %>
-                >
+                <option value="<%= make %>" <%= searchOptions.cameraMake === make ? 'selected' : '' %>>
                   <%= make %>
                 </option>
               <% }); %>
-            <% } else { %>
-              <option disabled>No camera data available</option>
             <% } %>
           </select>
         </div>
 
-        <hr class="my-2">
-
-        <!-- Has GPS -->
-        <div class="mb-3">
-          <label class="form-label fw-semibold small text-uppercase text-muted">
-            <i class="bi bi-geo-alt me-1"></i> Location
-          </label>
+        <!-- GPS Filter -->
+        <div class="filter-section mb-4">
+          <h6 class="filter-section-title text-muted small text-uppercase fw-semibold mb-2">
+            <i class="bi bi-geo-alt me-1"></i>Location
+          </h6>
           <div class="form-check">
             <input
               class="form-check-input"
               type="checkbox"
+              id="hasGps"
               name="hasGps"
-              id="filter-hasGps"
               value="true"
-              <%= ((searchOptions && searchOptions.hasGps) || (query && (query.hasGps === 'true' || query.hasGps === 'on'))) ? 'checked' : '' %>
-            >
-            <label class="form-check-label small" for="filter-hasGps">
-              Images with GPS data only
+              <%= searchOptions.hasGps ? 'checked' : '' %>
+            />
+            <label class="form-check-label" for="hasGps">
+              Has GPS coordinates
             </label>
           </div>
         </div>
 
-        <hr class="my-2">
-
-        <!-- Tags -->
-        <div class="mb-3">
-          <label class="form-label fw-semibold small text-uppercase text-muted">
-            <i class="bi bi-tags me-1"></i> Tags
-          </label>
-          <% if (facets && facets.tags && facets.tags.length > 0) { %>
-            <div class="tag-filter-list" style="max-height: 220px; overflow-y: auto;">
-              <% facets.tags.forEach(function(tag) { %>
-                <%
-                  var currentTags = (searchOptions && searchOptions.tags) ? searchOptions.tags : (query && query.tags ? (Array.isArray(query.tags) ? query.tags : [query.tags]) : []);
-                  var isChecked = currentTags.includes(tag.name) || currentTags.includes(tag.slug);
-                %>
-                <div class="form-check mb-1">
-                  <input
-                    class="form-check-input"
-                    type="checkbox"
-                    name="tags"
-                    id="tag-<%= tag.slug %>"
-                    value="<%= tag.name %>"
-                    <%= isChecked ? 'checked' : '' %>
-                  >
-                  <label class="form-check-label small d-flex justify-content-between" for="tag-<%= tag.slug %>">
-                    <span><%= tag.name %></span>
-                    <span class="badge bg-light text-muted ms-1"><%= tag.count %></span>
-                  </label>
-                </div>
-              <% }); %>
-            </div>
-          <% } else { %>
-            <p class="text-muted small mb-0">No tags available</p>
-          <% } %>
+        <!-- Tag Filter -->
+        <% if (facets && facets.tags && facets.tags.length > 0) { %>
+        <div class="filter-section mb-4">
+          <h6 class="filter-section-title text-muted small text-uppercase fw-semibold mb-2">
+            <i class="bi bi-tags me-1"></i>Tags
+          </h6>
+          <div class="tag-filter-list" style="max-height: 250px; overflow-y: auto;">
+            <% facets.tags.forEach(function(tag) { %>
+              <% const isChecked = searchOptions.tags && searchOptions.tags.includes(tag.id); %>
+              <div class="form-check tag-filter-item mb-1">
+                <input
+                  class="form-check-input"
+                  type="checkbox"
+                  id="tag-<%= tag.id %>"
+                  name="tags"
+                  value="<%= tag.id %>"
+                  <%= isChecked ? 'checked' : '' %>
+                />
+                <label class="form-check-label d-flex justify-content-between align-items-center w-100" for="tag-<%= tag.id %>">
+                  <span class="d-flex align-items-center gap-1">
+                    <span
+                      class="tag-dot"
+                      style="display:inline-block;width:8px;height:8px;border-radius:50%;background-color:<%= tag.color || '#6c757d' %>;"
+                    ></span>
+                    <%= tag.name %>
+                  </span>
+                  <span class="badge bg-secondary-subtle text-secondary-emphasis rounded-pill ms-1">
+                    <%= tag.imageCount %>
+                  </span>
+                </label>
+              </div>
+            <% }); %>
+          </div>
         </div>
+        <% } %>
 
-        <!-- Buttons -->
-        <div class="d-grid gap-2">
+        <!-- Action Buttons -->
+        <div class="filter-actions d-grid gap-2">
           <button type="submit" class="btn btn-primary btn-sm">
-            <i class="bi bi-search me-1"></i> Apply Filters
+            <i class="bi bi-funnel-fill me-1"></i>Apply Filters
           </button>
-          <a href="/search<%= (searchOptions && searchOptions.q) ? '?q=' + encodeURIComponent(searchOptions.q) : '' %>" class="btn btn-outline-secondary btn-sm">
-            <i class="bi bi-x-circle me-1"></i> Reset Filters
+          <a href="/search<%= searchOptions.q ? '?q=' + encodeURIComponent(searchOptions.q) : '' %>" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-arrow-counterclockwise me-1"></i>Reset Filters
           </a>
         </div>
       </form>
@@ -142,15 +150,35 @@
 </div>
 
 <script>
-  // Toggle filter panel on mobile
-  const filterToggleIcon = document.getElementById('filter-toggle-icon');
-  const filterBody = document.getElementById('filter-body');
-  if (filterBody) {
-    filterBody.addEventListener('show.bs.collapse', function() {
-      if (filterToggleIcon) filterToggleIcon.className = 'bi bi-chevron-up';
+// Toggle icon direction when filter panel collapses/expands
+(function() {
+  const filterPanelBody = document.getElementById('filterPanelBody');
+  const toggleIcon = document.getElementById('filterToggleIcon');
+  if (filterPanelBody && toggleIcon) {
+    filterPanelBody.addEventListener('hide.bs.collapse', function() {
+      toggleIcon.className = 'bi bi-chevron-down';
     });
-    filterBody.addEventListener('hide.bs.collapse', function() {
-      if (filterToggleIcon) filterToggleIcon.className = 'bi bi-chevron-down';
+    filterPanelBody.addEventListener('show.bs.collapse', function() {
+      toggleIcon.className = 'bi bi-chevron-up';
     });
   }
+
+  // Validate date range
+  const dateFrom = document.getElementById('dateFrom');
+  const dateTo = document.getElementById('dateTo');
+  if (dateFrom && dateTo) {
+    dateFrom.addEventListener('change', function() {
+      if (dateTo.value && this.value > dateTo.value) {
+        dateTo.value = this.value;
+      }
+      dateTo.min = this.value;
+    });
+    dateTo.addEventListener('change', function() {
+      if (dateFrom.value && this.value < dateFrom.value) {
+        dateFrom.value = this.value;
+      }
+      dateFrom.max = this.value;
+    });
+  }
+})();
 </script>

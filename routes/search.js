@@ -1,48 +1,77 @@
 const express = require('express');
 const router = express.Router();
 const searchService = require('../services/searchService');
-const { buildSearchOptions } = require('../utils/queryBuilder');
+const { buildSearchOptions, serializeSearchOptions, buildActiveFilterSummary, countActiveFilters } = require('../utils/queryBuilder');
 
-// GET /search — renders search results page
+/**
+ * GET /search
+ * Full search page with filters, renders views/search.ejs
+ */
 router.get('/', async (req, res, next) => {
   try {
     const searchOptions = buildSearchOptions(req.query);
-    const { rows, count, totalPages } = await searchService.search(searchOptions);
+    const [results, facets] = await Promise.all([
+      searchService.search(searchOptions),
+      searchService.getFacets(),
+    ]);
 
-    // Get facets for filter panel
-    const facets = await searchService.getFacets();
+    const activeFilters = buildActiveFilterSummary(searchOptions, facets);
+    const activeFilterCount = countActiveFilters(searchOptions);
+
+    // Build pagination query strings
+    const paginationBase = serializeSearchOptions(searchOptions, { page: undefined });
 
     res.render('search', {
-      title: 'Search',
-      results: rows,
-      pagination: {
-        currentPage: searchOptions.page,
-        totalPages,
-        totalCount: count,
-        limit: searchOptions.limit,
-      },
-      query: req.query,
+      title: searchOptions.q ? `Search: "${searchOptions.q}"` : 'Search Images',
       searchOptions,
+      results: results.rows,
+      count: results.count,
+      totalPages: results.totalPages,
+      currentPage: results.page,
       facets,
+      activeFilters,
+      activeFilterCount,
+      paginationBase,
+      query: req.query,
+      serializeSearchOptions,
     });
   } catch (err) {
     next(err);
   }
 });
 
-// GET /api/search — returns JSON results
+/**
+ * GET /api/search
+ * JSON endpoint for client-side search
+ */
 router.get('/api/search', async (req, res, next) => {
   try {
     const searchOptions = buildSearchOptions(req.query);
-    const { rows, count, totalPages } = await searchService.search(searchOptions);
+    const results = await searchService.search(searchOptions);
 
     res.json({
-      results: rows,
+      results: results.rows.map((img) => ({
+        id: img.id,
+        filename: img.filename,
+        originalName: img.originalName,
+        description: img.description,
+        thumbnailPath: img.thumbnailPath,
+        width: img.width,
+        height: img.height,
+        fileSize: img.fileSize,
+        mimeType: img.mimeType,
+        createdAt: img.createdAt,
+        tags: img.tags || [],
+        latitude: img.latitude,
+        longitude: img.longitude,
+      })),
       pagination: {
-        currentPage: searchOptions.page,
-        totalPages,
-        totalCount: count,
-        limit: searchOptions.limit,
+        page: results.page,
+        limit: results.limit,
+        count: results.count,
+        totalPages: results.totalPages,
+        hasNextPage: results.page < results.totalPages,
+        hasPrevPage: results.page > 1,
       },
     });
   } catch (err) {
@@ -50,7 +79,10 @@ router.get('/api/search', async (req, res, next) => {
   }
 });
 
-// GET /api/search/facets — returns distinct cameraMake values and tag list
+/**
+ * GET /api/search/facets
+ * Returns distinct camera makes and tag list for filter panel population
+ */
 router.get('/api/search/facets', async (req, res, next) => {
   try {
     const facets = await searchService.getFacets();

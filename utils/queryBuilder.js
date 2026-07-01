@@ -1,50 +1,53 @@
 /**
- * Converts flat query-string params object into structured search options
- * with type coercion and defaults.
+ * Pure helper that converts flat query-string params into a structured search options object
+ * with type coercion and sensible defaults.
  */
 
-const DEFAULT_LIMIT = 24;
 const DEFAULT_PAGE = 1;
+const DEFAULT_LIMIT = 24;
+const MAX_LIMIT = 100;
+const VALID_SORT_OPTIONS = ['relevance', 'date_desc', 'date_asc', 'name'];
 
 /**
- * @param {Object} params - raw query string params from req.query
- * @returns {Object} structured search options
+ * Parse and validate a raw query-string params object into a structured search options object.
+ *
+ * @param {Object} params - Raw query string params (from req.query)
+ * @returns {Object} Structured search options
  */
 function buildSearchOptions(params = {}) {
   const options = {};
 
-  // Text query
-  options.q = typeof params.q === 'string' ? params.q.trim() : '';
+  // Search query string
+  options.q = typeof params.q === 'string' ? params.q.trim().slice(0, 500) : '';
 
-  // Tags — can be string or array
-  if (params.tags) {
-    if (Array.isArray(params.tags)) {
-      options.tags = params.tags.map((t) => t.trim()).filter(Boolean);
-    } else if (typeof params.tags === 'string') {
-      options.tags = params.tags
-        .split(',')
-        .map((t) => t.trim())
-        .filter(Boolean);
-    } else {
-      options.tags = [];
-    }
+  // Tag IDs — can be array or single value
+  if (Array.isArray(params.tags)) {
+    options.tags = params.tags.map(Number).filter((n) => !isNaN(n) && n > 0);
+  } else if (params.tags != null && params.tags !== '') {
+    const parsed = Number(params.tags);
+    options.tags = !isNaN(parsed) && parsed > 0 ? [parsed] : [];
   } else {
     options.tags = [];
   }
 
   // Date range
-  options.dateFrom = isValidDate(params.dateFrom) ? params.dateFrom : null;
-  options.dateTo = isValidDate(params.dateTo) ? params.dateTo : null;
+  options.dateFrom = isValidDateString(params.dateFrom) ? params.dateFrom : null;
+  options.dateTo = isValidDateString(params.dateTo) ? params.dateTo : null;
 
-  // Camera make
+  // Validate date range order
+  if (options.dateFrom && options.dateTo) {
+    if (new Date(options.dateFrom) > new Date(options.dateTo)) {
+      // Swap if from > to
+      [options.dateFrom, options.dateTo] = [options.dateTo, options.dateFrom];
+    }
+  }
+
+  // Camera make — allow any string, sanitize length
   options.cameraMake =
-    typeof params.cameraMake === 'string' && params.cameraMake !== 'any'
-      ? params.cameraMake.trim()
-      : '';
+    typeof params.cameraMake === 'string' ? params.cameraMake.trim().slice(0, 100) : '';
 
-  // Has GPS (boolean coercion)
-  options.hasGps =
-    params.hasGps === 'true' || params.hasGps === '1' || params.hasGps === 'on' ? true : false;
+  // GPS filter — truthy string values
+  options.hasGps = params.hasGps === 'true' || params.hasGps === '1' || params.hasGps === 'on';
 
   // Pagination
   const parsedPage = parseInt(params.page, 10);
@@ -52,46 +55,119 @@ function buildSearchOptions(params = {}) {
 
   const parsedLimit = parseInt(params.limit, 10);
   options.limit =
-    !isNaN(parsedLimit) && parsedLimit > 0 && parsedLimit <= 100 ? parsedLimit : DEFAULT_LIMIT;
+    !isNaN(parsedLimit) && parsedLimit > 0
+      ? Math.min(parsedLimit, MAX_LIMIT)
+      : DEFAULT_LIMIT;
 
-  // Sort
-  options.sort = ['newest', 'oldest', 'relevance'].includes(params.sort)
-    ? params.sort
-    : 'relevance';
+  // Sort order
+  options.sortBy =
+    typeof params.sortBy === 'string' && VALID_SORT_OPTIONS.includes(params.sortBy)
+      ? params.sortBy
+      : 'relevance';
 
   return options;
 }
 
 /**
- * Checks if a string is a valid date in YYYY-MM-DD format
+ * Serialize search options back to a query string (for pagination links, etc.)
+ *
+ * @param {Object} options - Structured search options
+ * @param {Object} overrides - Values to override
+ * @returns {string} Query string (without leading '?')
  */
-function isValidDate(str) {
-  if (!str || typeof str !== 'string') return false;
-  const match = str.match(/^\d{4}-\d{2}-\d{2}$/);
-  if (!match) return false;
-  const d = new Date(str);
-  return !isNaN(d.getTime());
-}
-
-/**
- * Serializes search options back to query string format
- */
-function serializeToQueryString(options = {}) {
+function serializeSearchOptions(options = {}, overrides = {}) {
+  const merged = { ...options, ...overrides };
   const params = new URLSearchParams();
 
-  if (options.q) params.set('q', options.q);
-  if (options.tags && options.tags.length > 0) {
-    options.tags.forEach((tag) => params.append('tags', tag));
+  if (merged.q) params.set('q', merged.q);
+  if (Array.isArray(merged.tags) && merged.tags.length > 0) {
+    merged.tags.forEach((id) => params.append('tags', id));
   }
-  if (options.dateFrom) params.set('dateFrom', options.dateFrom);
-  if (options.dateTo) params.set('dateTo', options.dateTo);
-  if (options.cameraMake) params.set('cameraMake', options.cameraMake);
-  if (options.hasGps) params.set('hasGps', 'true');
-  if (options.page && options.page > 1) params.set('page', String(options.page));
-  if (options.limit && options.limit !== 24) params.set('limit', String(options.limit));
-  if (options.sort && options.sort !== 'relevance') params.set('sort', options.sort);
+  if (merged.dateFrom) params.set('dateFrom', merged.dateFrom);
+  if (merged.dateTo) params.set('dateTo', merged.dateTo);
+  if (merged.cameraMake) params.set('cameraMake', merged.cameraMake);
+  if (merged.hasGps) params.set('hasGps', 'true');
+  if (merged.page && merged.page !== 1) params.set('page', merged.page);
+  if (merged.limit && merged.limit !== DEFAULT_LIMIT) params.set('limit', merged.limit);
+  if (merged.sortBy && merged.sortBy !== 'relevance') params.set('sortBy', merged.sortBy);
 
   return params.toString();
 }
 
-module.exports = { buildSearchOptions, serializeToQueryString, isValidDate };
+/**
+ * Build an active filters summary for display in the UI.
+ *
+ * @param {Object} options - Structured search options
+ * @param {Object} facets - Facets data (tags with names)
+ * @returns {Array} Array of { label, key } objects
+ */
+function buildActiveFilterSummary(options = {}, facets = {}) {
+  const active = [];
+
+  if (options.q) {
+    active.push({ label: `Search: "${options.q}"`, key: 'q' });
+  }
+
+  if (options.dateFrom && options.dateTo) {
+    active.push({ label: `Date: ${options.dateFrom} – ${options.dateTo}`, key: 'date' });
+  } else if (options.dateFrom) {
+    active.push({ label: `From: ${options.dateFrom}`, key: 'dateFrom' });
+  } else if (options.dateTo) {
+    active.push({ label: `To: ${options.dateTo}`, key: 'dateTo' });
+  }
+
+  if (options.cameraMake) {
+    active.push({ label: `Camera: ${options.cameraMake}`, key: 'cameraMake' });
+  }
+
+  if (options.hasGps) {
+    active.push({ label: 'Has GPS', key: 'hasGps' });
+  }
+
+  if (Array.isArray(options.tags) && options.tags.length > 0) {
+    const tagMap = {};
+    if (facets.tags) {
+      facets.tags.forEach((t) => {
+        tagMap[t.id] = t.name;
+      });
+    }
+    options.tags.forEach((tagId) => {
+      const name = tagMap[tagId] || `Tag #${tagId}`;
+      active.push({ label: `Tag: ${name}`, key: `tag_${tagId}` });
+    });
+  }
+
+  return active;
+}
+
+/**
+ * Check if a value is a valid date string (YYYY-MM-DD format).
+ */
+function isValidDateString(value) {
+  if (typeof value !== 'string' || !value.trim()) return false;
+  const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+  if (!dateRegex.test(value.trim())) return false;
+  const date = new Date(value.trim());
+  return !isNaN(date.getTime());
+}
+
+/**
+ * Count how many active filters are set (for badge display).
+ */
+function countActiveFilters(options = {}) {
+  let count = 0;
+  if (options.q) count++;
+  if (options.dateFrom || options.dateTo) count++;
+  if (options.cameraMake) count++;
+  if (options.hasGps) count++;
+  if (Array.isArray(options.tags) && options.tags.length > 0) count++;
+  return count;
+}
+
+module.exports = {
+  buildSearchOptions,
+  serializeSearchOptions,
+  buildActiveFilterSummary,
+  countActiveFilters,
+  isValidDateString,
+};
