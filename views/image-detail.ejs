@@ -1,188 +1,100 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title><%= image.title || image.originalFilename || 'Image Detail' %> — Photo Gallery</title>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
-  <link rel="stylesheet" href="/css/main.css">
-</head>
-<body>
-  <%- include('partials/navbar') %>
+<%- include('layouts/base', { title: image.manualExif && image.manualExif.caption ? image.manualExif.caption : (image.originalName || image.filename), body: `
 
-  <div class="container py-4">
+<div class="container image-detail-container" data-image-id="${image.id}">
 
-    <!-- Breadcrumb -->
-    <nav aria-label="breadcrumb" class="mb-3">
-      <ol class="breadcrumb">
-        <li class="breadcrumb-item"><a href="/">Home</a></li>
-        <li class="breadcrumb-item"><a href="/gallery">Gallery</a></li>
-        <li class="breadcrumb-item active" aria-current="page">
-          <%= image.title || image.originalFilename || 'Image' %>
-        </li>
-      </ol>
-    </nav>
+  <!-- Breadcrumb -->
+  <nav class="breadcrumb" aria-label="Breadcrumb">
+    <a href="/">Home</a>
+    <span class="breadcrumb-sep" aria-hidden="true">›</span>
+    <a href="/gallery">Gallery</a>
+    <span class="breadcrumb-sep" aria-hidden="true">›</span>
+    <span aria-current="page">${image.originalName || image.filename}</span>
+  </nav>
 
-    <div class="row g-4">
-
-      <!-- Image Column -->
-      <div class="col-lg-8">
-        <div class="card shadow-sm">
-          <div class="card-body p-2 text-center bg-dark rounded">
-            <img
-              src="/uploads/<%= image.filename %>"
-              alt="<%= image.title || image.originalFilename %>"
-              class="img-fluid rounded"
-              style="max-height: 70vh; object-fit: contain;"
-            >
-          </div>
-        </div>
-
-        <!-- Tags section -->
-        <div class="card shadow-sm mt-3">
-          <div class="card-body">
-            <h5 class="card-title mb-3">
-              <i class="bi bi-tags me-2 text-primary"></i>Tags
-            </h5>
-
-            <div id="tagAlertContainer"></div>
-
-            <!-- Tag list -->
-            <div id="tagList" class="mb-3">
-              <% if (image.Tags && image.Tags.length > 0) { %>
-                <% image.Tags.forEach(tag => { %>
-                  <span class="badge me-1 mb-1 tag-badge d-inline-flex align-items-center gap-1"
-                        style="background-color: <%= tag.color || '#6c757d' %>; font-size: 0.85rem; padding: 0.4em 0.65em;">
-                    <a href="/gallery?tag=<%= tag.slug %>" class="text-white text-decoration-none">
-                      <%= tag.name %>
-                    </a>
-                    <button
-                      type="button"
-                      class="btn-close btn-close-white btn-sm"
-                      style="font-size: 0.6em;"
-                      aria-label="Remove tag"
-                      onclick="removeTag(<%= image.id %>, <%= tag.id %>)"
-                    ></button>
-                  </span>
-                <% }) %>
-              <% } else { %>
-                <span class="text-muted fst-italic small">No tags yet</span>
-              <% } %>
-            </div>
-
-            <!-- Add tag form -->
-            <form id="addTagForm" class="d-flex gap-2 align-items-center flex-wrap">
-              <div class="position-relative flex-grow-1" style="min-width: 200px;">
-                <input
-                  type="text"
-                  id="tagInput"
-                  class="form-control form-control-sm"
-                  placeholder="Add a tag..."
-                  list="tagSuggestions"
-                  autocomplete="off"
-                  maxlength="30"
-                >
-                <datalist id="tagSuggestions"></datalist>
-              </div>
-              <button type="submit" class="btn btn-primary btn-sm">
-                <i class="bi bi-plus-lg me-1"></i>Add Tag
-              </button>
-            </form>
-          </div>
-        </div>
-      </div>
-
-      <!-- Sidebar / Metadata Column -->
-      <div class="col-lg-4">
-        <div class="card shadow-sm">
-          <div class="card-header">
-            <h5 class="mb-0"><i class="bi bi-info-circle me-2"></i>Image Details</h5>
-          </div>
-          <div class="card-body">
-            <dl class="row mb-0 small">
-              <dt class="col-5 text-muted">Filename</dt>
-              <dd class="col-7 text-truncate" title="<%= image.originalFilename %>">
-                <%= image.originalFilename %>
-              </dd>
-
-              <% if (image.title) { %>
-              <dt class="col-5 text-muted">Title</dt>
-              <dd class="col-7"><%= image.title %></dd>
-              <% } %>
-
-              <% if (image.description) { %>
-              <dt class="col-5 text-muted">Description</dt>
-              <dd class="col-7"><%= image.description %></dd>
-              <% } %>
-
-              <% if (image.width && image.height) { %>
-              <dt class="col-5 text-muted">Dimensions</dt>
-              <dd class="col-7"><%= image.width %> × <%= image.height %></dd>
-              <% } %>
-
-              <% if (image.fileSize) { %>
-              <dt class="col-5 text-muted">File Size</dt>
-              <dd class="col-7"><%= (image.fileSize / 1024 / 1024).toFixed(2) %> MB</dd>
-              <% } %>
-
-              <% if (image.mimeType) { %>
-              <dt class="col-5 text-muted">Type</dt>
-              <dd class="col-7"><%= image.mimeType %></dd>
-              <% } %>
-
-              <dt class="col-5 text-muted">Uploaded</dt>
-              <dd class="col-7"><%= new Date(image.createdAt).toLocaleString() %></dd>
-            </dl>
-          </div>
-        </div>
-
-        <!-- EXIF Data -->
-        <% if (typeof exifData !== 'undefined' && exifData && Object.keys(exifData).length > 0) { %>
-        <div class="card shadow-sm mt-3">
-          <div class="card-header">
-            <h5 class="mb-0"><i class="bi bi-camera me-2"></i>EXIF Data</h5>
-          </div>
-          <div class="card-body p-0">
-            <%- include('partials/exif-table', { exifData }) %>
-          </div>
-        </div>
-        <% } %>
-
-        <!-- Map (if GPS available) -->
-        <% if (typeof gpsData !== 'undefined' && gpsData && gpsData.lat && gpsData.lng) { %>
-        <div class="card shadow-sm mt-3">
-          <div class="card-header">
-            <h5 class="mb-0"><i class="bi bi-geo-alt me-2"></i>Location</h5>
-          </div>
-          <div class="card-body p-0">
-            <%- include('partials/map', { gpsData }) %>
-          </div>
-        </div>
-        <% } %>
-
-        <!-- Actions -->
-        <div class="card shadow-sm mt-3">
-          <div class="card-body d-flex flex-wrap gap-2">
-            <a href="/uploads/<%= image.filename %>" download class="btn btn-outline-primary btn-sm">
-              <i class="bi bi-download me-1"></i>Download
-            </a>
-            <a href="/gallery" class="btn btn-outline-secondary btn-sm">
-              <i class="bi bi-arrow-left me-1"></i>Back to Gallery
-            </a>
-          </div>
-        </div>
-      </div>
-
+  <!-- Header row -->
+  <div class="image-detail-header">
+    <div class="image-detail-header-left">
+      <h1 class="image-detail-title">
+        ${image.manualExif && image.manualExif.caption ? image.manualExif.caption : (image.originalName || image.filename)}
+      </h1>
+      ${image.description ? `<p class="image-detail-description">${image.description}</p>` : '<p class="image-detail-description"></p>'}
+    </div>
+    <div class="image-detail-header-actions">
+      <button type="button" id="open-edit-panel-btn" class="btn btn-primary btn-sm">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+        </svg>
+        Edit
+      </button>
+      <a href="/gallery" class="btn btn-outline btn-sm">← Back to Gallery</a>
     </div>
   </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-  <script src="/js/tagging.js"></script>
-  <script>
-    document.addEventListener('DOMContentLoaded', function () {
-      initImageTagging(<%= image.id %>);
-    });
-  </script>
-</body>
-</html>
+  <!-- Main image -->
+  <div class="image-detail-main">
+    <img
+      src="/uploads/${image.filename}"
+      alt="${image.manualExif && image.manualExif.caption ? image.manualExif.caption : (image.originalName || image.filename)}"
+      class="image-detail-img"
+      style="transform: rotate(${image.rotation || 0}deg);"
+      loading="lazy"
+    >
+  </div>
+
+  <!-- Details grid -->
+  <div class="image-detail-grid">
+
+    <!-- Tags -->
+    <section class="image-detail-section">
+      <h2 class="section-title">Tags</h2>
+      <div class="image-detail-tags">
+        ${image.tags && image.tags.length > 0
+          ? image.tags.map(tag => `<a href="/gallery?tag=${tag.id}" class="tag-badge">${tag.name}</a>`).join('')
+          : '<span class="text-muted">No tags yet</span>'
+        }
+      </div>
+    </section>
+
+    <!-- EXIF / Metadata -->
+    <section class="image-detail-section">
+      <h2 class="section-title">Image Info</h2>
+      <%- include('partials/exif-table', { image: image }) %>
+    </section>
+
+    <!-- Map (if GPS data) -->
+    ${image.exifData && image.exifData.gps ? `
+    <section class="image-detail-section image-detail-section--full">
+      <h2 class="section-title">Location</h2>
+      <%- include('partials/map', { image: image }) %>
+    </section>
+    ` : ''}
+
+  </div>
+
+  <!-- Navigation -->
+  <div class="image-detail-nav">
+    ${locals.prevImage ? `
+    <a href="/gallery/${locals.prevImage.id}" class="btn btn-outline image-detail-nav-btn">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+        <polyline points="15 18 9 12 15 6"/>
+      </svg>
+      Previous
+    </a>
+    ` : '<span></span>'}
+    ${locals.nextImage ? `
+    <a href="/gallery/${locals.nextImage.id}" class="btn btn-outline image-detail-nav-btn">
+      Next
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+        <polyline points="9 18 15 12 9 6"/>
+      </svg>
+    </a>
+    ` : '<span></span>'}
+  </div>
+
+</div>
+
+<!-- Edit panel -->
+<%- include('partials/edit-panel', { image: image }) %>
+
+` }) %>

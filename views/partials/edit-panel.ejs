@@ -1,0 +1,190 @@
+<!-- Edit Panel - slide-in from right -->
+<div id="edit-panel" class="edit-panel" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="edit-panel-title">
+  <div class="edit-panel-backdrop" id="edit-panel-backdrop"></div>
+  <div class="edit-panel-drawer">
+    <div class="edit-panel-header">
+      <h2 id="edit-panel-title" class="edit-panel-title">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+        </svg>
+        Edit Image
+      </h2>
+      <button type="button" id="edit-panel-close" class="edit-panel-close" aria-label="Close edit panel">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+
+    <div class="edit-panel-body">
+      <form id="edit-image-form" novalidate>
+        <!-- Description -->
+        <div class="edit-section">
+          <h3 class="edit-section-title">Description</h3>
+          <div class="form-group">
+            <label for="edit-description" class="form-label">Image Description</label>
+            <textarea
+              id="edit-description"
+              name="description"
+              class="form-control"
+              rows="4"
+              placeholder="Add a description for this image…"
+            ><%= image.description || '' %></textarea>
+          </div>
+        </div>
+
+        <!-- Rotation -->
+        <div class="edit-section">
+          <h3 class="edit-section-title">Orientation</h3>
+          <p class="edit-section-hint">Rotation is applied non-destructively. The original file is never modified.</p>
+
+          <input type="hidden" id="edit-rotation" name="rotation" value="<%= image.rotation || 0 %>">
+
+          <div class="rotation-preview-wrap">
+            <div class="rotation-preview-box">
+              <img
+                id="rotation-preview-img"
+                src="/uploads/<%= image.filename %>"
+                alt="Rotation preview"
+                class="rotation-preview-img"
+                style="transform: rotate(<%= image.rotation || 0 %>deg) scaleX(1);"
+                data-flip="1"
+              >
+            </div>
+            <div class="rotation-badge">
+              <span id="rotation-label"><%= image.rotation || 0 %>°</span>
+            </div>
+          </div>
+
+          <div class="rotation-controls">
+            <button type="button" class="btn btn-outline btn-sm rotation-btn" data-action="ccw" title="Rotate 90° counter-clockwise">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+                <path d="M3 3v5h5"/>
+              </svg>
+              CCW
+            </button>
+            <button type="button" class="btn btn-outline btn-sm rotation-btn" data-action="cw" title="Rotate 90° clockwise">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <path d="M21 12a9 9 0 1 1-9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/>
+                <path d="M21 3v5h-5"/>
+              </svg>
+              CW
+            </button>
+            <button type="button" class="btn btn-outline btn-sm rotation-btn" data-action="fliph" title="Flip Horizontal">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <path d="M8 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h3"/>
+                <path d="M16 3h3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-3"/>
+                <line x1="12" y1="20" x2="12" y2="4"/>
+              </svg>
+              Flip H
+            </button>
+            <button type="button" class="btn btn-outline btn-sm rotation-btn" data-action="reset" title="Reset rotation">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <path d="M2.5 2v6h6M21.5 22v-6h-6"/>
+                <path d="M22 11.5A10 10 0 0 0 3.2 7.2M2 12.5a10 10 0 0 0 18.8 4.2"/>
+              </svg>
+              Reset
+            </button>
+          </div>
+        </div>
+
+        <!-- Manual EXIF Overrides -->
+        <div class="edit-section">
+          <h3 class="edit-section-title">Metadata Overrides</h3>
+          <p class="edit-section-hint">These fields override auto-detected EXIF data for display purposes.</p>
+
+          <div class="form-group">
+            <label for="edit-caption" class="form-label">Caption</label>
+            <input
+              type="text"
+              id="edit-caption"
+              name="manualExif[caption]"
+              class="form-control"
+              placeholder="e.g. Sunset over the mountains"
+              value="<%= (image.manualExif && image.manualExif.caption) ? image.manualExif.caption : '' %>"
+            >
+          </div>
+
+          <div class="form-group">
+            <label for="edit-location" class="form-label">Location Name</label>
+            <input
+              type="text"
+              id="edit-location"
+              name="manualExif[locationName]"
+              class="form-control"
+              placeholder="e.g. Rocky Mountain National Park, CO"
+              value="<%= (image.manualExif && image.manualExif.locationName) ? image.manualExif.locationName : '' %>"
+            >
+          </div>
+
+          <div class="form-group">
+            <label for="edit-date-taken" class="form-label">Date Taken</label>
+            <input
+              type="datetime-local"
+              id="edit-date-taken"
+              name="manualExif[dateTaken]"
+              class="form-control"
+              value="<%= (image.manualExif && image.manualExif.dateTaken) ? image.manualExif.dateTaken : '' %>"
+            >
+          </div>
+
+          <div class="form-group">
+            <label for="edit-camera" class="form-label">Camera / Device</label>
+            <input
+              type="text"
+              id="edit-camera"
+              name="manualExif[camera]"
+              class="form-control"
+              placeholder="e.g. Canon EOS R5"
+              value="<%= (image.manualExif && image.manualExif.camera) ? image.manualExif.camera : '' %>"
+            >
+          </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="edit-panel-actions">
+          <button type="submit" class="btn btn-primary" id="edit-save-btn">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+              <polyline points="17 21 17 13 7 13 7 21"/>
+              <polyline points="7 3 7 8 15 8"/>
+            </svg>
+            Save Changes
+          </button>
+          <button type="button" class="btn btn-outline" id="edit-cancel-btn">
+            Cancel
+          </button>
+        </div>
+
+        <!-- Error/success feedback -->
+        <div id="edit-feedback" class="edit-feedback" role="alert" aria-live="polite"></div>
+      </form>
+
+      <!-- Danger Zone -->
+      <div class="edit-section edit-section-danger">
+        <h3 class="edit-section-title edit-section-title-danger">Danger Zone</h3>
+        <div class="danger-zone-actions">
+          <button type="button" class="btn btn-outline btn-sm" id="regenerate-thumbs-btn">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <path d="M23 4v6h-6"/>
+              <path d="M1 20v-6h6"/>
+              <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+            </svg>
+            Regenerate Thumbnails
+          </button>
+          <button type="button" class="btn btn-danger btn-sm" id="delete-image-btn">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <polyline points="3 6 5 6 21 6"/>
+              <path d="M19 6l-1 14H6L5 6"/>
+              <path d="M10 11v6M14 11v6"/>
+              <path d="M9 6V4h6v2"/>
+            </svg>
+            Delete Image
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

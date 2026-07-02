@@ -1,74 +1,133 @@
-<%- include('layouts/base', { title: title || 'Gallery', activePage: 'gallery', body: `
-<div class="container-fluid py-4">
-  <div class="row g-4">
-    <!-- Sidebar -->
-    <div class="col-lg-2 gallery-sidebar">
-      <!-- Tag Cloud -->
-      <div class="card shadow-sm mb-3">
-        <div class="card-header d-flex justify-content-between align-items-center">
-          <h6 class="mb-0"><i class="bi bi-tags me-1"></i>Tags</h6>
-          <a href="/tags" class="btn btn-outline-secondary btn-sm">Manage</a>
-        </div>
-        <div class="card-body">
-          <%- include('partials/tag-cloud', { tags: typeof allTags !== 'undefined' ? allTags : [] }) %>
-          ${typeof activeTag !== 'undefined' && activeTag ? `
-          <div class="mt-2 pt-2 border-top">
-            <a href="/gallery" class="btn btn-sm btn-outline-secondary w-100">
-              <i class="bi bi-x me-1"></i>Clear filter
-            </a>
-          </div>` : ''}
-        </div>
-      </div>
+<%- include('layouts/base', { title: 'Gallery', body: `
 
-      <!-- Stats -->
-      ${typeof totalImages !== 'undefined' ? `
-      <div class="card shadow-sm">
-        <div class="card-body text-center py-2">
-          <div class="fs-4 fw-bold text-primary">${totalImages}</div>
-          <div class="small text-muted">Total Images</div>
-        </div>
-      </div>` : ''}
+<div class="container">
+
+  <!-- Gallery header -->
+  <div class="gallery-header">
+    <div class="gallery-header-left">
+      <h1 class="gallery-title">Gallery</h1>
+      ${locals.totalCount !== undefined ? `<span class="gallery-count">${totalCount} image${totalCount === 1 ? '' : 's'}</span>` : ''}
     </div>
+    <div class="gallery-header-actions">
+      <button
+        type="button"
+        id="bulk-select-toggle"
+        class="btn btn-outline btn-sm"
+        aria-pressed="false"
+        title="Select multiple images"
+      >
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <rect x="3" y="3" width="7" height="7" rx="1"/>
+          <rect x="14" y="3" width="7" height="7" rx="1"/>
+          <rect x="3" y="14" width="7" height="7" rx="1"/>
+          <rect x="14" y="14" width="7" height="7" rx="1"/>
+        </svg>
+        Select
+      </button>
+      <button
+        type="button"
+        id="bulk-select-all-btn"
+        class="btn btn-outline btn-sm"
+        style="display:none"
+        title="Select or deselect all"
+      >
+        Select All
+      </button>
+      <a href="/upload" class="btn btn-primary btn-sm">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+        </svg>
+        Upload
+      </a>
+    </div>
+  </div>
 
-    <!-- Main Content -->
-    <div class="col-lg-10">
-      <div class="d-flex justify-content-between align-items-center mb-3">
-        <h1 class="h3 mb-0">
-          ${typeof activeTag !== 'undefined' && activeTag
-            ? `<i class="bi bi-tag me-2"></i>Tagged: ${activeTag}`
-            : '<i class="bi bi-images me-2"></i>Gallery'}
-        </h1>
-        <div class="d-flex gap-2">
-          <a href="/upload" class="btn btn-primary btn-sm">
-            <i class="bi bi-cloud-upload me-1"></i>Upload
-          </a>
+  <!-- Filter panel -->
+  <%- include('partials/filter-panel') %>
+
+  <!-- Image grid -->
+  ${locals.images && images.length > 0 ? `
+  <div class="image-grid" id="image-grid">
+    ${images.map(image => `
+    <article
+      class="image-card"
+      data-image-id="${image.id}"
+    >
+      <a href="/gallery/${image.id}" class="image-card-link">
+        <div class="image-card-thumb">
+          <img
+            src="/uploads/thumbnails/${(() => {
+              const path = require('path');
+              return path.parse(image.filename).name + '-medium.jpg';
+            })()}"
+            alt="${image.originalName || image.filename}"
+            class="image-card-img"
+            loading="lazy"
+            onerror="this.src='/uploads/${image.filename}'"
+            style="transform: rotate(${image.rotation || 0}deg);"
+          >
         </div>
-      </div>
-
-      ${typeof images !== 'undefined' && images && images.length > 0 ? `
-      <div class="row g-3">
-        ${images.map(image => `
-        <div class="col-6 col-md-4 col-xl-3">
-          <%- include('partials/image-card', { image }) %>
+        <div class="image-card-body">
+          <h3 class="image-card-title">${image.manualExif && image.manualExif.caption ? image.manualExif.caption : (image.originalName || image.filename)}</h3>
+          ${image.description ? `<p class="image-card-desc">${image.description}</p>` : ''}
+          ${image.tags && image.tags.length > 0 ? `
+          <div class="image-card-tags">
+            ${image.tags.slice(0, 3).map(tag => `<span class="tag-badge tag-badge-sm">${tag.name}</span>`).join('')}
+            ${image.tags.length > 3 ? `<span class="tag-badge tag-badge-sm tag-badge-more">+${image.tags.length - 3}</span>` : ''}
+          </div>
+          ` : ''}
         </div>
-        `).join('')}
-      </div>
+      </a>
+    </article>
+    `).join('')}
+  </div>
+  ` : `
+  <div class="gallery-empty">
+    <div class="gallery-empty-icon">📷</div>
+    <h2 class="gallery-empty-title">No images yet</h2>
+    <p class="gallery-empty-text">Upload some photos to get started.</p>
+    <a href="/upload" class="btn btn-primary">Upload Images</a>
+  </div>
+  `}
 
-      <!-- Pagination -->
-      ${typeof pagination !== 'undefined' && pagination && pagination.totalPages > 1
-        ? `<%- include('partials/pagination', { pagination }) %>`
-        : ''}
-      ` : `
-      <div class="text-center py-5 text-muted">
-        <i class="bi bi-images display-4 d-block mb-3"></i>
-        <h4>No images yet</h4>
-        <p>Upload your first image to get started.</p>
-        <a href="/upload" class="btn btn-primary">
-          <i class="bi bi-cloud-upload me-2"></i>Upload Images
-        </a>
-      </div>
-      `}
+  <!-- Pagination -->
+  <%- include('partials/pagination') %>
+
+</div>
+
+<!-- Bulk action floating bar -->
+<div id="bulk-action-bar" class="bulk-action-bar" role="toolbar" aria-label="Bulk actions">
+  <div class="bulk-action-bar-inner">
+    <span id="bulk-selection-count" class="bulk-selection-count">0 images selected</span>
+    <div class="bulk-action-bar-buttons">
+      <button type="button" id="bulk-tag-btn" class="btn btn-outline btn-sm">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/>
+          <line x1="7" y1="7" x2="7.01" y2="7"/>
+        </svg>
+        Add Tag
+      </button>
+      <button type="button" id="bulk-untag-btn" class="btn btn-outline btn-sm">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/>
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+        Remove Tag
+      </button>
+      <button type="button" id="bulk-delete-btn" class="btn btn-danger btn-sm">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <polyline points="3 6 5 6 21 6"/>
+          <path d="M19 6l-1 14H6L5 6"/>
+          <path d="M10 11v6M14 11v6"/>
+          <path d="M9 6V4h6v2"/>
+        </svg>
+        Delete
+      </button>
+      <button type="button" id="bulk-clear-btn" class="btn btn-ghost btn-sm">
+        Clear
+      </button>
     </div>
   </div>
 </div>
+
 ` }) %>

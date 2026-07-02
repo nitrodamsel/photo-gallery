@@ -1,20 +1,18 @@
-const { Model, DataTypes } = require('sequelize');
+'use strict';
 
-module.exports = (sequelize) => {
+const { Model } = require('sequelize');
+
+module.exports = (sequelize, DataTypes) => {
   class Image extends Model {
     static associate(models) {
       Image.belongsToMany(models.Tag, {
         through: models.ImageTag,
-        foreignKey: 'imageId',
-        otherKey: 'tagId',
-        as: 'Tags'
-      });
-      Image.hasMany(models.ImageTag, {
+        as: 'tags',
         foreignKey: 'imageId'
       });
       Image.hasMany(models.ThumbnailCache, {
-        foreignKey: 'imageId',
-        as: 'Thumbnails'
+        as: 'thumbnails',
+        foreignKey: 'imageId'
       });
     }
   }
@@ -27,18 +25,19 @@ module.exports = (sequelize) => {
     },
     filename: {
       type: DataTypes.STRING,
-      allowNull: false
+      allowNull: false,
+      unique: true
     },
     originalName: {
       type: DataTypes.STRING,
-      allowNull: false
+      allowNull: true
     },
     mimeType: {
       type: DataTypes.STRING,
       allowNull: true
     },
-    fileSize: {
-      type: DataTypes.INTEGER,
+    size: {
+      type: DataTypes.BIGINT,
       allowNull: true
     },
     width: {
@@ -49,34 +48,35 @@ module.exports = (sequelize) => {
       type: DataTypes.INTEGER,
       allowNull: true
     },
-    title: {
-      type: DataTypes.STRING,
-      allowNull: true
-    },
     description: {
       type: DataTypes.TEXT,
-      allowNull: true
+      allowNull: true,
+      defaultValue: ''
     },
     exifData: {
       type: DataTypes.JSON,
-      allowNull: true
+      allowNull: true,
+      defaultValue: {}
     },
-    latitude: {
-      type: DataTypes.FLOAT,
-      allowNull: true
+    rotation: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: 0,
+      validate: {
+        isIn: [[0, 90, 180, 270]]
+      },
+      comment: 'Non-destructive rotation in degrees'
     },
-    longitude: {
-      type: DataTypes.FLOAT,
-      allowNull: true
-    },
-    takenAt: {
-      type: DataTypes.DATE,
-      allowNull: true
+    manualExif: {
+      type: DataTypes.JSON,
+      allowNull: true,
+      defaultValue: {},
+      comment: 'Manual overrides: caption, locationName, dateTaken, camera'
     }
   }, {
     sequelize,
     modelName: 'Image',
-    tableName: 'images',
+    tableName: 'Images',
     timestamps: true
   });
 

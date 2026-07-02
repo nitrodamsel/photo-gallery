@@ -1,65 +1,111 @@
 const path = require('path');
+const fs = require('fs');
 const sharp = require('sharp');
-const { ensureDir, safeDelete } = require('../utils/fileHelpers');
+const { ThumbnailCache } = require('../models');
 
-const THUMB_BASE = path.join(__dirname, '..', 'uploads', 'thumbnails');
+const UPLOADS_DIR = path.join(__dirname, '..', 'uploads');
+const THUMBS_DIR = path.join(UPLOADS_DIR, 'thumbnails');
 
-const THUMBNAIL_CONFIGS = [
-  {
-    name: '400',
-    width: 400,
-    height: 400,
-    fit: 'cover',
-  },
-  {
-    name: '1200',
-    width: 1200,
-    height: 800,
-    fit: 'inside',
-  },
-];
+const THUMBNAIL_SIZES = {
+  small: { width: 150, height: 150 },
+  medium: { width: 400, height: 400 },
+  large: { width: 800, height: 800 }
+};
+
+// Ensure thumbnails directory exists
+if (!fs.existsSync(THUMBS_DIR)) {
+  fs.mkdirSync(THUMBS_DIR, { recursive: true });
+}
 
 /**
- * Generates thumbnails for an uploaded image.
- * @param {string} filePath - Absolute path to the source image.
- * @param {string|number} imageId - The image's database ID (used for naming).
- * @returns {Promise<{ thumb400: string, thumb1200: string }>} Absolute paths to generated thumbnails.
+ * Convert rotation degrees to Sharp rotation value.
+ * @param {number} rotation - 0, 90, 180, 270
+ * @returns {number}
  */
-async function generateThumbnails(filePath, imageId) {
+function getSharpRotation(rotation) {
+  const validRotations = [0, 90, 180, 270];
+  if (!validRotations.includes(rotation)) return 0;
+  return rotation;
+}
+
+/**
+ * Generate all thumbnail sizes for an image with optional rotation.
+ * @param {string} filename
+ * @param {number} rotation - 0, 90, 180, 270
+ * @returns {Promise<object>} - paths to generated thumbnails
+ */
+async function generateThumbnails(filename, rotation = 0) {
+  const originalPath = path.join(UPLOADS_DIR, filename);
+
+  if (!fs.existsSync(originalPath)) {
+    throw new Error(`Original file not found: ${originalPath}`);
+  }
+
+  const baseName = path.parse(filename).name;
   const results = {};
+  const sharpRotation = getSharpRotation(rotation);
 
-  for (const config of THUMBNAIL_CONFIGS) {
-    const thumbDir = path.join(THUMB_BASE, config.name);
-    await ensureDir(thumbDir);
+  for (const [size, dimensions] of Object.entries(THUMBNAIL_SIZES)) {
+    const thumbFilename = `${baseName}-${size}.jpg`;
+    const thumbPath = path.join(THUMBS_DIR, thumbFilename);
 
-    const thumbPath = path.join(thumbDir, `${imageId}.webp`);
+    let pipeline = sharp(originalPath);
 
-    await sharp(filePath)
-      .resize(config.width, config.height, {
-        fit: config.fit,
-        withoutEnlargement: true,
+    // Apply rotation if needed (non-destructive — only applied to thumbnail)
+    if (sharpRotation !== 0) {
+      pipeline = pipeline.rotate(sharpRotation);
+    }
+
+    await pipeline
+      .resize(dimensions.width, dimensions.height, {
+        fit: 'cover',
+        position: 'center'
       })
-      .webp({ quality: 85 })
+      .jpeg({ quality: 85, progressive: true })
       .toFile(thumbPath);
 
-    results[`thumb${config.name}`] = thumbPath;
+    results[size] = thumbFilename;
+
+    // Update cache record
+    try {
+      const image = await require('../models').Image.findOne({ where: { filename } });
+      if (image) {
+        await ThumbnailCache.upsert({
+          imageId: image.id,
+          size,
+          filename: thumbFilename,
+          width: dimensions.width,
+          height: dimensions.height
+        });
+      }
+    } catch (err) {
+      console.error('Error updating thumbnail cache:', err);
+    }
   }
 
-  return {
-    thumb400: results['thumb400'],
-    thumb1200: results['thumb1200'],
-  };
+  return results;
 }
 
 /**
- * Deletes all thumbnail files for a given image ID.
- * @param {string|number} imageId
+ * Get thumbnail path for a given image filename and size.
+ * @param {string} filename
+ * @param {string} size - small, medium, large
+ * @returns {string}
  */
-async function deleteThumbnails(imageId) {
-  for (const config of THUMBNAIL_CONFIGS) {
-    const thumbPath = path.join(THUMB_BASE, config.name, `${imageId}.webp`);
-    await safeDelete(thumbPath);
-  }
+function getThumbnailPath(filename, size = 'medium') {
+  const baseName = path.parse(filename).name;
+  return path.join(THUMBS_DIR, `${baseName}-${size}.jpg`);
 }
 
-module.exports = { generateThumbnails, deleteThumbnails };
+/**
+ * Check if thumbnails exist for an image.
+ * @param {string} filename
+ * @returns {boolean}
+ */
+function thumbnailsExist(filename) {
+  return Object.keys(THUMBNAIL_SIZES).every(size => {
+    return fs.existsSync(getThumbnailPath(filename, size));
+  });
+}
+
+module.exports = { generateThumbnails, getThumbnailPath, thumbnailsExist, THUMBNAIL_SIZES };
