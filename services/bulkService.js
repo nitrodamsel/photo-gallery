@@ -3,29 +3,24 @@ const imageService = require('./imageService');
 const tagService = require('./tagService');
 
 /**
- * Bulk-assign a tag to multiple images by tag name.
- * Creates the tag if it doesn't exist.
- * @param {number[]} imageIds
- * @param {string} tagName
+ * Bulk tag multiple images with a tag name (creates tag if it doesn't exist)
+ * @param {number[]} imageIds 
+ * @param {string} tagName 
  * @returns {{ succeeded: number[], failed: Array<{id: number, error: string}> }}
  */
 async function bulkTag(imageIds, tagName) {
   const succeeded = [];
   const failed = [];
 
-  // Find or create the tag
+  // Find or create the tag once
   let tag;
   try {
-    const normalizedName = tagName.trim().toLowerCase();
-    [tag] = await Tag.findOrCreate({
-      where: { name: normalizedName },
-      defaults: { name: normalizedName }
-    });
+    tag = await tagService.findOrCreateTag(tagName);
   } catch (err) {
-    console.error('Failed to find/create tag:', err);
+    // If we can't create the tag at all, fail everything
     return {
       succeeded: [],
-      failed: imageIds.map(id => ({ id, error: 'Tag creation failed' }))
+      failed: imageIds.map(id => ({ id, error: `Could not find/create tag: ${err.message}` }))
     };
   }
 
@@ -37,9 +32,14 @@ async function bulkTag(imageIds, tagName) {
         continue;
       }
 
-      await ImageTag.findOrCreate({
-        where: { imageId: image.id, tagId: tag.id }
+      // Check if already tagged
+      const existing = await ImageTag.findOne({
+        where: { imageId, tagId: tag.id }
       });
+
+      if (!existing) {
+        await ImageTag.create({ imageId, tagId: tag.id });
+      }
 
       succeeded.push(imageId);
     } catch (err) {
@@ -48,24 +48,44 @@ async function bulkTag(imageIds, tagName) {
     }
   }
 
-  return { succeeded, failed };
+  return { succeeded, failed, tagId: tag.id, tagName: tag.name };
 }
 
 /**
- * Bulk-remove a tag from multiple images.
- * @param {number[]} imageIds
- * @param {number} tagId
+ * Bulk remove a tag from multiple images
+ * @param {number[]} imageIds 
+ * @param {number|null} tagId 
+ * @param {string|null} tagName 
  * @returns {{ succeeded: number[], failed: Array<{id: number, error: string}> }}
  */
-async function bulkUntag(imageIds, tagId) {
+async function bulkUntag(imageIds, tagId, tagName) {
   const succeeded = [];
   const failed = [];
 
-  const tag = await Tag.findByPk(tagId);
-  if (!tag) {
+  // Resolve tag if only name provided
+  let resolvedTagId = tagId;
+  if (!resolvedTagId && tagName) {
+    try {
+      const tag = await Tag.findOne({ where: { name: tagName } });
+      if (!tag) {
+        return {
+          succeeded: [],
+          failed: imageIds.map(id => ({ id, error: `Tag not found: ${tagName}` }))
+        };
+      }
+      resolvedTagId = tag.id;
+    } catch (err) {
+      return {
+        succeeded: [],
+        failed: imageIds.map(id => ({ id, error: `Could not find tag: ${err.message}` }))
+      };
+    }
+  }
+
+  if (!resolvedTagId) {
     return {
       succeeded: [],
-      failed: imageIds.map(id => ({ id, error: 'Tag not found' }))
+      failed: imageIds.map(id => ({ id, error: 'No tag ID or name provided' }))
     };
   }
 
@@ -77,16 +97,11 @@ async function bulkUntag(imageIds, tagId) {
         continue;
       }
 
-      const deleted = await ImageTag.destroy({
-        where: { imageId: image.id, tagId: tag.id }
+      await ImageTag.destroy({
+        where: { imageId, tagId: resolvedTagId }
       });
 
-      if (deleted === 0) {
-        // Not an error — tag just wasn't applied
-        succeeded.push(imageId);
-      } else {
-        succeeded.push(imageId);
-      }
+      succeeded.push(imageId);
     } catch (err) {
       console.error(`Failed to untag image ${imageId}:`, err);
       failed.push({ id: imageId, error: err.message });
@@ -97,8 +112,8 @@ async function bulkUntag(imageIds, tagId) {
 }
 
 /**
- * Bulk-delete multiple images (files + DB records).
- * @param {number[]} imageIds
+ * Bulk delete multiple images
+ * @param {number[]} imageIds 
  * @returns {{ succeeded: number[], failed: Array<{id: number, error: string}> }}
  */
 async function bulkDelete(imageIds) {

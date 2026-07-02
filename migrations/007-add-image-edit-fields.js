@@ -1,39 +1,43 @@
 'use strict';
 
 module.exports = {
-  async up(queryInterface, Sequelize) {
-    const tableDesc = await queryInterface.describeTable('Images');
+  up: async (queryInterface, Sequelize) => {
+    const tableDescription = await queryInterface.describeTable('Images');
 
-    // Add rotation column
-    if (!tableDesc.rotation) {
+    if (!tableDescription.rotation) {
       await queryInterface.addColumn('Images', 'rotation', {
         type: Sequelize.INTEGER,
         defaultValue: 0,
-        allowNull: false,
-        comment: 'Non-destructive rotation in degrees: 0, 90, 180, 270'
+        allowNull: false
       });
     }
 
-    // Add manualExif column
-    if (!tableDesc.manualExif) {
+    if (!tableDescription.manualExif) {
       await queryInterface.addColumn('Images', 'manualExif', {
-        type: Sequelize.JSON,
-        defaultValue: {},
-        allowNull: true,
-        comment: 'Manual EXIF override fields: caption, locationName, dateTaken, camera'
+        type: Sequelize.TEXT,
+        allowNull: true
+      });
+    }
+
+    if (!tableDescription.description) {
+      await queryInterface.addColumn('Images', 'description', {
+        type: Sequelize.TEXT,
+        allowNull: true
       });
     }
   },
 
-  async down(queryInterface) {
-    const tableDesc = await queryInterface.describeTable('Images');
+  down: async (queryInterface, Sequelize) => {
+    const tableDescription = await queryInterface.describeTable('Images');
 
-    if (tableDesc.rotation) {
+    if (tableDescription.rotation) {
       await queryInterface.removeColumn('Images', 'rotation');
     }
-
-    if (tableDesc.manualExif) {
+    if (tableDescription.manualExif) {
       await queryInterface.removeColumn('Images', 'manualExif');
+    }
+    if (tableDescription.description) {
+      await queryInterface.removeColumn('Images', 'description');
     }
   }
 };

@@ -1,31 +1,26 @@
-<div class="col">
-  <div class="card h-100 shadow-sm image-card">
-    <a href="/gallery/<%= image.id %>" class="text-decoration-none">
-      <img src="/uploads/<%= image.filename %>"
-           class="card-img-top"
-           alt="<%= image.title || image.originalName %>"
-           style="height: 180px; object-fit: cover;">
-    </a>
-    <div class="card-body p-2">
-      <p class="card-title mb-1 text-truncate small fw-semibold">
-        <a href="/gallery/<%= image.id %>" class="text-decoration-none text-dark">
-          <%= image.title || image.originalName %>
-        </a>
-      </p>
+<div class="image-card" data-image-id="<%= image.id %>">
+  <a href="/gallery/<%= image.id %>" class="image-card-link">
+    <div class="image-card-thumb">
+      <img
+        src="/uploads/thumb_medium_<%= image.filename %>"
+        alt="<%= image.originalName || image.filename %>"
+        loading="lazy"
+        onerror="this.src='/uploads/<%= image.filename %>'"
+        style="transform: rotate(<%= image.rotation || 0 %>deg);"
+      >
+    </div>
+    <div class="image-card-info">
+      <p class="image-card-name"><%= image.originalName || image.filename %></p>
       <% if (image.Tags && image.Tags.length > 0) { %>
-        <div class="d-flex flex-wrap gap-1 mt-1">
-          <% image.Tags.slice(0, 3).forEach(function(tag) { %>
-            <a href="/gallery?tag=<%= encodeURIComponent(tag.slug) %>"
-               class="badge text-decoration-none"
-               style="background-color: <%= tag.color || '#6c757d' %>; font-size: 0.7rem;">
-              <%= tag.name %>
-            </a>
-          <% }); %>
-          <% if (image.Tags.length > 3) { %>
-            <span class="badge bg-light text-muted" style="font-size: 0.7rem;">+<%= image.Tags.length - 3 %></span>
-          <% } %>
-        </div>
+      <div class="image-card-tags">
+        <% image.Tags.slice(0, 3).forEach(tag => { %>
+        <span class="tag-pill tag-pill--small"><%= tag.name %></span>
+        <% }) %>
+        <% if (image.Tags.length > 3) { %>
+        <span class="tag-pill tag-pill--small tag-pill--more">+<%= image.Tags.length - 3 %></span>
+        <% } %>
+      </div>
       <% } %>
     </div>
-  </div>
+  </a>
 </div>

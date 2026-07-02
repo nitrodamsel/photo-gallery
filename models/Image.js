@@ -1,19 +1,40 @@
 'use strict';
 
-const { Model } = require('sequelize');
+const { Model, DataTypes } = require('sequelize');
 
-module.exports = (sequelize, DataTypes) => {
+module.exports = (sequelize) => {
   class Image extends Model {
     static associate(models) {
       Image.belongsToMany(models.Tag, {
         through: models.ImageTag,
-        as: 'tags',
-        foreignKey: 'imageId'
+        foreignKey: 'imageId',
+        otherKey: 'tagId'
       });
-      Image.hasMany(models.ThumbnailCache, {
-        as: 'thumbnails',
-        foreignKey: 'imageId'
-      });
+    }
+
+    // Get parsed manual EXIF data
+    getParsedManualExif() {
+      try {
+        return this.manualExif ? JSON.parse(this.manualExif) : {};
+      } catch (e) {
+        return {};
+      }
+    }
+
+    // Get parsed EXIF data
+    getParsedExif() {
+      try {
+        return this.exifData ? JSON.parse(this.exifData) : {};
+      } catch (e) {
+        return {};
+      }
+    }
+
+    // Get merged EXIF (manualExif overrides exifData)
+    getMergedExif() {
+      const auto = this.getParsedExif();
+      const manual = this.getParsedManualExif();
+      return { ...auto, ...manual };
     }
   }
 
@@ -25,20 +46,36 @@ module.exports = (sequelize, DataTypes) => {
     },
     filename: {
       type: DataTypes.STRING,
-      allowNull: false,
-      unique: true
+      allowNull: false
     },
     originalName: {
       type: DataTypes.STRING,
       allowNull: true
     },
-    mimeType: {
+    mimetype: {
       type: DataTypes.STRING,
       allowNull: true
     },
     size: {
-      type: DataTypes.BIGINT,
+      type: DataTypes.INTEGER,
       allowNull: true
+    },
+    description: {
+      type: DataTypes.TEXT,
+      allowNull: true
+    },
+    exifData: {
+      type: DataTypes.TEXT,
+      allowNull: true
+    },
+    manualExif: {
+      type: DataTypes.TEXT,
+      allowNull: true
+    },
+    rotation: {
+      type: DataTypes.INTEGER,
+      defaultValue: 0,
+      allowNull: false
     },
     width: {
       type: DataTypes.INTEGER,
@@ -48,36 +85,14 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.INTEGER,
       allowNull: true
     },
-    description: {
-      type: DataTypes.TEXT,
-      allowNull: true,
-      defaultValue: ''
-    },
-    exifData: {
-      type: DataTypes.JSON,
-      allowNull: true,
-      defaultValue: {}
-    },
-    rotation: {
-      type: DataTypes.INTEGER,
-      allowNull: false,
-      defaultValue: 0,
-      validate: {
-        isIn: [[0, 90, 180, 270]]
-      },
-      comment: 'Non-destructive rotation in degrees'
-    },
-    manualExif: {
-      type: DataTypes.JSON,
-      allowNull: true,
-      defaultValue: {},
-      comment: 'Manual overrides: caption, locationName, dateTaken, camera'
+    hash: {
+      type: DataTypes.STRING,
+      allowNull: true
     }
   }, {
     sequelize,
     modelName: 'Image',
-    tableName: 'Images',
-    timestamps: true
+    tableName: 'Images'
   });
 
   return Image;

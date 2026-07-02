@@ -1,100 +1,142 @@
-<%- include('layouts/base', { title: image.manualExif && image.manualExif.caption ? image.manualExif.caption : (image.originalName || image.filename), body: `
+<%- include('layouts/base', { title: image.originalName || image.filename, body: `
+<div class="image-detail-page" data-image-id="${image.id}">
 
-<div class="container image-detail-container" data-image-id="${image.id}">
-
-  <!-- Breadcrumb -->
-  <nav class="breadcrumb" aria-label="Breadcrumb">
-    <a href="/">Home</a>
-    <span class="breadcrumb-sep" aria-hidden="true">›</span>
-    <a href="/gallery">Gallery</a>
-    <span class="breadcrumb-sep" aria-hidden="true">›</span>
-    <span aria-current="page">${image.originalName || image.filename}</span>
-  </nav>
-
-  <!-- Header row -->
-  <div class="image-detail-header">
-    <div class="image-detail-header-left">
-      <h1 class="image-detail-title">
-        ${image.manualExif && image.manualExif.caption ? image.manualExif.caption : (image.originalName || image.filename)}
-      </h1>
-      ${image.description ? `<p class="image-detail-description">${image.description}</p>` : '<p class="image-detail-description"></p>'}
-    </div>
-    <div class="image-detail-header-actions">
-      <button type="button" id="open-edit-panel-btn" class="btn btn-primary btn-sm">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
-          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
-        </svg>
-        Edit
-      </button>
-      <a href="/gallery" class="btn btn-outline btn-sm">← Back to Gallery</a>
-    </div>
+  <!-- Header Bar -->
+  <div class="detail-header">
+    <a href="/gallery" class="btn btn-secondary btn-sm">
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+      Back to Gallery
+    </a>
+    <h1 class="image-detail-title">${image.originalName || image.filename}</h1>
+    <button id="open-edit-panel-btn" class="btn btn-primary btn-sm">
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+      Edit
+    </button>
   </div>
 
-  <!-- Main image -->
-  <div class="image-detail-main">
-    <img
-      src="/uploads/${image.filename}"
-      alt="${image.manualExif && image.manualExif.caption ? image.manualExif.caption : (image.originalName || image.filename)}"
-      class="image-detail-img"
-      style="transform: rotate(${image.rotation || 0}deg);"
-      loading="lazy"
-    >
-  </div>
+  <!-- Main Content -->
+  <div class="detail-content">
 
-  <!-- Details grid -->
-  <div class="image-detail-grid">
+    <!-- Image Preview -->
+    <div class="detail-image-wrapper">
+      <img
+        id="detail-image"
+        class="detail-image"
+        src="/uploads/${image.filename}"
+        alt="${image.originalName || image.filename}"
+        style="transform: rotate(${image.rotation || 0}deg); transition: transform 0.3s ease;"
+        loading="lazy"
+      >
+    </div>
 
-    <!-- Tags -->
-    <section class="image-detail-section">
-      <h2 class="section-title">Tags</h2>
-      <div class="image-detail-tags">
-        ${image.tags && image.tags.length > 0
-          ? image.tags.map(tag => `<a href="/gallery?tag=${tag.id}" class="tag-badge">${tag.name}</a>`).join('')
-          : '<span class="text-muted">No tags yet</span>'
-        }
+    <!-- Info Sidebar -->
+    <div class="detail-sidebar">
+
+      <!-- Description -->
+      <div class="detail-section">
+        <h2 class="detail-section-title">Description</h2>
+        <p id="image-description-display" class="detail-description ${!image.description ? 'is-empty' : ''}">
+          ${image.description || '<em>No description added yet. Click Edit to add one.</em>'}
+        </p>
       </div>
-    </section>
 
-    <!-- EXIF / Metadata -->
-    <section class="image-detail-section">
-      <h2 class="section-title">Image Info</h2>
-      <%- include('partials/exif-table', { image: image }) %>
-    </section>
+      <!-- Tags -->
+      <div class="detail-section">
+        <h2 class="detail-section-title">Tags</h2>
+        <%- include('partials/tag-cloud', { tags: image.Tags || [] }) %>
+        <%- include('partials/tagging-inline', { imageId: image.id, tags: image.Tags || [] }) %>
+      </div>
 
-    <!-- Map (if GPS data) -->
-    ${image.exifData && image.exifData.gps ? `
-    <section class="image-detail-section image-detail-section--full">
-      <h2 class="section-title">Location</h2>
-      <%- include('partials/map', { image: image }) %>
-    </section>
-    ` : ''}
+      <!-- EXIF Data -->
+      <% const exif = image.getParsedExif ? image.getParsedExif() : {}; %>
+      <% const manualExif = image.getParsedManualExif ? image.getParsedManualExif() : {}; %>
+      <% const mergedExif = { ...exif, ...manualExif }; %>
+      <div class="detail-section">
+        <h2 class="detail-section-title">Image Information</h2>
 
+        <% if (manualExif.caption) { %>
+        <div class="exif-row">
+          <span class="exif-label">Caption</span>
+          <span id="exif-caption-display" class="exif-value">${manualExif.caption}</span>
+        </div>
+        <% } else { %>
+        <div class="exif-row" style="display:none">
+          <span class="exif-label">Caption</span>
+          <span id="exif-caption-display" class="exif-value"></span>
+        </div>
+        <% } %>
+
+        <% if (manualExif.locationName) { %>
+        <div class="exif-row">
+          <span class="exif-label">Location</span>
+          <span id="exif-location-display" class="exif-value">${manualExif.locationName}</span>
+        </div>
+        <% } else { %>
+        <div class="exif-row" style="display:none">
+          <span class="exif-label">Location</span>
+          <span id="exif-location-display" class="exif-value"></span>
+        </div>
+        <% } %>
+
+        <% if (manualExif.dateTaken) { %>
+        <div class="exif-row">
+          <span class="exif-label">Date Taken</span>
+          <span id="exif-date-display" class="exif-value">${new Date(manualExif.dateTaken).toLocaleString()}</span>
+        </div>
+        <% } else { %>
+        <div class="exif-row" style="display:none">
+          <span class="exif-label">Date Taken</span>
+          <span id="exif-date-display" class="exif-value"></span>
+        </div>
+        <% } %>
+
+        <% if (manualExif.camera) { %>
+        <div class="exif-row">
+          <span class="exif-label">Camera</span>
+          <span id="exif-camera-display" class="exif-value">${manualExif.camera}</span>
+        </div>
+        <% } else { %>
+        <div class="exif-row" style="display:none">
+          <span class="exif-label">Camera</span>
+          <span id="exif-camera-display" class="exif-value"></span>
+        </div>
+        <% } %>
+
+        <div class="exif-row">
+          <span class="exif-label">Filename</span>
+          <span class="exif-value">${image.originalName || image.filename}</span>
+        </div>
+        <div class="exif-row">
+          <span class="exif-label">Size</span>
+          <span class="exif-value">${image.size ? Math.round(image.size / 1024) + ' KB' : 'Unknown'}</span>
+        </div>
+        <div class="exif-row">
+          <span class="exif-label">Rotation</span>
+          <span class="exif-value">${image.rotation || 0}°</span>
+        </div>
+        <div class="exif-row">
+          <span class="exif-label">Uploaded</span>
+          <span class="exif-value">${new Date(image.createdAt).toLocaleDateString()}</span>
+        </div>
+
+        <%- include('partials/exif-table', { exif: mergedExif }) %>
+      </div>
+
+      <!-- Map (if GPS data available) -->
+      <% if (mergedExif.latitude && mergedExif.longitude) { %>
+      <div class="detail-section">
+        <h2 class="detail-section-title">Location</h2>
+        <%- include('partials/map', { lat: mergedExif.latitude, lng: mergedExif.longitude }) %>
+      </div>
+      <% } %>
+
+    </div>
   </div>
 
-  <!-- Navigation -->
-  <div class="image-detail-nav">
-    ${locals.prevImage ? `
-    <a href="/gallery/${locals.prevImage.id}" class="btn btn-outline image-detail-nav-btn">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-        <polyline points="15 18 9 12 15 6"/>
-      </svg>
-      Previous
-    </a>
-    ` : '<span></span>'}
-    ${locals.nextImage ? `
-    <a href="/gallery/${locals.nextImage.id}" class="btn btn-outline image-detail-nav-btn">
-      Next
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-        <polyline points="9 18 15 12 9 6"/>
-      </svg>
-    </a>
-    ` : '<span></span>'}
-  </div>
+  <!-- Edit Panel -->
+  <%- include('partials/edit-panel', { image }) %>
 
 </div>
 
-<!-- Edit panel -->
-<%- include('partials/edit-panel', { image: image }) %>
-
+<script src="/js/imageEditor.js"></script>
 ` }) %>

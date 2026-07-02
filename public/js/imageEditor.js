@@ -1,342 +1,320 @@
 /**
- * imageEditor.js
- * Client-side JS for the image detail edit panel.
- * Handles panel open/close, rotation preview, form submission via PATCH.
+ * Image Editor - handles the edit panel on the image detail page
+ * Supports: description editing, rotation, manual EXIF overrides, delete
  */
+
 (function () {
   'use strict';
 
-  // ─── State ────────────────────────────────────────────────────────────────
-  let currentRotation = 0;
-  let currentFlip = 1; // 1 = normal, -1 = flipped horizontally
-  let imageId = null;
-
-  // ─── DOM refs ──────────────────────────────────────────────────────────────
   const panel = document.getElementById('edit-panel');
-  const backdrop = document.getElementById('edit-panel-backdrop');
+  const overlay = document.getElementById('edit-panel-overlay');
+  const openBtn = document.getElementById('open-edit-panel-btn');
   const closeBtn = document.getElementById('edit-panel-close');
   const cancelBtn = document.getElementById('edit-cancel-btn');
-  const openBtn = document.getElementById('open-edit-panel-btn');
-  const form = document.getElementById('edit-image-form');
-  const feedback = document.getElementById('edit-feedback');
+  const deleteBtn = document.getElementById('edit-delete-btn');
+  const regenBtn = document.getElementById('regenerate-thumbnails-btn');
+  const form = document.getElementById('edit-form');
+  const statusEl = document.getElementById('edit-status');
   const rotationInput = document.getElementById('edit-rotation');
-  const rotationLabel = document.getElementById('rotation-label');
-  const previewImg = document.getElementById('rotation-preview-img');
-  const saveBtn = document.getElementById('edit-save-btn');
-  const deleteBtn = document.getElementById('delete-image-btn');
-  const regenBtn = document.getElementById('regenerate-thumbs-btn');
+  const rotationDisplay = document.getElementById('rotation-value-display');
 
-  // ─── Init ──────────────────────────────────────────────────────────────────
-  function init() {
-    if (!panel) return; // Not on detail page
+  if (!panel) return; // Not on detail page
 
-    // Read initial values from DOM
-    imageId = panel.closest('[data-image-id]')
-      ? panel.closest('[data-image-id]').dataset.imageId
-      : document.body.dataset.imageId;
+  const imageId = panel.closest('[data-image-id]')
+    ? panel.closest('[data-image-id]').dataset.imageId
+    : document.querySelector('[data-image-id]')?.dataset.imageId;
 
-    if (rotationInput) {
-      currentRotation = parseInt(rotationInput.value, 10) || 0;
-    }
-    if (previewImg) {
-      currentFlip = parseInt(previewImg.dataset.flip, 10) || 1;
-    }
+  // Get image preview element for live rotation preview
+  const imagePreview = document.getElementById('detail-image') || document.querySelector('.detail-image img');
 
-    bindEvents();
-  }
+  let currentRotation = parseInt(rotationInput?.value || '0', 10);
+  let previewRotation = currentRotation;
+  let isFlipped = false;
+  let isSaving = false;
 
-  // ─── Panel open/close ─────────────────────────────────────────────────────
+  // ─── Panel Open/Close ─────────────────────────────────────────────────────
+
   function openPanel() {
-    panel.classList.add('edit-panel--open');
+    panel.classList.add('is-open');
+    overlay.classList.add('is-visible');
     panel.setAttribute('aria-hidden', 'false');
-    document.body.classList.add('edit-panel-body-lock');
-    closeBtn && closeBtn.focus();
+    document.body.style.overflow = 'hidden';
+
+    // Focus first input
+    setTimeout(() => {
+      const firstInput = panel.querySelector('textarea, input');
+      if (firstInput) firstInput.focus();
+    }, 300);
   }
 
   function closePanel() {
-    panel.classList.remove('edit-panel--open');
+    panel.classList.remove('is-open');
+    overlay.classList.remove('is-visible');
     panel.setAttribute('aria-hidden', 'true');
-    document.body.classList.remove('edit-panel-body-lock');
-    clearFeedback();
-    openBtn && openBtn.focus();
+    document.body.style.overflow = '';
+
+    // Reset preview rotation to saved rotation
+    previewRotation = currentRotation;
+    updateImagePreview();
+    clearStatus();
   }
 
-  // ─── Rotation preview ─────────────────────────────────────────────────────
-  function updateRotationPreview() {
-    if (!previewImg) return;
-    previewImg.style.transform = `rotate(${currentRotation}deg) scaleX(${currentFlip})`;
-    if (rotationLabel) {
-      rotationLabel.textContent = currentFlip === -1
-        ? `${currentRotation}° (flipped)`
-        : `${currentRotation}°`;
+  if (openBtn) openBtn.addEventListener('click', openPanel);
+  if (closeBtn) closeBtn.addEventListener('click', closePanel);
+  if (cancelBtn) cancelBtn.addEventListener('click', closePanel);
+  if (overlay) overlay.addEventListener('click', closePanel);
+
+  // Keyboard close
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && panel.classList.contains('is-open')) {
+      closePanel();
+    }
+  });
+
+  // ─── Rotation Controls ────────────────────────────────────────────────────
+
+  function updateImagePreview() {
+    if (!imagePreview) return;
+
+    let transform = `rotate(${previewRotation}deg)`;
+    if (isFlipped) transform += ' scaleX(-1)';
+    imagePreview.style.transform = transform;
+    imagePreview.style.transition = 'transform 0.3s ease';
+  }
+
+  function updateRotationDisplay() {
+    if (rotationDisplay) {
+      rotationDisplay.textContent = `${previewRotation}°`;
     }
     if (rotationInput) {
-      rotationInput.value = currentRotation;
+      rotationInput.value = previewRotation;
     }
   }
 
-  function handleRotationBtn(action) {
-    switch (action) {
-      case 'cw':
-        currentRotation = (currentRotation + 90) % 360;
-        break;
-      case 'ccw':
-        currentRotation = (currentRotation - 90 + 360) % 360;
-        break;
-      case 'fliph':
-        currentFlip = currentFlip === 1 ? -1 : 1;
-        break;
-      case 'reset':
-        currentRotation = 0;
-        currentFlip = 1;
-        break;
+  document.querySelectorAll('.rotation-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const action = btn.dataset.action;
+
+      if (action === 'cw') {
+        previewRotation = (previewRotation + 90) % 360;
+      } else if (action === 'ccw') {
+        previewRotation = (previewRotation - 90 + 360) % 360;
+      } else if (action === 'flip') {
+        isFlipped = !isFlipped;
+        btn.classList.toggle('is-active', isFlipped);
+      }
+
+      updateImagePreview();
+      updateRotationDisplay();
+    });
+  });
+
+  // ─── Status Messages ──────────────────────────────────────────────────────
+
+  function showStatus(message, type = 'info') {
+    if (!statusEl) return;
+    statusEl.textContent = message;
+    statusEl.className = `edit-status edit-status--${type} is-visible`;
+
+    if (type === 'success') {
+      setTimeout(clearStatus, 4000);
     }
-    updateRotationPreview();
   }
 
-  // ─── Form submission ──────────────────────────────────────────────────────
-  async function handleSubmit(e) {
-    e.preventDefault();
-    if (!imageId) return;
+  function clearStatus() {
+    if (!statusEl) return;
+    statusEl.textContent = '';
+    statusEl.className = 'edit-status';
+  }
 
-    clearFeedback();
-    setSavingState(true);
+  // ─── Form Submission (Save) ───────────────────────────────────────────────
 
-    try {
-      const formData = new FormData(form);
+  if (form) {
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      if (isSaving) return;
 
-      // Build payload
-      const payload = {
-        description: formData.get('description') || '',
-        rotation: currentRotation,
-        manualExif: {
-          caption: formData.get('manualExif[caption]') || '',
-          locationName: formData.get('manualExif[locationName]') || '',
-          dateTaken: formData.get('manualExif[dateTaken]') || '',
-          camera: formData.get('manualExif[camera]') || ''
-        }
+      const saveBtn = document.getElementById('edit-save-btn');
+      isSaving = true;
+      if (saveBtn) {
+        saveBtn.disabled = true;
+        saveBtn.textContent = 'Saving...';
+      }
+      clearStatus();
+
+      const description = document.getElementById('edit-description')?.value || '';
+      const rotation = parseInt(rotationInput?.value || '0', 10);
+
+      const manualExif = {
+        caption: document.getElementById('edit-caption')?.value?.trim() || '',
+        locationName: document.getElementById('edit-location')?.value?.trim() || '',
+        dateTaken: document.getElementById('edit-date-taken')?.value || '',
+        camera: document.getElementById('edit-camera')?.value?.trim() || ''
       };
 
-      const res = await fetch(`/api/images/${imageId}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        },
-        body: JSON.stringify(payload)
+      // Remove empty fields
+      Object.keys(manualExif).forEach(key => {
+        if (!manualExif[key]) delete manualExif[key];
       });
 
-      const data = await res.json();
+      try {
+        const response = await fetch(`/api/images/${imageId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ description, rotation, manualExif })
+        });
 
-      if (!res.ok) {
-        throw new Error(data.error || 'Save failed');
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.error || 'Failed to save changes');
+        }
+
+        // Update current rotation
+        currentRotation = data.rotation || 0;
+        previewRotation = currentRotation;
+
+        // Update page DOM without reload
+        updateDetailPage(data);
+        showStatus('Changes saved successfully!', 'success');
+
+      } catch (err) {
+        console.error('Save error:', err);
+        showStatus(`Error: ${err.message}`, 'error');
+      } finally {
+        isSaving = false;
+        if (saveBtn) {
+          saveBtn.disabled = false;
+          saveBtn.innerHTML = `
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+            Save Changes
+          `;
+        }
       }
+    });
+  }
 
-      // Update page DOM without reload
-      updateDetailPage(data.image);
-      showFeedback('Changes saved successfully!', 'success');
+  // ─── Update Detail Page DOM ───────────────────────────────────────────────
 
-    } catch (err) {
-      console.error('Save error:', err);
-      showFeedback(err.message || 'Failed to save changes. Please try again.', 'error');
-    } finally {
-      setSavingState(false);
+  function updateDetailPage(data) {
+    // Update description display
+    const descriptionEl = document.getElementById('image-description-display');
+    if (descriptionEl) {
+      if (data.description) {
+        descriptionEl.textContent = data.description;
+        descriptionEl.style.display = '';
+      } else {
+        descriptionEl.textContent = '';
+      }
+    }
+
+    // Update page title if filename shown
+    const titleEl = document.querySelector('.image-detail-title');
+    if (titleEl && data.originalName) {
+      // Keep title as is, unless you want to update it
+    }
+
+    // Apply final rotation to image preview
+    updateImagePreview();
+
+    // Update manual EXIF display if present
+    if (data.manualExif) {
+      const captionEl = document.getElementById('exif-caption-display');
+      if (captionEl) captionEl.textContent = data.manualExif.caption || '';
+
+      const locationEl = document.getElementById('exif-location-display');
+      if (locationEl) locationEl.textContent = data.manualExif.locationName || '';
+
+      const dateEl = document.getElementById('exif-date-display');
+      if (dateEl) dateEl.textContent = data.manualExif.dateTaken
+        ? new Date(data.manualExif.dateTaken).toLocaleString()
+        : '';
+
+      const cameraEl = document.getElementById('exif-camera-display');
+      if (cameraEl) cameraEl.textContent = data.manualExif.camera || '';
     }
   }
 
-  // ─── Delete image ─────────────────────────────────────────────────────────
-  async function handleDelete() {
-    if (!imageId) return;
+  // ─── Delete Image ─────────────────────────────────────────────────────────
 
-    const confirmed = window.confirm(
-      'Are you sure you want to delete this image? This action cannot be undone.'
-    );
-    if (!confirmed) return;
+  if (deleteBtn) {
+    deleteBtn.addEventListener('click', async () => {
+      const confirmed = window.confirm(
+        'Are you sure you want to permanently delete this image? This action cannot be undone.'
+      );
+      if (!confirmed) return;
 
-    try {
-      const res = await fetch(`/api/images/${imageId}`, {
-        method: 'DELETE',
-        headers: { 'Accept': 'application/json' }
-      });
+      deleteBtn.disabled = true;
+      deleteBtn.textContent = 'Deleting...';
+      clearStatus();
 
-      const data = await res.json();
+      try {
+        const response = await fetch(`/api/images/${imageId}`, {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' }
+        });
 
-      if (!res.ok) {
-        throw new Error(data.error || 'Delete failed');
+        if (!response.ok) {
+          const data = await response.json();
+          throw new Error(data.error || 'Failed to delete image');
+        }
+
+        showStatus('Image deleted. Redirecting...', 'success');
+        setTimeout(() => {
+          window.location.href = '/gallery';
+        }, 1500);
+
+      } catch (err) {
+        console.error('Delete error:', err);
+        showStatus(`Error: ${err.message}`, 'error');
+        deleteBtn.disabled = false;
+        deleteBtn.innerHTML = `
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+          Delete Image
+        `;
       }
-
-      // Redirect to gallery
-      window.location.href = '/gallery';
-    } catch (err) {
-      console.error('Delete error:', err);
-      showFeedback(err.message || 'Failed to delete image.', 'error');
-    }
+    });
   }
 
-  // ─── Regenerate thumbnails ────────────────────────────────────────────────
-  async function handleRegenThumbs() {
-    if (!imageId) return;
+  // ─── Regenerate Thumbnails ────────────────────────────────────────────────
 
-    if (regenBtn) {
+  if (regenBtn) {
+    regenBtn.addEventListener('click', async () => {
       regenBtn.disabled = true;
-      regenBtn.textContent = 'Regenerating…';
-    }
+      regenBtn.textContent = 'Regenerating...';
+      clearStatus();
 
-    try {
-      const res = await fetch(`/api/images/${imageId}/regenerate-thumbnails`, {
-        method: 'POST',
-        headers: { 'Accept': 'application/json' }
-      });
+      try {
+        const response = await fetch(`/api/images/${imageId}/regenerate-thumbnails`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        });
 
-      const data = await res.json();
+        const data = await response.json();
 
-      if (!res.ok) {
-        throw new Error(data.error || 'Regeneration failed');
-      }
+        if (!response.ok) {
+          throw new Error(data.error || 'Failed to regenerate thumbnails');
+        }
 
-      showFeedback('Thumbnails regenerated successfully!', 'success');
+        showStatus('Thumbnails regenerated successfully!', 'success');
 
-      // Bust thumbnail cache on page by appending timestamp
-      const mainImg = document.querySelector('.image-detail-main img');
-      if (mainImg) {
-        const src = mainImg.src.split('?')[0];
-        mainImg.src = `${src}?t=${Date.now()}`;
-      }
-    } catch (err) {
-      console.error('Regen error:', err);
-      showFeedback(err.message || 'Failed to regenerate thumbnails.', 'error');
-    } finally {
-      if (regenBtn) {
+        // Bust thumbnail cache on page by re-loading images with timestamp
+        document.querySelectorAll('img[src*="thumb_"]').forEach(img => {
+          const src = img.src.split('?')[0];
+          img.src = `${src}?t=${Date.now()}`;
+        });
+
+      } catch (err) {
+        console.error('Regen error:', err);
+        showStatus(`Error: ${err.message}`, 'error');
+      } finally {
         regenBtn.disabled = false;
         regenBtn.innerHTML = `
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-            <path d="M23 4v6h-6"/><path d="M1 20v-6h6"/>
-            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
-          </svg>
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
           Regenerate Thumbnails
         `;
       }
-    }
-  }
-
-  // ─── DOM update helpers ───────────────────────────────────────────────────
-  function updateDetailPage(image) {
-    if (!image) return;
-
-    // Update description
-    const descEl = document.querySelector('.image-detail-description');
-    if (descEl) {
-      descEl.textContent = image.description || '';
-    }
-
-    // Update rotation on main image via CSS (for immediate visual feedback)
-    const mainImgEl = document.querySelector('.image-detail-main img');
-    if (mainImgEl) {
-      mainImgEl.style.transform = `rotate(${image.rotation || 0}deg) scaleX(${currentFlip})`;
-    }
-
-    // Update manual EXIF fields in EXIF table if they exist
-    const captionEl = document.querySelector('[data-exif-field="caption"]');
-    if (captionEl && image.manualExif) {
-      captionEl.textContent = image.manualExif.caption || '';
-    }
-
-    const locationEl = document.querySelector('[data-exif-field="locationName"]');
-    if (locationEl && image.manualExif) {
-      locationEl.textContent = image.manualExif.locationName || '';
-    }
-
-    // Update page title if we have a caption
-    if (image.manualExif && image.manualExif.caption) {
-      const titleEl = document.querySelector('.image-detail-title');
-      if (titleEl) {
-        titleEl.textContent = image.manualExif.caption;
-      }
-    }
-  }
-
-  // ─── Feedback helpers ─────────────────────────────────────────────────────
-  function showFeedback(message, type = 'info') {
-    if (!feedback) return;
-    feedback.textContent = message;
-    feedback.className = `edit-feedback edit-feedback--${type}`;
-    feedback.style.display = 'block';
-
-    if (type === 'success') {
-      setTimeout(clearFeedback, 4000);
-    }
-  }
-
-  function clearFeedback() {
-    if (!feedback) return;
-    feedback.textContent = '';
-    feedback.style.display = 'none';
-    feedback.className = 'edit-feedback';
-  }
-
-  function setSavingState(saving) {
-    if (!saveBtn) return;
-    saveBtn.disabled = saving;
-    if (saving) {
-      saveBtn.innerHTML = `
-        <svg class="spin" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-          <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
-        </svg>
-        Saving…
-      `;
-    } else {
-      saveBtn.innerHTML = `
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-          <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
-          <polyline points="17 21 17 13 7 13 7 21"/>
-          <polyline points="7 3 7 8 15 8"/>
-        </svg>
-        Save Changes
-      `;
-    }
-  }
-
-  // ─── Event bindings ───────────────────────────────────────────────────────
-  function bindEvents() {
-    // Open panel
-    if (openBtn) {
-      openBtn.addEventListener('click', openPanel);
-    }
-
-    // Close panel
-    if (closeBtn) closeBtn.addEventListener('click', closePanel);
-    if (cancelBtn) cancelBtn.addEventListener('click', closePanel);
-    if (backdrop) backdrop.addEventListener('click', closePanel);
-
-    // Keyboard close (Escape)
-    document.addEventListener('keydown', function (e) {
-      if (e.key === 'Escape' && panel.classList.contains('edit-panel--open')) {
-        closePanel();
-      }
     });
-
-    // Rotation buttons
-    const rotBtns = document.querySelectorAll('.rotation-btn');
-    rotBtns.forEach(function (btn) {
-      btn.addEventListener('click', function () {
-        handleRotationBtn(btn.dataset.action);
-      });
-    });
-
-    // Form submit
-    if (form) form.addEventListener('submit', handleSubmit);
-
-    // Delete
-    if (deleteBtn) deleteBtn.addEventListener('click', handleDelete);
-
-    // Regenerate thumbnails
-    if (regenBtn) regenBtn.addEventListener('click', handleRegenThumbs);
   }
 
-  // ─── Boot ─────────────────────────────────────────────────────────────────
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init);
-  } else {
-    init();
-  }
 })();

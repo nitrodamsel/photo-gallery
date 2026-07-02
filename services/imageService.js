@@ -1,15 +1,40 @@
 const path = require('path');
-const fs = require('fs');
-const sharp = require('sharp');
+const fs = require('fs').promises;
 const { Image, Tag, ImageTag, ThumbnailCache } = require('../models');
-const exifService = require('./exifService');
 const thumbnailService = require('./thumbnailService');
+const exifService = require('./exifService');
 
 const UPLOADS_DIR = path.join(__dirname, '..', 'uploads');
 
 /**
- * Delete an image and all associated files/DB records.
- * @param {number} imageId
+ * Get all images with optional filtering
+ */
+async function getAllImages(options = {}) {
+  const { limit = 20, offset = 0, tagId, search } = options;
+
+  const query = {
+    limit,
+    offset,
+    include: [{ model: Tag, through: { attributes: [] } }],
+    order: [['createdAt', 'DESC']]
+  };
+
+  const images = await Image.findAndCountAll(query);
+  return images;
+}
+
+/**
+ * Get a single image by ID with tags
+ */
+async function getImageById(id) {
+  const image = await Image.findByPk(id, {
+    include: [{ model: Tag, through: { attributes: [] } }]
+  });
+  return image;
+}
+
+/**
+ * Delete an image and all associated files and records
  */
 async function deleteImage(imageId) {
   const image = await Image.findByPk(imageId);
@@ -17,26 +42,31 @@ async function deleteImage(imageId) {
     throw new Error(`Image ${imageId} not found`);
   }
 
-  // Delete original file
-  const originalPath = path.join(UPLOADS_DIR, image.filename);
-  if (fs.existsSync(originalPath)) {
-    fs.unlinkSync(originalPath);
+  // Delete main file
+  try {
+    const mainFilePath = path.join(UPLOADS_DIR, image.filename);
+    await fs.unlink(mainFilePath);
+  } catch (err) {
+    if (err.code !== 'ENOENT') {
+      console.error(`Failed to delete main file for image ${imageId}:`, err);
+    }
   }
 
-  // Delete thumbnail files
-  const thumbsDir = path.join(UPLOADS_DIR, 'thumbnails');
-  const baseName = path.parse(image.filename).name;
-  const thumbnailSizes = ['small', 'medium', 'large'];
-
-  for (const size of thumbnailSizes) {
-    const thumbPath = path.join(thumbsDir, `${baseName}-${size}.jpg`);
-    if (fs.existsSync(thumbPath)) {
-      fs.unlinkSync(thumbPath);
+  // Delete thumbnail files from ThumbnailCache
+  try {
+    const thumbnails = await ThumbnailCache.findAll({ where: { imageId } });
+    for (const thumb of thumbnails) {
+      try {
+        const thumbPath = path.join(UPLOADS_DIR, thumb.filename);
+        await fs.unlink(thumbPath);
+      } catch (err) {
+        if (err.code !== 'ENOENT') {
+          console.error(`Failed to delete thumbnail file ${thumb.filename}:`, err);
+        }
+      }
     }
-    const thumbPathWebp = path.join(thumbsDir, `${baseName}-${size}.webp`);
-    if (fs.existsSync(thumbPathWebp)) {
-      fs.unlinkSync(thumbPathWebp);
-    }
+  } catch (err) {
+    console.error(`Failed to clean up thumbnails for image ${imageId}:`, err);
   }
 
   // Delete thumbnail cache records
@@ -50,53 +80,33 @@ async function deleteImage(imageId) {
 }
 
 /**
- * Process and save an uploaded image.
- * @param {object} file - multer file object
- * @param {object} options - additional options
- * @returns {Promise<Image>}
+ * Save an uploaded image with EXIF extraction
  */
-async function processUpload(file, options = {}) {
-  const filename = file.filename;
-  const originalPath = path.join(UPLOADS_DIR, filename);
+async function saveImage(fileData) {
+  const { filename, originalName, mimetype, size, path: filePath } = fileData;
 
-  // Extract EXIF data
   let exifData = {};
-  let metadata = {};
   try {
-    exifData = await exifService.extractExif(originalPath);
-    const sharpMeta = await sharp(originalPath).metadata();
-    metadata = {
-      width: sharpMeta.width,
-      height: sharpMeta.height,
-      format: sharpMeta.format,
-      size: file.size
-    };
+    exifData = await exifService.extractExif(filePath);
   } catch (err) {
-    console.error('Error extracting metadata:', err);
+    console.error('EXIF extraction failed:', err);
   }
 
-  // Generate thumbnails
-  try {
-    await thumbnailService.generateThumbnails(filename, 0);
-  } catch (err) {
-    console.error('Error generating thumbnails:', err);
-  }
-
-  // Create DB record
   const image = await Image.create({
     filename,
-    originalName: file.originalname,
-    mimeType: file.mimetype,
-    size: file.size,
-    width: metadata.width,
-    height: metadata.height,
-    description: options.description || '',
-    exifData,
-    rotation: 0,
-    manualExif: {}
+    originalName,
+    mimetype,
+    size,
+    exifData: JSON.stringify(exifData),
+    rotation: 0
   });
 
   return image;
 }
 
-module.exports = { deleteImage, processUpload };
+module.exports = {
+  getAllImages,
+  getImageById,
+  deleteImage,
+  saveImage
+};

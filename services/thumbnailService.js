@@ -1,111 +1,131 @@
 const path = require('path');
-const fs = require('fs');
+const fs = require('fs').promises;
 const sharp = require('sharp');
 const { ThumbnailCache } = require('../models');
 
 const UPLOADS_DIR = path.join(__dirname, '..', 'uploads');
-const THUMBS_DIR = path.join(UPLOADS_DIR, 'thumbnails');
-
 const THUMBNAIL_SIZES = {
-  small: { width: 150, height: 150 },
+  small: { width: 200, height: 200 },
   medium: { width: 400, height: 400 },
   large: { width: 800, height: 800 }
 };
 
-// Ensure thumbnails directory exists
-if (!fs.existsSync(THUMBS_DIR)) {
-  fs.mkdirSync(THUMBS_DIR, { recursive: true });
+/**
+ * Apply rotation to a sharp instance
+ */
+function applyRotation(sharpInstance, rotation) {
+  const rot = ((parseInt(rotation, 10) || 0) % 360 + 360) % 360;
+  if (rot === 0) return sharpInstance;
+  return sharpInstance.rotate(rot);
 }
 
 /**
- * Convert rotation degrees to Sharp rotation value.
- * @param {number} rotation - 0, 90, 180, 270
- * @returns {number}
+ * Generate a thumbnail for a given image and size
  */
-function getSharpRotation(rotation) {
-  const validRotations = [0, 90, 180, 270];
-  if (!validRotations.includes(rotation)) return 0;
-  return rotation;
-}
-
-/**
- * Generate all thumbnail sizes for an image with optional rotation.
- * @param {string} filename
- * @param {number} rotation - 0, 90, 180, 270
- * @returns {Promise<object>} - paths to generated thumbnails
- */
-async function generateThumbnails(filename, rotation = 0) {
-  const originalPath = path.join(UPLOADS_DIR, filename);
-
-  if (!fs.existsSync(originalPath)) {
-    throw new Error(`Original file not found: ${originalPath}`);
+async function generateThumbnail(image, sizeName, uploadDir) {
+  const dir = uploadDir || UPLOADS_DIR;
+  const sizeConfig = THUMBNAIL_SIZES[sizeName];
+  if (!sizeConfig) {
+    throw new Error(`Unknown thumbnail size: ${sizeName}`);
   }
 
-  const baseName = path.parse(filename).name;
+  const sourcePath = path.join(dir, image.filename);
+  const rotation = image.rotation || 0;
+  const thumbFilename = `thumb_${sizeName}_${image.filename}`;
+  const thumbPath = path.join(dir, thumbFilename);
+
+  let pipeline = sharp(sourcePath);
+  pipeline = applyRotation(pipeline, rotation);
+  pipeline = pipeline
+    .resize(sizeConfig.width, sizeConfig.height, { fit: 'cover', position: 'center' })
+    .jpeg({ quality: 85 });
+
+  await pipeline.toFile(thumbPath);
+
+  // Upsert thumbnail cache record
+  const [thumbRecord] = await ThumbnailCache.findOrCreate({
+    where: { imageId: image.id, size: sizeName },
+    defaults: {
+      imageId: image.id,
+      size: sizeName,
+      filename: thumbFilename,
+      width: sizeConfig.width,
+      height: sizeConfig.height
+    }
+  });
+
+  if (thumbRecord.filename !== thumbFilename) {
+    await thumbRecord.update({ filename: thumbFilename });
+  }
+
+  return thumbRecord;
+}
+
+/**
+ * Generate all thumbnail sizes for an image
+ */
+async function generateAllThumbnails(image, uploadDir) {
   const results = {};
-  const sharpRotation = getSharpRotation(rotation);
-
-  for (const [size, dimensions] of Object.entries(THUMBNAIL_SIZES)) {
-    const thumbFilename = `${baseName}-${size}.jpg`;
-    const thumbPath = path.join(THUMBS_DIR, thumbFilename);
-
-    let pipeline = sharp(originalPath);
-
-    // Apply rotation if needed (non-destructive — only applied to thumbnail)
-    if (sharpRotation !== 0) {
-      pipeline = pipeline.rotate(sharpRotation);
-    }
-
-    await pipeline
-      .resize(dimensions.width, dimensions.height, {
-        fit: 'cover',
-        position: 'center'
-      })
-      .jpeg({ quality: 85, progressive: true })
-      .toFile(thumbPath);
-
-    results[size] = thumbFilename;
-
-    // Update cache record
+  for (const sizeName of Object.keys(THUMBNAIL_SIZES)) {
     try {
-      const image = await require('../models').Image.findOne({ where: { filename } });
-      if (image) {
-        await ThumbnailCache.upsert({
-          imageId: image.id,
-          size,
-          filename: thumbFilename,
-          width: dimensions.width,
-          height: dimensions.height
-        });
-      }
+      results[sizeName] = await generateThumbnail(image, sizeName, uploadDir);
     } catch (err) {
-      console.error('Error updating thumbnail cache:', err);
+      console.error(`Failed to generate ${sizeName} thumbnail for image ${image.id}:`, err);
     }
   }
-
   return results;
 }
 
 /**
- * Get thumbnail path for a given image filename and size.
- * @param {string} filename
- * @param {string} size - small, medium, large
- * @returns {string}
+ * Regenerate all thumbnails (e.g., after rotation change or server move)
  */
-function getThumbnailPath(filename, size = 'medium') {
-  const baseName = path.parse(filename).name;
-  return path.join(THUMBS_DIR, `${baseName}-${size}.jpg`);
+async function regenerateThumbnails(image, uploadDir) {
+  const dir = uploadDir || UPLOADS_DIR;
+
+  // Delete existing thumbnail files
+  for (const sizeName of Object.keys(THUMBNAIL_SIZES)) {
+    const thumbFilename = `thumb_${sizeName}_${image.filename}`;
+    const thumbPath = path.join(dir, thumbFilename);
+    try {
+      await fs.unlink(thumbPath);
+    } catch (err) {
+      if (err.code !== 'ENOENT') {
+        console.error(`Failed to delete old thumbnail ${thumbFilename}:`, err);
+      }
+    }
+  }
+
+  // Regenerate
+  return await generateAllThumbnails(image, dir);
 }
 
 /**
- * Check if thumbnails exist for an image.
- * @param {string} filename
- * @returns {boolean}
+ * Get thumbnail URL for an image at a given size
  */
-function thumbnailsExist(filename) {
-  return Object.keys(THUMBNAIL_SIZES).every(size => {
-    return fs.existsSync(getThumbnailPath(filename, size));
-  });
+function getThumbnailUrl(image, sizeName) {
+  const thumbFilename = `thumb_${sizeName}_${image.filename}`;
+  return `/uploads/${thumbFilename}`;
 }
 
-module.exports = { generateThumbnails, getThumbnailPath, thumbnailsExist, THUMBNAIL_SIZES };
+/**
+ * Serve an image with rotation applied (for full-size serving)
+ */
+async function serveRotatedImage(image, outputStream, uploadDir) {
+  const dir = uploadDir || UPLOADS_DIR;
+  const sourcePath = path.join(dir, image.filename);
+  const rotation = image.rotation || 0;
+
+  let pipeline = sharp(sourcePath);
+  pipeline = applyRotation(pipeline, rotation);
+
+  await pipeline.pipe(outputStream);
+}
+
+module.exports = {
+  generateThumbnail,
+  generateAllThumbnails,
+  regenerateThumbnails,
+  getThumbnailUrl,
+  serveRotatedImage,
+  THUMBNAIL_SIZES
+};
