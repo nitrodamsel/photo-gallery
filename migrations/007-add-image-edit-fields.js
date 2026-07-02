@@ -2,25 +2,29 @@
 
 module.exports = {
   up: async (queryInterface, Sequelize) => {
-    const tableDescription = await queryInterface.describeTable('Images');
+    const tableDescription = await queryInterface.describeTable('images');
 
+    // Add rotation field
     if (!tableDescription.rotation) {
-      await queryInterface.addColumn('Images', 'rotation', {
+      await queryInterface.addColumn('images', 'rotation', {
         type: Sequelize.INTEGER,
-        defaultValue: 0,
-        allowNull: false
+        allowNull: false,
+        defaultValue: 0
       });
     }
 
+    // Add manualExif field
     if (!tableDescription.manualExif) {
-      await queryInterface.addColumn('Images', 'manualExif', {
-        type: Sequelize.TEXT,
-        allowNull: true
+      await queryInterface.addColumn('images', 'manualExif', {
+        type: Sequelize.JSON,
+        allowNull: true,
+        defaultValue: {}
       });
     }
 
+    // Add description field if not already present
     if (!tableDescription.description) {
-      await queryInterface.addColumn('Images', 'description', {
+      await queryInterface.addColumn('images', 'description', {
         type: Sequelize.TEXT,
         allowNull: true
       });
@@ -28,16 +32,14 @@ module.exports = {
   },
 
   down: async (queryInterface, Sequelize) => {
-    const tableDescription = await queryInterface.describeTable('Images');
+    const tableDescription = await queryInterface.describeTable('images');
 
     if (tableDescription.rotation) {
-      await queryInterface.removeColumn('Images', 'rotation');
+      await queryInterface.removeColumn('images', 'rotation');
     }
+
     if (tableDescription.manualExif) {
-      await queryInterface.removeColumn('Images', 'manualExif');
-    }
-    if (tableDescription.description) {
-      await queryInterface.removeColumn('Images', 'description');
+      await queryInterface.removeColumn('images', 'manualExif');
     }
   }
 };

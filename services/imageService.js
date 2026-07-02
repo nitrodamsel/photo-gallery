@@ -1,112 +1,74 @@
 const path = require('path');
-const fs = require('fs').promises;
-const { Image, Tag, ImageTag, ThumbnailCache } = require('../models');
-const thumbnailService = require('./thumbnailService');
-const exifService = require('./exifService');
+const fs = require('fs');
+const Image = require('../models/Image');
+const ImageTag = require('../models/ImageTag');
+const ThumbnailCache = require('../models/ThumbnailCache');
 
 const UPLOADS_DIR = path.join(__dirname, '..', 'uploads');
 
 /**
- * Get all images with optional filtering
- */
-async function getAllImages(options = {}) {
-  const { limit = 20, offset = 0, tagId, search } = options;
-
-  const query = {
-    limit,
-    offset,
-    include: [{ model: Tag, through: { attributes: [] } }],
-    order: [['createdAt', 'DESC']]
-  };
-
-  const images = await Image.findAndCountAll(query);
-  return images;
-}
-
-/**
- * Get a single image by ID with tags
- */
-async function getImageById(id) {
-  const image = await Image.findByPk(id, {
-    include: [{ model: Tag, through: { attributes: [] } }]
-  });
-  return image;
-}
-
-/**
- * Delete an image and all associated files and records
+ * Delete an image and all associated files and DB records
  */
 async function deleteImage(imageId) {
   const image = await Image.findByPk(imageId);
-  if (!image) {
-    throw new Error(`Image ${imageId} not found`);
-  }
+  if (!image) throw new Error(`Image with id ${imageId} not found`);
 
-  // Delete main file
-  try {
-    const mainFilePath = path.join(UPLOADS_DIR, image.filename);
-    await fs.unlink(mainFilePath);
-  } catch (err) {
-    if (err.code !== 'ENOENT') {
-      console.error(`Failed to delete main file for image ${imageId}:`, err);
-    }
-  }
-
-  // Delete thumbnail files from ThumbnailCache
-  try {
-    const thumbnails = await ThumbnailCache.findAll({ where: { imageId } });
-    for (const thumb of thumbnails) {
+  // Delete thumbnails from disk
+  const thumbnailCaches = await ThumbnailCache.findAll({ where: { imageId } });
+  for (const cache of thumbnailCaches) {
+    if (fs.existsSync(cache.thumbnailPath)) {
       try {
-        const thumbPath = path.join(UPLOADS_DIR, thumb.filename);
-        await fs.unlink(thumbPath);
-      } catch (err) {
-        if (err.code !== 'ENOENT') {
-          console.error(`Failed to delete thumbnail file ${thumb.filename}:`, err);
-        }
+        fs.unlinkSync(cache.thumbnailPath);
+      } catch (e) {
+        console.warn(`Could not delete thumbnail file: ${cache.thumbnailPath}`, e);
       }
     }
-  } catch (err) {
-    console.error(`Failed to clean up thumbnails for image ${imageId}:`, err);
+    await cache.destroy();
   }
 
-  // Delete thumbnail cache records
-  await ThumbnailCache.destroy({ where: { imageId } });
+  // Delete original file
+  const filePath = path.join(UPLOADS_DIR, image.filename);
+  if (fs.existsSync(filePath)) {
+    try {
+      fs.unlinkSync(filePath);
+    } catch (e) {
+      console.warn(`Could not delete original file: ${filePath}`, e);
+    }
+  }
 
-  // Delete image-tag associations
+  // Delete image tags
   await ImageTag.destroy({ where: { imageId } });
 
-  // Delete the image record
+  // Delete image record
   await image.destroy();
+
+  return true;
 }
 
 /**
- * Save an uploaded image with EXIF extraction
+ * Get image with all associated tags
  */
-async function saveImage(fileData) {
-  const { filename, originalName, mimetype, size, path: filePath } = fileData;
-
-  let exifData = {};
-  try {
-    exifData = await exifService.extractExif(filePath);
-  } catch (err) {
-    console.error('EXIF extraction failed:', err);
-  }
-
-  const image = await Image.create({
-    filename,
-    originalName,
-    mimetype,
-    size,
-    exifData: JSON.stringify(exifData),
-    rotation: 0
+async function getImageWithTags(imageId) {
+  const Tag = require('../models/Tag');
+  const image = await Image.findByPk(imageId, {
+    include: [{ model: Tag, through: ImageTag }]
   });
-
   return image;
 }
 
+/**
+ * Update image metadata
+ */
+async function updateImage(imageId, updates) {
+  const image = await Image.findByPk(imageId);
+  if (!image) throw new Error(`Image with id ${imageId} not found`);
+
+  await image.update(updates);
+  return image.reload();
+}
+
 module.exports = {
-  getAllImages,
-  getImageById,
   deleteImage,
-  saveImage
+  getImageWithTags,
+  updateImage
 };

@@ -1,86 +1,88 @@
 <%- include('layouts/base', { title: 'Gallery', body: `
-<div class="gallery-page">
 
-  <!-- Gallery Header -->
-  <div class="gallery-header">
-    <div class="gallery-header-left">
-      <h1 class="gallery-title">Gallery</h1>
-      <span class="gallery-count">${totalCount || 0} images</span>
+<section class="section">
+  <div class="container">
+
+    <!-- Page Header -->
+    <div class="level">
+      <div class="level-left">
+        <div class="level-item">
+          <h1 class="title">Gallery</h1>
+        </div>
+      </div>
+      <div class="level-right">
+        <div class="level-item">
+          <button id="bulk-select-toggle" class="button is-info" type="button">
+            <span class="icon"><i class="fas fa-check-square"></i></span>
+            <span>Select Multiple</span>
+          </button>
+        </div>
+        <div class="level-item">
+          <a href="/upload" class="button is-primary">
+            <span class="icon"><i class="fas fa-upload"></i></span>
+            <span>Upload</span>
+          </a>
+        </div>
+      </div>
     </div>
-    <div class="gallery-header-right">
-      <button id="bulk-select-toggle-btn" class="btn btn-secondary btn-sm">
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><polyline points="9 11 12 14 22 4"/></svg>
-        Select Images
-      </button>
-      <a href="/upload" class="btn btn-primary btn-sm">
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-        Upload
-      </a>
+
+    <!-- Bulk Action Bar (hidden by default) -->
+    <div id="bulk-action-bar" class="notification is-warning is-hidden bulk-action-bar">
+      <div class="level">
+        <div class="level-left">
+          <div class="level-item">
+            <strong><span id="bulk-selected-count">0</span> image(s) selected</strong>
+          </div>
+        </div>
+        <div class="level-right">
+          <div class="level-item">
+            <div class="buttons">
+              <button id="bulk-add-tag-btn" class="button is-success is-small" type="button">
+                <span class="icon"><i class="fas fa-tag"></i></span>
+                <span>Add Tag</span>
+              </button>
+              <button id="bulk-remove-tag-btn" class="button is-warning is-small" type="button">
+                <span class="icon"><i class="fas fa-tag"></i></span>
+                <span>Remove Tag</span>
+              </button>
+              <button id="bulk-delete-btn" class="button is-danger is-small" type="button">
+                <span class="icon"><i class="fas fa-trash"></i></span>
+                <span>Delete Selected</span>
+              </button>
+              <button id="bulk-cancel-btn" class="button is-light is-small" type="button">
+                <span class="icon"><i class="fas fa-times"></i></span>
+                <span>Cancel</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
-  </div>
 
-  <!-- Filter Panel -->
-  <%- include('partials/filter-panel') %>
+    <!-- Filter Panel -->
+    <%- include('partials/filter-panel') %>
 
-  <!-- Bulk Action Bar -->
-  <div id="bulk-action-bar" class="bulk-action-bar" aria-live="polite">
-    <div class="bulk-action-bar-inner">
-      <span id="bulk-selected-count" class="bulk-count">0 images selected</span>
-      <div class="bulk-actions">
-        <button id="bulk-select-all-btn" class="btn btn-secondary btn-sm">Select All</button>
-        <button id="bulk-clear-selection-btn" class="btn btn-secondary btn-sm">Clear</button>
-        <button id="bulk-add-tag-btn" class="btn btn-primary btn-sm">
-          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
-          Add Tag
-        </button>
-        <button id="bulk-remove-tag-btn" class="btn btn-secondary btn-sm">
-          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-          Remove Tag
-        </button>
-        <button id="bulk-delete-btn" class="btn btn-danger btn-sm">
-          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
-          Delete
-        </button>
+    <!-- Image Grid -->
+    <% if (images && images.length > 0) { %>
+      <div class="columns is-multiline">
+        <% images.forEach(image => { %>
+          <div class="column is-3-desktop is-4-tablet is-6-mobile">
+            <%- include('partials/image-card', { image }) %>
+          </div>
+        <% }) %>
       </div>
 
-      <!-- Tag Input -->
-      <div id="bulk-tag-input-container" class="bulk-tag-input-container" style="display:none">
-        <input
-          type="text"
-          id="bulk-tag-input"
-          class="bulk-tag-input"
-          placeholder="Enter tag name..."
-          autocomplete="off"
-        >
-        <button id="bulk-tag-confirm-btn" class="btn btn-primary btn-sm">Apply</button>
-        <button id="bulk-tag-cancel-btn" class="btn btn-secondary btn-sm">Cancel</button>
+      <!-- Pagination -->
+      <%- include('partials/pagination', { pagination: pagination || {} }) %>
+
+    <% } else { %>
+      <div class="has-text-centered py-6">
+        <p class="title is-4 has-text-grey-light">No images found</p>
+        <p class="subtitle has-text-grey-light">Try adjusting your filters or <a href="/upload">upload some images</a>.</p>
       </div>
+    <% } %>
 
-      <div id="bulk-status" class="bulk-status"></div>
-    </div>
   </div>
+</section>
 
-  <!-- Image Grid -->
-  <% if (images && images.length > 0) { %>
-  <div class="image-grid" id="image-grid">
-    <% images.forEach(image => { %>
-      <%- include('partials/image-card', { image }) %>
-    <% }) %>
-  </div>
-
-  <!-- Pagination -->
-  <%- include('partials/pagination', { currentPage, totalPages, baseUrl: '/gallery' }) %>
-
-  <% } else { %>
-  <div class="empty-state">
-    <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-    <h2>No images yet</h2>
-    <p>Upload some images to get started.</p>
-    <a href="/upload" class="btn btn-primary">Upload Images</a>
-  </div>
-  <% } %>
-
-</div>
-
-<script src="/js/bulkSelect.js"></script>
 ` }) %>
