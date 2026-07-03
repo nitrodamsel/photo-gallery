@@ -1,310 +1,342 @@
 /**
- * Bulk Selection Mode for Gallery
- * Handles checkbox selection, floating action bar, and bulk API requests
+ * bulkSelect.js — Gallery selection mode for bulk operations
+ * Adds checkboxes to image cards, tracks selection, shows floating action bar
  */
 
 (function () {
   'use strict';
 
+  // --- State ---
   const selectedIds = new Set();
-  let bulkModeActive = false;
+  let selectionModeActive = false;
 
-  // DOM references
-  let toggleBtn = null;
-  let actionBar = null;
-  let actionBarCount = null;
-  let cards = [];
+  // --- DOM Elements ---
+  const galleryGrid = document.getElementById('gallery-grid');
+  const toggleBtn = document.getElementById('btn-bulk-select');
+  const actionBar = document.getElementById('bulk-action-bar');
+  const countEl = document.getElementById('bulk-selected-count');
+  const btnAddTag = document.getElementById('bulk-btn-add-tag');
+  const btnRemoveTag = document.getElementById('bulk-btn-remove-tag');
+  const btnDelete = document.getElementById('bulk-btn-delete');
+  const btnCancelBulk = document.getElementById('bulk-btn-cancel');
+  const selectAllBtn = document.getElementById('bulk-btn-select-all');
+  const deselectAllBtn = document.getElementById('bulk-btn-deselect-all');
 
-  function init() {
-    toggleBtn = document.getElementById('bulk-select-toggle');
-    actionBar = document.getElementById('bulk-action-bar');
-    actionBarCount = document.getElementById('bulk-selected-count');
+  if (!galleryGrid || !toggleBtn) return; // Not on gallery page
 
-    if (!toggleBtn || !actionBar) return;
-
-    toggleBtn.addEventListener('click', toggleBulkMode);
-
-    // Action bar buttons
-    const addTagBtn = document.getElementById('bulk-add-tag');
-    const removeTagBtn = document.getElementById('bulk-remove-tag');
-    const deleteBtn = document.getElementById('bulk-delete');
-    const cancelBtn = document.getElementById('bulk-cancel');
-
-    if (addTagBtn) addTagBtn.addEventListener('click', handleAddTag);
-    if (removeTagBtn) removeTagBtn.addEventListener('click', handleRemoveTag);
-    if (deleteBtn) deleteBtn.addEventListener('click', handleDelete);
-    if (cancelBtn) cancelBtn.addEventListener('click', exitBulkMode);
+  // --- Enable/Disable Selection Mode ---
+  function enableSelectionMode() {
+    selectionModeActive = true;
+    toggleBtn.classList.add('active');
+    toggleBtn.textContent = 'Cancel Selection';
+    galleryGrid.classList.add('bulk-select-mode');
+    addCheckboxesToCards();
+    updateActionBar();
   }
 
-  function toggleBulkMode() {
-    if (bulkModeActive) {
-      exitBulkMode();
-    } else {
-      enterBulkMode();
-    }
-  }
-
-  function enterBulkMode() {
-    bulkModeActive = true;
+  function disableSelectionMode() {
+    selectionModeActive = false;
+    toggleBtn.classList.remove('active');
+    toggleBtn.textContent = 'Select Multiple';
+    galleryGrid.classList.remove('bulk-select-mode');
+    removeCheckboxesFromCards();
     selectedIds.clear();
+    hideActionBar();
+  }
 
-    toggleBtn.textContent = 'Exit Selection';
-    toggleBtn.classList.add('is-warning');
-    toggleBtn.classList.remove('is-light');
-
-    // Get all image cards
-    cards = Array.from(document.querySelectorAll('.image-card'));
-
+  // --- Checkboxes ---
+  function addCheckboxesToCards() {
+    const cards = galleryGrid.querySelectorAll('.image-card[data-image-id]');
     cards.forEach(card => {
-      const imageId = card.dataset.imageId;
-      if (!imageId) return;
+      if (card.querySelector('.bulk-checkbox-wrap')) return;
 
-      // Add checkbox overlay
-      const overlay = document.createElement('div');
-      overlay.className = 'bulk-checkbox-overlay';
+      const imageId = card.dataset.imageId;
+      const wrap = document.createElement('div');
+      wrap.className = 'bulk-checkbox-wrap';
 
       const checkbox = document.createElement('input');
       checkbox.type = 'checkbox';
       checkbox.className = 'bulk-checkbox';
       checkbox.dataset.imageId = imageId;
-      checkbox.addEventListener('change', () => handleCheckboxChange(checkbox, imageId));
+      checkbox.setAttribute('aria-label', `Select image ${imageId}`);
+      checkbox.checked = selectedIds.has(imageId);
 
-      overlay.appendChild(checkbox);
-      card.style.position = 'relative';
-      card.appendChild(overlay);
+      checkbox.addEventListener('change', () => handleCheckboxChange(checkbox, card));
 
-      // Make whole card clickable in bulk mode
+      wrap.appendChild(checkbox);
+      card.appendChild(wrap);
+
+      // Make card clickable for selection in bulk mode
       card.addEventListener('click', handleCardClick);
-      card.classList.add('bulk-selectable');
     });
-
-    updateActionBar();
   }
 
-  function exitBulkMode() {
-    bulkModeActive = false;
-    selectedIds.clear();
-
-    toggleBtn.textContent = 'Select Images';
-    toggleBtn.classList.remove('is-warning');
-    toggleBtn.classList.add('is-light');
-
-    // Remove checkboxes and overlays
-    document.querySelectorAll('.bulk-checkbox-overlay').forEach(el => el.remove());
-
-    cards.forEach(card => {
+  function removeCheckboxesFromCards() {
+    galleryGrid.querySelectorAll('.bulk-checkbox-wrap').forEach(el => el.remove());
+    galleryGrid.querySelectorAll('.image-card').forEach(card => {
+      card.classList.remove('bulk-selected');
       card.removeEventListener('click', handleCardClick);
-      card.classList.remove('bulk-selectable', 'bulk-selected');
     });
-
-    cards = [];
-    actionBar.classList.add('is-hidden');
   }
 
   function handleCardClick(e) {
-    // Don't interfere with actual links unless in bulk mode
-    if (!bulkModeActive) return;
-
-    // Prevent navigation to image detail
-    const link = e.target.closest('a');
-    if (link && !e.target.classList.contains('bulk-checkbox')) {
-      e.preventDefault();
-    }
+    if (!selectionModeActive) return;
+    // Don't trigger if clicking checkbox directly or anchor links
+    if (e.target.closest('.bulk-checkbox-wrap') || e.target.tagName === 'A') return;
+    e.preventDefault();
 
     const card = e.currentTarget;
-    const imageId = card.dataset.imageId;
-    if (!imageId) return;
-
     const checkbox = card.querySelector('.bulk-checkbox');
-    if (checkbox && e.target !== checkbox) {
+    if (checkbox) {
       checkbox.checked = !checkbox.checked;
-      handleCheckboxChange(checkbox, imageId);
+      handleCheckboxChange(checkbox, card);
     }
   }
 
-  function handleCheckboxChange(checkbox, imageId) {
+  function handleCheckboxChange(checkbox, card) {
+    const imageId = checkbox.dataset.imageId;
     if (checkbox.checked) {
       selectedIds.add(imageId);
-      checkbox.closest('.image-card').classList.add('bulk-selected');
+      card.classList.add('bulk-selected');
     } else {
       selectedIds.delete(imageId);
-      checkbox.closest('.image-card').classList.remove('bulk-selected');
+      card.classList.remove('bulk-selected');
     }
     updateActionBar();
   }
 
+  // --- Action Bar ---
   function updateActionBar() {
+    if (!actionBar) return;
     const count = selectedIds.size;
+    if (countEl) countEl.textContent = count;
 
     if (count > 0) {
-      actionBar.classList.remove('is-hidden');
-      if (actionBarCount) {
-        actionBarCount.textContent = `${count} image${count !== 1 ? 's' : ''} selected`;
-      }
+      showActionBar();
     } else {
-      actionBar.classList.add('is-hidden');
+      hideActionBar();
     }
   }
 
-  async function handleAddTag() {
-    if (selectedIds.size === 0) return;
+  function showActionBar() {
+    if (!actionBar) return;
+    actionBar.classList.add('bulk-action-bar--visible');
+    actionBar.setAttribute('aria-hidden', 'false');
+  }
 
-    const tagName = prompt('Enter tag name to add:');
+  function hideActionBar() {
+    if (!actionBar) return;
+    actionBar.classList.remove('bulk-action-bar--visible');
+    actionBar.setAttribute('aria-hidden', 'true');
+  }
+
+  // --- Bulk API Call ---
+  async function bulkRequest(action, payload = {}) {
+    const imageIds = Array.from(selectedIds).map(id => parseInt(id, 10));
+    if (imageIds.length === 0) return;
+
+    try {
+      const response = await fetch('/api/images/bulk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ imageIds, action, payload })
+      });
+
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || `Server error ${response.status}`);
+      return data;
+    } catch (err) {
+      throw err;
+    }
+  }
+
+  // --- Action Handlers ---
+  async function handleAddTag() {
+    const tagName = prompt('Enter tag name to add to selected images:');
     if (!tagName || !tagName.trim()) return;
 
     try {
-      const result = await bulkRequest({
-        imageIds: Array.from(selectedIds).map(Number),
-        action: 'addTag',
-        payload: { tagName: tagName.trim() }
-      });
+      showLoadingState('Adding tag…');
+      const result = await bulkRequest('addTag', { tagName: tagName.trim() });
+      const { succeeded, failed } = result.result;
+      showBulkResult(succeeded, failed, 'tag added');
 
-      showNotification(
-        `Tag "${tagName}" added to ${result.succeeded.length} image(s)` +
-        (result.failed.length ? `. ${result.failed.length} failed.` : ''),
-        result.failed.length ? 'is-warning' : 'is-success'
-      );
+      // Update card tags in DOM for succeeded images
+      succeeded.forEach(imageId => {
+        const card = galleryGrid.querySelector(`.image-card[data-image-id="${imageId}"]`);
+        if (card) {
+          addTagToCard(card, tagName.trim(), result.result.tagId);
+        }
+      });
     } catch (err) {
-      showNotification(`Error: ${err.message}`, 'is-danger');
+      alert(`Failed to add tag: ${err.message}`);
+    } finally {
+      clearLoadingState();
     }
   }
 
   async function handleRemoveTag() {
-    if (selectedIds.size === 0) return;
-
-    const tagInput = prompt('Enter tag ID or name to remove:');
-    if (!tagInput || !tagInput.trim()) return;
-
-    // If numeric, treat as ID; otherwise try to find by name
-    let tagId = null;
-    if (/^\d+$/.test(tagInput.trim())) {
-      tagId = parseInt(tagInput.trim(), 10);
-    } else {
-      // Try to find tag by name via API
-      try {
-        const resp = await fetch(`/api/tags?name=${encodeURIComponent(tagInput.trim())}`);
-        if (resp.ok) {
-          const data = await resp.json();
-          if (data && data.id) tagId = data.id;
-          else if (Array.isArray(data) && data.length > 0) tagId = data[0].id;
-        }
-      } catch (e) {
-        // ignore
-      }
-    }
-
-    if (!tagId) {
-      showNotification('Could not find tag. Please use the tag ID number.', 'is-warning');
-      return;
-    }
+    const tagName = prompt('Enter tag name to remove from selected images:');
+    if (!tagName || !tagName.trim()) return;
 
     try {
-      const result = await bulkRequest({
-        imageIds: Array.from(selectedIds).map(Number),
-        action: 'removeTag',
-        payload: { tagId }
-      });
+      showLoadingState('Removing tag…');
+      const result = await bulkRequest('removeTag', { tagName: tagName.trim() });
+      const { succeeded, failed } = result.result;
+      showBulkResult(succeeded, failed, 'tag removed');
 
-      showNotification(
-        `Tag removed from ${result.succeeded.length} image(s)` +
-        (result.failed.length ? `. ${result.failed.length} failed.` : ''),
-        result.failed.length ? 'is-warning' : 'is-success'
-      );
+      // Remove tag badges from cards
+      succeeded.forEach(imageId => {
+        const card = galleryGrid.querySelector(`.image-card[data-image-id="${imageId}"]`);
+        if (card) removeTagFromCard(card, tagName.trim());
+      });
     } catch (err) {
-      showNotification(`Error: ${err.message}`, 'is-danger');
+      alert(`Failed to remove tag: ${err.message}`);
+    } finally {
+      clearLoadingState();
     }
   }
 
   async function handleDelete() {
-    if (selectedIds.size === 0) return;
-
     const count = selectedIds.size;
-    if (!confirm(`Are you sure you want to delete ${count} image${count !== 1 ? 's' : ''}? This cannot be undone.`)) {
-      return;
-    }
+    if (!confirm(`Are you sure you want to delete ${count} image${count !== 1 ? 's' : ''}? This cannot be undone.`)) return;
 
     try {
-      const idsToDelete = Array.from(selectedIds).map(Number);
-      const result = await bulkRequest({
-        imageIds: idsToDelete,
-        action: 'delete'
-      });
+      showLoadingState('Deleting…');
+      const result = await bulkRequest('delete');
+      const { succeeded, failed } = result.result;
 
       // Remove deleted cards from DOM
-      result.succeeded.forEach(id => {
-        const card = document.querySelector(`.image-card[data-image-id="${id}"]`);
+      succeeded.forEach(imageId => {
+        const card = galleryGrid.querySelector(`.image-card[data-image-id="${imageId}"]`);
         if (card) {
-          // Remove parent column wrapper if present
-          const col = card.closest('.column');
-          if (col) col.remove();
-          else card.remove();
+          card.style.opacity = '0';
+          card.style.transform = 'scale(0.9)';
+          card.style.transition = 'opacity 0.3s, transform 0.3s';
+          setTimeout(() => card.remove(), 300);
+          selectedIds.delete(String(imageId));
         }
-        selectedIds.delete(String(id));
       });
 
-      showNotification(
-        `${result.succeeded.length} image${result.succeeded.length !== 1 ? 's' : ''} deleted` +
-        (result.failed.length ? `. ${result.failed.length} failed.` : ''),
-        result.failed.length ? 'is-warning' : 'is-success'
-      );
+      if (failed.length > 0) {
+        alert(`Deleted ${succeeded.length} images. Failed to delete ${failed.length} images.`);
+      }
 
       updateActionBar();
-
-      // If no more images, show empty state
-      const remainingCards = document.querySelectorAll('.image-card');
-      if (remainingCards.length === 0) {
-        const gallery = document.getElementById('gallery-grid');
-        if (gallery) {
-          gallery.innerHTML = '<div class="column is-full"><p class="has-text-centered has-text-grey">No images found.</p></div>';
-        }
-        exitBulkMode();
-      }
     } catch (err) {
-      showNotification(`Error: ${err.message}`, 'is-danger');
+      alert(`Failed to delete: ${err.message}`);
+    } finally {
+      clearLoadingState();
     }
   }
 
-  async function bulkRequest(body) {
-    const response = await fetch('/api/images/bulk', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body)
-    });
+  // --- Card Tag DOM Helpers ---
+  function addTagToCard(card, tagName, tagId) {
+    let tagList = card.querySelector('.card-tags');
+    if (!tagList) return;
 
-    const data = await response.json();
+    // Check if tag already exists
+    const existing = tagList.querySelector(`[data-tag-name="${tagName}"]`);
+    if (existing) return;
 
-    if (!response.ok) {
-      throw new Error(data.error || 'Bulk request failed');
-    }
-
-    return data;
+    const tagEl = document.createElement('a');
+    tagEl.className = 'card-tag';
+    tagEl.href = `/gallery?tag=${encodeURIComponent(tagName)}`;
+    tagEl.dataset.tagName = tagName;
+    tagEl.textContent = tagName;
+    tagList.appendChild(tagEl);
   }
 
-  function showNotification(message, type = 'is-info') {
-    // Remove existing notifications
-    document.querySelectorAll('.bulk-notification').forEach(el => el.remove());
+  function removeTagFromCard(card, tagName) {
+    const tagEl = card.querySelector(`[data-tag-name="${tagName}"]`);
+    if (tagEl) tagEl.remove();
+  }
 
+  // --- UI Feedback ---
+  function showLoadingState(message) {
+    if (btnAddTag) btnAddTag.disabled = true;
+    if (btnRemoveTag) btnRemoveTag.disabled = true;
+    if (btnDelete) btnDelete.disabled = true;
+
+    const statusEl = document.getElementById('bulk-status');
+    if (statusEl) {
+      statusEl.textContent = message;
+      statusEl.style.display = 'block';
+    }
+  }
+
+  function clearLoadingState() {
+    if (btnAddTag) btnAddTag.disabled = false;
+    if (btnRemoveTag) btnRemoveTag.disabled = false;
+    if (btnDelete) btnDelete.disabled = false;
+
+    const statusEl = document.getElementById('bulk-status');
+    if (statusEl) statusEl.style.display = 'none';
+  }
+
+  function showBulkResult(succeeded, failed, action) {
+    let message = `${succeeded.length} image${succeeded.length !== 1 ? 's' : ''} had ${action} successfully.`;
+    if (failed.length > 0) {
+      message += ` ${failed.length} failed.`;
+    }
+    // Show temporary notification
     const notification = document.createElement('div');
-    notification.className = `notification ${type} bulk-notification`;
-    notification.style.cssText = 'position: fixed; top: 1rem; right: 1rem; z-index: 9999; max-width: 400px; animation: fadeIn 0.3s ease;';
-    notification.innerHTML = `
-      <button class="delete"></button>
-      ${message}
-    `;
-
-    notification.querySelector('.delete').addEventListener('click', () => notification.remove());
+    notification.className = 'bulk-notification';
+    notification.textContent = message;
     document.body.appendChild(notification);
-
-    // Auto-remove after 4 seconds
     setTimeout(() => {
-      if (notification.parentNode) notification.remove();
-    }, 4000);
+      notification.classList.add('bulk-notification--visible');
+    }, 10);
+    setTimeout(() => {
+      notification.classList.remove('bulk-notification--visible');
+      setTimeout(() => notification.remove(), 400);
+    }, 3000);
   }
 
-  // Initialize when DOM is ready
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init);
-  } else {
-    init();
+  // --- Select All / Deselect All ---
+  function selectAll() {
+    galleryGrid.querySelectorAll('.bulk-checkbox').forEach(cb => {
+      cb.checked = true;
+      const card = cb.closest('.image-card');
+      if (card) {
+        selectedIds.add(cb.dataset.imageId);
+        card.classList.add('bulk-selected');
+      }
+    });
+    updateActionBar();
   }
+
+  function deselectAll() {
+    galleryGrid.querySelectorAll('.bulk-checkbox').forEach(cb => {
+      cb.checked = false;
+      const card = cb.closest('.image-card');
+      if (card) card.classList.remove('bulk-selected');
+    });
+    selectedIds.clear();
+    updateActionBar();
+  }
+
+  // --- Event Binding ---
+  toggleBtn.addEventListener('click', () => {
+    if (selectionModeActive) {
+      disableSelectionMode();
+    } else {
+      enableSelectionMode();
+    }
+  });
+
+  if (btnCancelBulk) btnCancelBulk.addEventListener('click', disableSelectionMode);
+  if (btnAddTag) btnAddTag.addEventListener('click', handleAddTag);
+  if (btnRemoveTag) btnRemoveTag.addEventListener('click', handleRemoveTag);
+  if (btnDelete) btnDelete.addEventListener('click', handleDelete);
+  if (selectAllBtn) selectAllBtn.addEventListener('click', selectAll);
+  if (deselectAllBtn) deselectAllBtn.addEventListener('click', deselectAll);
+
+  // Keyboard shortcut: Escape to exit selection mode
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && selectionModeActive) {
+      disableSelectionMode();
+    }
+  });
+
 })();

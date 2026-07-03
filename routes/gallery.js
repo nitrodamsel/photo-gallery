@@ -1,95 +1,86 @@
 const express = require('express');
 const router = express.Router();
 const { Image, Tag, ImageTag } = require('../models');
-const tagService = require('../services/tagService');
 const { Op } = require('sequelize');
-const path = require('path');
 
-const PAGE_SIZE = 12;
-
+// GET /gallery — main gallery page
 router.get('/', async (req, res, next) => {
   try {
-    const page = Math.max(1, parseInt(req.query.page) || 1);
-    const tagSlug = req.query.tag || null;
-    const search = req.query.search || null;
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 24;
+    const offset = (page - 1) * limit;
+    const currentTag = req.query.tag || null;
+    const currentSort = req.query.sort || 'newest';
+    const currentSearch = req.query.q || null;
 
     // Build where clause
-    let where = {};
-    let tagFilter = null;
-
-    if (search) {
+    const where = {};
+    if (currentSearch) {
       where[Op.or] = [
-        { title: { [Op.like]: `%${search}%` } },
-        { description: { [Op.like]: `%${search}%` } },
-        { originalName: { [Op.like]: `%${search}%` } }
+        { description: { [Op.like]: `%${currentSearch}%` } },
+        { originalName: { [Op.like]: `%${currentSearch}%` } }
       ];
     }
 
-    if (tagSlug) {
-      tagFilter = await Tag.findOne({ where: { slug: tagSlug } });
-    }
+    // Build order
+    let order = [['createdAt', 'DESC']];
+    if (currentSort === 'oldest') order = [['createdAt', 'ASC']];
+    else if (currentSort === 'name') order = [['originalName', 'ASC']];
 
-    // Build include for tag filter
-    const includeOpts = [
-      {
-        model: Tag,
-        as: 'Tags',
-        through: { attributes: [] },
-        required: !!tagFilter,
-        ...(tagFilter ? { where: { id: tagFilter.id } } : {})
-      }
-    ];
+    // Build include with optional tag filter
+    const tagInclude = {
+      model: Tag,
+      through: { attributes: [] }
+    };
+    if (currentTag) {
+      tagInclude.where = { name: currentTag };
+      tagInclude.required = true;
+    }
 
     const { count, rows: images } = await Image.findAndCountAll({
       where,
-      include: includeOpts,
-      order: [['createdAt', 'DESC']],
-      limit: PAGE_SIZE,
-      offset: (page - 1) * PAGE_SIZE,
+      include: [tagInclude],
+      order,
+      limit,
+      offset,
       distinct: true
     });
 
-    const totalPages = Math.ceil(count / PAGE_SIZE);
+    // Get all tags for filter panel
+    const tags = await Tag.findAll({ order: [['name', 'ASC']] });
 
-    // Get tag cloud data
-    const allTags = await tagService.getAllTagsWithCounts();
+    const totalPages = Math.ceil(count / limit);
 
     res.render('gallery', {
-      title: tagFilter ? `Gallery — #${tagFilter.name}` : 'Gallery',
       images,
-      tags: allTags,
-      currentTag: tagFilter,
-      search,
+      tags,
       page,
       totalPages,
-      count
+      currentTag,
+      currentSort,
+      currentSearch,
+      total: count
     });
   } catch (err) {
     next(err);
   }
 });
 
+// GET /images/:id — image detail page
 router.get('/:id', async (req, res, next) => {
   try {
     const image = await Image.findByPk(req.params.id, {
-      include: [
-        {
-          model: Tag,
-          as: 'Tags',
-          through: { attributes: [] }
-        }
-      ]
+      include: [{ model: Tag, through: { attributes: [] } }]
     });
 
     if (!image) {
       return res.status(404).render('404', { title: 'Image Not Found' });
     }
 
-    res.render('image-detail', {
-      title: image.title || image.originalName,
-      image,
-      tags: image.Tags || []
-    });
+    // Get all tags for the tag-add UI
+    const allTags = await Tag.findAll({ order: [['name', 'ASC']] });
+
+    res.render('image-detail', { image, allTags, title: image.originalName || 'Image Detail' });
   } catch (err) {
     next(err);
   }

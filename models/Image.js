@@ -1,14 +1,17 @@
 'use strict';
-const { Model, DataTypes } = require('sequelize');
+const { Model } = require('sequelize');
 
-module.exports = (sequelize) => {
+module.exports = (sequelize, DataTypes) => {
   class Image extends Model {
     static associate(models) {
       Image.belongsToMany(models.Tag, {
         through: models.ImageTag,
         foreignKey: 'imageId',
-        otherKey: 'tagId',
-        as: 'Tags'
+        otherKey: 'tagId'
+      });
+      Image.hasMany(models.ThumbnailCache, {
+        foreignKey: 'imageId',
+        onDelete: 'CASCADE'
       });
     }
   }
@@ -47,88 +50,41 @@ module.exports = (sequelize) => {
       type: DataTypes.TEXT,
       allowNull: true
     },
-    // EXIF data stored as JSON
     exifData: {
-      type: DataTypes.JSON,
-      allowNull: true
-    },
-    // Manual EXIF overrides
-    manualExif: {
-      type: DataTypes.JSON,
+      type: DataTypes.TEXT,
       allowNull: true,
-      defaultValue: null
+      get() {
+        const val = this.getDataValue('exifData');
+        if (!val) return null;
+        try { return JSON.parse(val); } catch (e) { return val; }
+      }
     },
-    // GPS coordinates
-    latitude: {
-      type: DataTypes.FLOAT,
-      allowNull: true
+    manualExif: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+      get() {
+        const val = this.getDataValue('manualExif');
+        if (!val) return null;
+        try { return JSON.parse(val); } catch (e) { return val; }
+      }
     },
-    longitude: {
-      type: DataTypes.FLOAT,
-      allowNull: true
-    },
-    altitude: {
-      type: DataTypes.FLOAT,
-      allowNull: true
-    },
-    // Camera info
-    cameraMake: {
-      type: DataTypes.STRING,
-      allowNull: true
-    },
-    cameraModel: {
-      type: DataTypes.STRING,
-      allowNull: true
-    },
-    lensModel: {
-      type: DataTypes.STRING,
-      allowNull: true
-    },
-    // Capture settings
-    focalLength: {
-      type: DataTypes.STRING,
-      allowNull: true
-    },
-    aperture: {
-      type: DataTypes.STRING,
-      allowNull: true
-    },
-    shutterSpeed: {
-      type: DataTypes.STRING,
-      allowNull: true
-    },
-    iso: {
-      type: DataTypes.INTEGER,
-      allowNull: true
-    },
-    // Date taken
-    dateTaken: {
-      type: DataTypes.DATE,
-      allowNull: true
-    },
-    // Non-destructive rotation: 0, 90, 180, 270, -1 (flipH), -2 (flipV)
     rotation: {
       type: DataTypes.INTEGER,
-      allowNull: false,
-      defaultValue: 0
+      defaultValue: 0,
+      allowNull: false
     },
-    // Upload metadata
+    flipH: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: false,
+      allowNull: false
+    },
+    thumbnailFilename: {
+      type: DataTypes.STRING,
+      allowNull: true
+    },
     uploadedBy: {
       type: DataTypes.STRING,
       allowNull: true
-    },
-    ipAddress: {
-      type: DataTypes.STRING,
-      allowNull: true
-    },
-    // Processing flags
-    thumbnailGenerated: {
-      type: DataTypes.BOOLEAN,
-      defaultValue: false
-    },
-    exifProcessed: {
-      type: DataTypes.BOOLEAN,
-      defaultValue: false
     }
   }, {
     sequelize,
