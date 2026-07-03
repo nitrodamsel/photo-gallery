@@ -1,74 +1,47 @@
 const path = require('path');
 const fs = require('fs');
-const { Image, Tag, ImageTag, ThumbnailCache } = require('../models');
-const thumbnailService = require('./thumbnailService');
+const Image = require('../models/Image');
+const ImageTag = require('../models/ImageTag');
+const ThumbnailCache = require('../models/ThumbnailCache');
 
-const UPLOAD_DIR = path.join(__dirname, '..', 'uploads');
-const THUMB_DIR = path.join(UPLOAD_DIR, 'thumbnails');
+const uploadsDir = path.join(__dirname, '..', 'uploads');
+const thumbnailsDir = path.join(uploadsDir, 'thumbnails');
 
 /**
- * Delete an image and all associated files and DB records
+ * Delete an image and all associated files and DB records.
+ * @param {number} imageId
  */
 async function deleteImage(imageId) {
   const image = await Image.findByPk(imageId);
-  if (!image) throw new Error(`Image ${imageId} not found`);
+  if (!image) {
+    throw new Error(`Image with id ${imageId} not found`);
+  }
 
-  // Delete the original file
-  const originalPath = path.join(UPLOAD_DIR, image.filename);
+  // Delete associated tags
+  await ImageTag.destroy({ where: { imageId: image.id } });
+
+  // Delete thumbnail cache records
+  await ThumbnailCache.destroy({ where: { imageId: image.id } });
+
+  // Delete original file
+  const originalPath = path.join(uploadsDir, image.filename);
   if (fs.existsSync(originalPath)) {
     fs.unlinkSync(originalPath);
   }
 
-  // Delete thumbnails
-  try {
-    await thumbnailService.deleteThumbnails(image);
-  } catch (err) {
-    console.error(`Failed to delete thumbnails for image ${imageId}:`, err);
+  // Delete thumbnail files
+  const thumbSizes = ['small', 'medium', 'large'];
+  for (const size of thumbSizes) {
+    const ext = path.extname(image.filename);
+    const base = path.basename(image.filename, ext);
+    const thumbPath = path.join(thumbnailsDir, `${base}_${size}.webp`);
+    if (fs.existsSync(thumbPath)) {
+      fs.unlinkSync(thumbPath);
+    }
   }
 
-  // Delete image-tag associations
-  await ImageTag.destroy({ where: { imageId } });
-
-  // Delete thumbnail cache records
-  await ThumbnailCache.destroy({ where: { imageId } });
-
-  // Delete the image record
+  // Delete DB record
   await image.destroy();
-
-  return true;
 }
 
-/**
- * Get image with all associations
- */
-async function getImageWithTags(imageId) {
-  return Image.findByPk(imageId, {
-    include: [{ model: Tag, through: { attributes: [] } }]
-  });
-}
-
-/**
- * Get paginated images
- */
-async function getImages({ page = 1, limit = 20, order = [['createdAt', 'DESC']] } = {}) {
-  const offset = (page - 1) * limit;
-  const { count, rows } = await Image.findAndCountAll({
-    include: [{ model: Tag, through: { attributes: [] } }],
-    order,
-    limit,
-    offset
-  });
-
-  return {
-    images: rows,
-    total: count,
-    page,
-    totalPages: Math.ceil(count / limit)
-  };
-}
-
-module.exports = {
-  deleteImage,
-  getImageWithTags,
-  getImages
-};
+module.exports = { deleteImage };

@@ -1,28 +1,44 @@
-<div class="image-card" data-image-id="<%= image.id %>">
-  <a href="/images/<%= image.id %>" class="image-card-link">
-    <div class="image-card-thumb-wrap">
-      <img
-        src="/uploads/thumbnails/<%= image.thumbnailFilename || image.filename %>"
-        alt="<%= image.description || image.originalName || 'Image' %>"
-        class="image-card-thumb"
-        loading="lazy"
-        style="transform: rotate(<%= image.rotation || 0 %>deg)<%= image.flipH ? ' scaleX(-1)' : '' %>;"
-      />
+<%
+  const imageId = image.id;
+  const filename = image.filename;
+  const originalName = image.originalName || filename;
+  const ext = filename ? filename.split('.').pop() : 'jpg';
+  const base = filename ? filename.substring(0, filename.lastIndexOf('.')) : filename;
+  const thumbSrc = `/uploads/thumbnails/${base}_medium.webp`;
+  const detailUrl = `/gallery/${imageId}`;
+  const tags = image.Tags || [];
+%>
+
+<div class="image-card card" data-image-id="<%= imageId %>">
+  <a href="<%= detailUrl %>" class="image-card-link">
+    <div class="card-image">
+      <figure class="image is-4by3">
+        <img
+          src="<%= thumbSrc %>"
+          alt="<%= originalName %>"
+          loading="lazy"
+          onerror="this.src='/uploads/<%= filename %>'"
+        />
+      </figure>
     </div>
   </a>
-  <div class="image-card-body">
-    <% if (image.description) { %>
-      <p class="image-card-desc"><%= image.description.length > 80 ? image.description.slice(0, 80) + '…' : image.description %></p>
-    <% } %>
-    <div class="card-tags">
-      <% if (image.Tags && image.Tags.length > 0) { %>
-        <% image.Tags.slice(0, 4).forEach(tag => { %>
-          <a href="/gallery?tag=<%= encodeURIComponent(tag.name) %>" class="card-tag" data-tag-name="<%= tag.name %>"><%= tag.name %></a>
+  <div class="card-content px-3 py-2">
+    <p class="image-card-title is-size-7 has-text-grey-dark" title="<%= originalName %>">
+      <%= originalName.length > 30 ? originalName.substring(0, 27) + '...' : originalName %>
+    </p>
+    <% if (tags.length > 0) { %>
+      <div class="tags mt-1" style="flex-wrap: nowrap; overflow: hidden;">
+        <% tags.slice(0, 3).forEach(tag => { %>
+          <span class="tag is-light is-info is-small">
+            <a href="/gallery?tag=<%= tag.name %>" class="has-text-info" onclick="event.stopPropagation()">
+              <%= tag.name %>
+            </a>
+          </span>
         <% }); %>
-        <% if (image.Tags.length > 4) { %>
-          <span class="card-tag card-tag--more">+<%= image.Tags.length - 4 %></span>
+        <% if (tags.length > 3) { %>
+          <span class="tag is-light is-small">+<%= tags.length - 3 %></span>
         <% } %>
-      <% } %>
-    </div>
+      </div>
+    <% } %>
   </div>
 </div>

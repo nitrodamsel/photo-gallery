@@ -1,14 +1,24 @@
 const express = require('express');
 const router = express.Router();
 
-router.use('/gallery', require('./gallery'));
-router.use('/images', require('./gallery')); // alias for image detail
-router.use('/upload', require('./upload'));
-router.use('/tags', require('./tags'));
-router.use('/search', require('./search'));
-router.use('/api/images', require('./imageApi'));
+const galleryRouter = require('./gallery');
+const uploadRouter = require('./upload');
+const tagsRouter = require('./tags');
+const searchRouter = require('./search');
+const imageApiRouter = require('./imageApi');
+const imageTagsRouter = require('./imageTags');
 
-// Home
+// Mount API routes
+router.use('/api/images', imageApiRouter);
+router.use('/api/image-tags', imageTagsRouter);
+
+// Mount page routes
+router.use('/gallery', galleryRouter);
+router.use('/upload', uploadRouter);
+router.use('/tags', tagsRouter);
+router.use('/search', searchRouter);
+
+// Home route
 router.get('/', (req, res) => {
   res.redirect('/gallery');
 });

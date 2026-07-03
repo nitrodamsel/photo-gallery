@@ -1,97 +1,92 @@
-'use strict';
-const { Model } = require('sequelize');
+const { DataTypes } = require('sequelize');
+const sequelize = require('../config/database');
 
-module.exports = (sequelize, DataTypes) => {
-  class Image extends Model {
-    static associate(models) {
-      Image.belongsToMany(models.Tag, {
-        through: models.ImageTag,
-        foreignKey: 'imageId',
-        otherKey: 'tagId'
-      });
-      Image.hasMany(models.ThumbnailCache, {
-        foreignKey: 'imageId',
-        onDelete: 'CASCADE'
-      });
+const Image = sequelize.define('Image', {
+  id: {
+    type: DataTypes.INTEGER,
+    primaryKey: true,
+    autoIncrement: true
+  },
+  filename: {
+    type: DataTypes.STRING,
+    allowNull: false,
+    unique: true
+  },
+  originalName: {
+    type: DataTypes.STRING,
+    allowNull: true
+  },
+  mimeType: {
+    type: DataTypes.STRING,
+    allowNull: true
+  },
+  fileSize: {
+    type: DataTypes.INTEGER,
+    allowNull: true
+  },
+  width: {
+    type: DataTypes.INTEGER,
+    allowNull: true
+  },
+  height: {
+    type: DataTypes.INTEGER,
+    allowNull: true
+  },
+  description: {
+    type: DataTypes.TEXT,
+    allowNull: true
+  },
+  exifData: {
+    type: DataTypes.TEXT,
+    allowNull: true,
+    get() {
+      const raw = this.getDataValue('exifData');
+      if (!raw) return null;
+      try {
+        return typeof raw === 'string' ? JSON.parse(raw) : raw;
+      } catch (e) {
+        return raw;
+      }
+    },
+    set(value) {
+      this.setDataValue('exifData', typeof value === 'string' ? value : JSON.stringify(value));
     }
+  },
+  manualExif: {
+    type: DataTypes.TEXT,
+    allowNull: true,
+    get() {
+      const raw = this.getDataValue('manualExif');
+      if (!raw) return null;
+      try {
+        return typeof raw === 'string' ? JSON.parse(raw) : raw;
+      } catch (e) {
+        return raw;
+      }
+    },
+    set(value) {
+      this.setDataValue('manualExif', typeof value === 'string' ? value : JSON.stringify(value));
+    }
+  },
+  rotation: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    defaultValue: 0,
+    validate: {
+      isIn: [[0, 90, 180, 270]]
+    }
+  },
+  uploadedBy: {
+    type: DataTypes.STRING,
+    allowNull: true
+  },
+  ipAddress: {
+    type: DataTypes.STRING,
+    allowNull: true
   }
+}, {
+  tableName: 'Images',
+  timestamps: true
+});
 
-  Image.init({
-    id: {
-      type: DataTypes.INTEGER,
-      primaryKey: true,
-      autoIncrement: true
-    },
-    filename: {
-      type: DataTypes.STRING,
-      allowNull: false
-    },
-    originalName: {
-      type: DataTypes.STRING,
-      allowNull: true
-    },
-    mimeType: {
-      type: DataTypes.STRING,
-      allowNull: true
-    },
-    fileSize: {
-      type: DataTypes.INTEGER,
-      allowNull: true
-    },
-    width: {
-      type: DataTypes.INTEGER,
-      allowNull: true
-    },
-    height: {
-      type: DataTypes.INTEGER,
-      allowNull: true
-    },
-    description: {
-      type: DataTypes.TEXT,
-      allowNull: true
-    },
-    exifData: {
-      type: DataTypes.TEXT,
-      allowNull: true,
-      get() {
-        const val = this.getDataValue('exifData');
-        if (!val) return null;
-        try { return JSON.parse(val); } catch (e) { return val; }
-      }
-    },
-    manualExif: {
-      type: DataTypes.TEXT,
-      allowNull: true,
-      get() {
-        const val = this.getDataValue('manualExif');
-        if (!val) return null;
-        try { return JSON.parse(val); } catch (e) { return val; }
-      }
-    },
-    rotation: {
-      type: DataTypes.INTEGER,
-      defaultValue: 0,
-      allowNull: false
-    },
-    flipH: {
-      type: DataTypes.BOOLEAN,
-      defaultValue: false,
-      allowNull: false
-    },
-    thumbnailFilename: {
-      type: DataTypes.STRING,
-      allowNull: true
-    },
-    uploadedBy: {
-      type: DataTypes.STRING,
-      allowNull: true
-    }
-  }, {
-    sequelize,
-    modelName: 'Image',
-    tableName: 'Images',
-    timestamps: true
-  });
-
-  return Image;
-};
+module.exports = Image;

@@ -1,310 +1,379 @@
 /**
- * imageEditor.js — Client-side logic for the image detail edit panel
- * Handles panel show/hide, rotation preview, form submission via PATCH API
+ * Image Editor — Client JS for the detail page edit panel.
+ * Handles toggle show/hide, form data collection, PATCH via fetch,
+ * and live CSS transform preview for rotation.
  */
-
 (function () {
   'use strict';
 
-  // --- State ---
   let currentRotation = 0;
-  let currentFlipH = false;
-  let originalRotation = 0;
-  let originalFlipH = false;
-  let imageId = null;
+  let editPanel;
+  let mainImage;
+  let imageId;
 
-  // --- DOM Elements ---
-  const editPanel = document.getElementById('edit-panel');
-  const editOverlay = document.getElementById('edit-panel-overlay');
-  const editForm = document.getElementById('edit-form');
-  const openBtn = document.getElementById('btn-open-editor');
-  const closeBtn = document.getElementById('edit-panel-close');
-  const cancelBtn = document.getElementById('edit-cancel-btn');
-  const saveBtn = document.getElementById('edit-save-btn');
-  const statusEl = document.getElementById('edit-status');
-  const rotationInput = document.getElementById('edit-rotation');
-  const flipHInput = document.getElementById('edit-flip-h');
-  const previewImg = document.getElementById('rotation-preview-img');
-  const deleteBtn = document.getElementById('btn-delete-image');
-  const regenBtn = document.getElementById('btn-regen-thumbnails');
-
-  if (!editPanel) return; // Not on the detail page
-
-  // Read initial values from DOM
   function init() {
-    imageId = editPanel.closest('[data-image-id]')
-      ? editPanel.closest('[data-image-id]').dataset.imageId
-      : document.querySelector('[data-image-id]')?.dataset.imageId;
+    editPanel = document.getElementById('edit-panel');
+    mainImage = document.getElementById('main-image');
+    const rotationInput = document.getElementById('edit-rotation');
 
-    // Also try getting from URL
-    if (!imageId) {
-      const match = window.location.pathname.match(/\/images?\/(\d+)/);
-      if (match) imageId = match[1];
+    if (!editPanel) return; // Not on detail page
+
+    imageId = editPanel.dataset.imageId;
+    currentRotation = parseInt(rotationInput ? rotationInput.value : 0, 10) || 0;
+
+    // Toggle button
+    const toggleBtn = document.getElementById('edit-toggle-btn');
+    if (toggleBtn) {
+      toggleBtn.addEventListener('click', toggleEditPanel);
     }
 
-    currentRotation = parseInt(rotationInput?.value || '0', 10);
-    currentFlipH = flipHInput?.value === 'true';
-    originalRotation = currentRotation;
-    originalFlipH = currentFlipH;
+    // Cancel button
+    const cancelBtn = document.getElementById('edit-cancel-btn');
+    if (cancelBtn) {
+      cancelBtn.addEventListener('click', closeEditPanel);
+    }
 
-    updatePreview();
-    bindEvents();
+    // Save button
+    const saveBtn = document.getElementById('edit-save-btn');
+    if (saveBtn) {
+      saveBtn.addEventListener('click', saveChanges);
+    }
+
+    // Delete button
+    const deleteBtn = document.getElementById('image-delete-btn');
+    if (deleteBtn) {
+      deleteBtn.addEventListener('click', deleteImage);
+    }
+
+    // Regenerate thumbnails button
+    const regenBtn = document.getElementById('regenerate-thumbnails-btn');
+    if (regenBtn) {
+      regenBtn.addEventListener('click', regenerateThumbnails);
+    }
+
+    // Rotation buttons
+    const rotateCWBtn = document.getElementById('rotate-cw-btn');
+    const rotateCCWBtn = document.getElementById('rotate-ccw-btn');
+    const flipHBtn = document.getElementById('flip-h-btn');
+
+    if (rotateCWBtn) {
+      rotateCWBtn.addEventListener('click', () => adjustRotation(90));
+    }
+    if (rotateCCWBtn) {
+      rotateCCWBtn.addEventListener('click', () => adjustRotation(-90));
+    }
+    if (flipHBtn) {
+      flipHBtn.addEventListener('click', handleFlipH);
+    }
+
+    // Update preview transform on load
+    updateImagePreview();
   }
 
-  // --- Panel Open/Close ---
-  function openPanel() {
-    editPanel.classList.add('edit-panel--open');
-    editOverlay.classList.add('edit-panel-overlay--visible');
-    editPanel.setAttribute('aria-hidden', 'false');
-    document.body.classList.add('edit-panel-body-lock');
-    clearStatus();
+  function toggleEditPanel() {
+    if (!editPanel) return;
+    if (editPanel.classList.contains('is-open')) {
+      closeEditPanel();
+    } else {
+      openEditPanel();
+    }
   }
 
-  function closePanel() {
-    editPanel.classList.remove('edit-panel--open');
-    editOverlay.classList.remove('edit-panel-overlay--visible');
-    editPanel.setAttribute('aria-hidden', 'true');
-    document.body.classList.remove('edit-panel-body-lock');
+  function openEditPanel() {
+    editPanel.classList.add('is-open');
+    const toggleBtn = document.getElementById('edit-toggle-btn');
+    if (toggleBtn) {
+      toggleBtn.textContent = 'Close Editor';
+      toggleBtn.classList.add('is-warning');
+      toggleBtn.classList.remove('is-info');
+    }
   }
 
-  // --- Rotation Logic ---
-  function normalizeRotation(deg) {
-    return ((deg % 360) + 360) % 360;
+  function closeEditPanel() {
+    editPanel.classList.remove('is-open');
+    const toggleBtn = document.getElementById('edit-toggle-btn');
+    if (toggleBtn) {
+      toggleBtn.textContent = 'Edit Image';
+      toggleBtn.classList.remove('is-warning');
+      toggleBtn.classList.add('is-info');
+    }
+    // Reset rotation preview to saved value
+    const rotationInput = document.getElementById('edit-rotation');
+    const savedRotation = parseInt(rotationInput ? rotationInput.dataset.savedValue || rotationInput.value : 0, 10) || 0;
+    currentRotation = savedRotation;
+    updateImagePreview();
   }
 
-  function updatePreview() {
-    if (!previewImg) return;
+  function adjustRotation(delta) {
+    currentRotation = ((currentRotation + delta) % 360 + 360) % 360;
+    updateRotationInput();
+    updateImagePreview();
+  }
+
+  function handleFlipH() {
+    // For flip, we use a CSS scaleX(-1). Track it separately.
+    if (mainImage) {
+      const currentTransform = mainImage.style.transform || '';
+      if (currentTransform.includes('scaleX(-1)')) {
+        mainImage.style.transform = currentTransform.replace(' scaleX(-1)', '').replace('scaleX(-1)', '').trim();
+      } else {
+        mainImage.style.transform = currentTransform + ' scaleX(-1)';
+      }
+    }
+  }
+
+  function updateRotationInput() {
+    const rotationInput = document.getElementById('edit-rotation');
+    if (rotationInput) {
+      rotationInput.value = currentRotation;
+    }
+    // Update the rotation display badge
+    const rotationDisplay = document.getElementById('rotation-display');
+    if (rotationDisplay) {
+      rotationDisplay.textContent = `${currentRotation}°`;
+    }
+  }
+
+  function updateImagePreview() {
+    if (!mainImage) return;
+    const existingTransform = mainImage.style.transform || '';
+    const hasFlip = existingTransform.includes('scaleX(-1)');
     let transform = `rotate(${currentRotation}deg)`;
-    if (currentFlipH) {
-      transform += ' scaleX(-1)';
-    }
-    previewImg.style.transform = transform;
-    previewImg.style.transition = 'transform 0.3s ease';
-
-    if (rotationInput) rotationInput.value = currentRotation;
-    if (flipHInput) flipHInput.value = currentFlipH ? 'true' : 'false';
+    if (hasFlip) transform += ' scaleX(-1)';
+    mainImage.style.transform = transform;
+    mainImage.style.transition = 'transform 0.3s ease';
   }
 
-  // --- Status Messages ---
-  function showStatus(message, type = 'info') {
-    if (!statusEl) return;
-    statusEl.textContent = message;
-    statusEl.className = `edit-status edit-status--${type}`;
-    statusEl.style.display = 'block';
-  }
+  async function saveChanges() {
+    if (!imageId) return;
 
-  function clearStatus() {
-    if (!statusEl) return;
-    statusEl.textContent = '';
-    statusEl.style.display = 'none';
-    statusEl.className = 'edit-status';
-  }
-
-  // --- Form Submission ---
-  async function handleSave(e) {
-    e.preventDefault();
-    if (!imageId) {
-      showStatus('Could not determine image ID.', 'error');
-      return;
-    }
-
-    const formData = new FormData(editForm);
+    const saveBtn = document.getElementById('edit-save-btn');
+    const description = document.getElementById('edit-description');
+    const rotationInput = document.getElementById('edit-rotation');
+    const captionInput = document.getElementById('edit-caption');
+    const locationInput = document.getElementById('edit-location');
+    const dateTakenInput = document.getElementById('edit-date-taken');
 
     // Build manualExif object
     const manualExif = {};
-    const captionVal = document.getElementById('edit-caption')?.value.trim();
-    const locationVal = document.getElementById('edit-location')?.value.trim();
-    const dateTakenVal = document.getElementById('edit-date-taken')?.value;
-    const cameraVal = document.getElementById('edit-camera')?.value.trim();
+    if (captionInput && captionInput.value.trim()) {
+      manualExif.caption = captionInput.value.trim();
+    }
+    if (locationInput && locationInput.value.trim()) {
+      manualExif.locationName = locationInput.value.trim();
+    }
+    if (dateTakenInput && dateTakenInput.value.trim()) {
+      manualExif.dateTaken = dateTakenInput.value.trim();
+    }
 
-    if (captionVal) manualExif.caption = captionVal;
-    if (locationVal) manualExif.locationName = locationVal;
-    if (dateTakenVal) manualExif.dateTaken = dateTakenVal;
-    if (cameraVal) manualExif.camera = cameraVal;
-
-    const payload = {
-      description: document.getElementById('edit-description')?.value || '',
-      manualExif,
-      rotation: currentRotation,
-      flipH: currentFlipH
+    const body = {
+      description: description ? description.value : '',
+      rotation: parseInt(rotationInput ? rotationInput.value : 0, 10) || 0,
+      manualExif: Object.keys(manualExif).length > 0 ? manualExif : {}
     };
 
-    saveBtn.disabled = true;
-    saveBtn.textContent = 'Saving…';
-    clearStatus();
+    if (saveBtn) {
+      saveBtn.textContent = 'Saving...';
+      saveBtn.disabled = true;
+    }
 
     try {
       const response = await fetch(`/api/images/${imageId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
+        body: JSON.stringify(body)
       });
 
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || `Server error ${response.status}`);
+        throw new Error(data.error || 'Failed to save changes');
+      }
+
+      // Update saved value markers
+      if (rotationInput) {
+        rotationInput.dataset.savedValue = body.rotation;
       }
 
       // Update the page DOM with new data
       updatePageDOM(data.image);
-      originalRotation = currentRotation;
-      originalFlipH = currentFlipH;
 
-      showStatus('Changes saved successfully!', 'success');
+      // Apply actual rotation to the image src (force reload thumbnail)
+      if (mainImage) {
+        // Add cache-busting param to force browser to reload
+        const src = mainImage.src.split('?')[0];
+        mainImage.src = src + '?t=' + Date.now();
+        // Reset CSS transform since actual rotation is now baked into the thumbnail
+        mainImage.style.transform = '';
+        currentRotation = body.rotation;
+      }
 
-      // Auto-close after a short delay
-      setTimeout(() => {
-        closePanel();
-        clearStatus();
-      }, 1500);
-
+      showNotification('Changes saved successfully!', 'is-success');
+      closeEditPanel();
     } catch (err) {
       console.error('Save failed:', err);
-      showStatus(`Failed to save: ${err.message}`, 'error');
+      showNotification(`Error: ${err.message}`, 'is-danger');
     } finally {
-      saveBtn.disabled = false;
-      saveBtn.innerHTML = `
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:6px;vertical-align:middle;">
-          <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
-          <polyline points="17 21 17 13 7 13 7 21"></polyline>
-          <polyline points="7 3 7 8 15 8"></polyline>
-        </svg>
-        Save Changes`;
+      if (saveBtn) {
+        saveBtn.textContent = 'Save Changes';
+        saveBtn.disabled = false;
+      }
     }
   }
 
-  // Update detail page DOM without full reload
   function updatePageDOM(image) {
-    if (!image) return;
-
     // Update description
-    const descEl = document.getElementById('image-description');
-    if (descEl) {
-      descEl.textContent = image.description || '';
-      descEl.style.display = image.description ? '' : 'none';
+    const descEl = document.getElementById('image-description-display');
+    if (descEl && image.description !== undefined) {
+      if (image.description) {
+        descEl.textContent = image.description;
+        descEl.classList.remove('is-hidden');
+      } else {
+        descEl.classList.add('is-hidden');
+      }
     }
 
-    // Update main image with cache-busting
-    const mainImg = document.getElementById('main-image');
-    if (mainImg) {
-      const src = mainImg.src.split('?')[0];
-      mainImg.src = `${src}?t=${Date.now()}`;
-      // Apply CSS transform for immediate visual feedback
-      let transform = `rotate(${currentRotation}deg)`;
-      if (currentFlipH) transform += ' scaleX(-1)';
-      mainImg.style.transform = transform;
+    // Update manual EXIF display if elements exist
+    let manualExif = {};
+    try {
+      if (image.manualExif) {
+        manualExif = typeof image.manualExif === 'string'
+          ? JSON.parse(image.manualExif)
+          : image.manualExif;
+      }
+    } catch (e) { /* ignore */ }
+
+    const captionDisplay = document.getElementById('manual-caption-display');
+    if (captionDisplay) {
+      if (manualExif.caption) {
+        captionDisplay.textContent = manualExif.caption;
+        captionDisplay.closest('.manual-exif-row') && captionDisplay.closest('.manual-exif-row').classList.remove('is-hidden');
+      } else {
+        captionDisplay.closest('.manual-exif-row') && captionDisplay.closest('.manual-exif-row').classList.add('is-hidden');
+      }
     }
 
-    // Update manualExif fields if visible on page
-    const exifSection = document.getElementById('manual-exif-section');
-    if (exifSection && image.manualExif) {
-      const exif = typeof image.manualExif === 'string'
-        ? JSON.parse(image.manualExif)
-        : image.manualExif;
+    const locationDisplay = document.getElementById('manual-location-display');
+    if (locationDisplay) {
+      if (manualExif.locationName) {
+        locationDisplay.textContent = manualExif.locationName;
+        locationDisplay.closest('.manual-exif-row') && locationDisplay.closest('.manual-exif-row').classList.remove('is-hidden');
+      } else {
+        locationDisplay.closest('.manual-exif-row') && locationDisplay.closest('.manual-exif-row').classList.add('is-hidden');
+      }
+    }
 
-      const captionEl = document.getElementById('exif-caption');
-      if (captionEl && exif.caption) captionEl.textContent = exif.caption;
-
-      const locationEl = document.getElementById('exif-location');
-      if (locationEl && exif.locationName) locationEl.textContent = exif.locationName;
-
-      const dateEl = document.getElementById('exif-date-taken');
-      if (dateEl && exif.dateTaken) dateEl.textContent = new Date(exif.dateTaken).toLocaleString();
+    const dateTakenDisplay = document.getElementById('manual-date-taken-display');
+    if (dateTakenDisplay) {
+      if (manualExif.dateTaken) {
+        dateTakenDisplay.textContent = manualExif.dateTaken;
+        dateTakenDisplay.closest('.manual-exif-row') && dateTakenDisplay.closest('.manual-exif-row').classList.remove('is-hidden');
+      } else {
+        dateTakenDisplay.closest('.manual-exif-row') && dateTakenDisplay.closest('.manual-exif-row').classList.add('is-hidden');
+      }
     }
   }
 
-  // --- Delete ---
-  async function handleDelete() {
+  async function deleteImage() {
     if (!imageId) return;
-    if (!confirm('Are you sure you want to permanently delete this image? This cannot be undone.')) return;
+    if (!confirm('Are you sure you want to delete this image? This cannot be undone.')) return;
+
+    const deleteBtn = document.getElementById('image-delete-btn');
+    if (deleteBtn) {
+      deleteBtn.textContent = 'Deleting...';
+      deleteBtn.disabled = true;
+    }
 
     try {
-      const response = await fetch(`/api/images/${imageId}`, { method: 'DELETE' });
+      const response = await fetch(`/api/images/${imageId}`, {
+        method: 'DELETE'
+      });
+
       const data = await response.json();
 
-      if (!response.ok) throw new Error(data.error || 'Delete failed');
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to delete image');
+      }
 
-      // Redirect to gallery
-      window.location.href = '/gallery';
+      showNotification('Image deleted. Redirecting...', 'is-success');
+      setTimeout(() => {
+        window.location.href = '/gallery';
+      }, 1500);
     } catch (err) {
-      showStatus(`Delete failed: ${err.message}`, 'error');
+      console.error('Delete failed:', err);
+      showNotification(`Error: ${err.message}`, 'is-danger');
+      if (deleteBtn) {
+        deleteBtn.textContent = 'Delete Image';
+        deleteBtn.disabled = false;
+      }
     }
   }
 
-  // --- Regenerate Thumbnails ---
-  async function handleRegenThumbnails() {
+  async function regenerateThumbnails() {
     if (!imageId) return;
-    regenBtn.disabled = true;
-    regenBtn.textContent = 'Regenerating…';
-    clearStatus();
+    const regenBtn = document.getElementById('regenerate-thumbnails-btn');
+
+    if (regenBtn) {
+      regenBtn.textContent = 'Regenerating...';
+      regenBtn.disabled = true;
+    }
 
     try {
-      const response = await fetch(`/api/images/${imageId}/regenerate-thumbnails`, { method: 'POST' });
+      const response = await fetch(`/api/images/${imageId}/regenerate-thumbnails`, {
+        method: 'POST'
+      });
+
       const data = await response.json();
 
-      if (!response.ok) throw new Error(data.error || 'Failed');
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to regenerate thumbnails');
+      }
 
-      showStatus('Thumbnails regenerated!', 'success');
+      showNotification('Thumbnails regenerated successfully!', 'is-success');
 
-      // Bust cache on preview image
-      if (previewImg) {
-        const src = previewImg.src.split('?')[0];
-        previewImg.src = `${src}?t=${Date.now()}`;
+      // Reload the main image with cache-busting
+      if (mainImage) {
+        const src = mainImage.src.split('?')[0];
+        mainImage.src = src + '?t=' + Date.now();
       }
     } catch (err) {
-      showStatus(`Failed: ${err.message}`, 'error');
+      console.error('Regenerate failed:', err);
+      showNotification(`Error: ${err.message}`, 'is-danger');
     } finally {
-      regenBtn.disabled = false;
-      regenBtn.textContent = 'Regenerate Thumbnails';
+      if (regenBtn) {
+        regenBtn.textContent = 'Regenerate Thumbnails';
+        regenBtn.disabled = false;
+      }
     }
   }
 
-  // --- Event Binding ---
-  function bindEvents() {
-    if (openBtn) openBtn.addEventListener('click', openPanel);
-    if (closeBtn) closeBtn.addEventListener('click', closePanel);
-    if (cancelBtn) cancelBtn.addEventListener('click', closePanel);
-    if (editOverlay) editOverlay.addEventListener('click', closePanel);
-    if (editForm) editForm.addEventListener('submit', handleSave);
-    if (deleteBtn) deleteBtn.addEventListener('click', handleDelete);
-    if (regenBtn) regenBtn.addEventListener('click', handleRegenThumbnails);
+  function showNotification(message, cssClass) {
+    const existing = document.getElementById('editor-notification');
+    if (existing) existing.remove();
 
-    // Rotation buttons
-    document.getElementById('btn-rotate-cw')?.addEventListener('click', () => {
-      currentRotation = normalizeRotation(currentRotation + 90);
-      updatePreview();
-    });
+    const notification = document.createElement('div');
+    notification.id = 'editor-notification';
+    notification.className = `notification ${cssClass} editor-notification`;
+    notification.innerHTML = `<button class="delete"></button>${message}`;
 
-    document.getElementById('btn-rotate-ccw')?.addEventListener('click', () => {
-      currentRotation = normalizeRotation(currentRotation - 90);
-      updatePreview();
-    });
+    const deleteBtn = notification.querySelector('.delete');
+    if (deleteBtn) {
+      deleteBtn.addEventListener('click', () => notification.remove());
+    }
 
-    document.getElementById('btn-flip-h')?.addEventListener('click', () => {
-      currentFlipH = !currentFlipH;
-      updatePreview();
-    });
+    // Insert at top of main content area or body
+    const mainContent = document.querySelector('.image-detail-container') || document.body;
+    mainContent.insertBefore(notification, mainContent.firstChild);
 
-    document.getElementById('btn-reset-rotation')?.addEventListener('click', () => {
-      currentRotation = 0;
-      currentFlipH = false;
-      updatePreview();
-    });
-
-    // Keyboard: Escape to close
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && editPanel.classList.contains('edit-panel--open')) {
-        closePanel();
-      }
-    });
+    setTimeout(() => {
+      if (notification.parentNode) notification.remove();
+    }, 5000);
   }
 
-  // --- Init ---
+  // Initialize when DOM is ready
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);
   } else {
     init();
   }
-
 })();

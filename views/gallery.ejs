@@ -1,82 +1,97 @@
-<%- include('layouts/base', { title: 'Gallery', body: `
-<div class="gallery-page">
+<%- contentFor('body') %>
 
-  <div class="gallery-header">
-    <h1 class="gallery-title">Gallery</h1>
-    <div class="gallery-header-actions">
-      <a href="/upload" class="btn btn-primary">Upload Images</a>
-      <button id="btn-bulk-select" class="btn btn-secondary">Select Multiple</button>
-    </div>
-  </div>
+<section class="section">
+  <div class="container">
 
-  <!-- Filter Panel -->
-  <%- include('partials/filter-panel', { tags, currentTag, currentSort, currentSearch }) %>
-
-  <!-- Gallery Grid -->
-  <% if (images && images.length > 0) { %>
-    <div id="gallery-grid" class="gallery-grid">
-      <% images.forEach(image => { %>
-        <%- include('partials/image-card', { image }) %>
-      <% }); %>
-    </div>
-
-    <!-- Pagination -->
-    <%- include('partials/pagination', { page, totalPages, currentTag, currentSort, currentSearch }) %>
-  <% } else { %>
-    <div class="gallery-empty">
-      <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="gallery-empty-icon">
-        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-        <circle cx="8.5" cy="8.5" r="1.5"></circle>
-        <polyline points="21 15 16 10 5 21"></polyline>
-      </svg>
-      <h2>No images found</h2>
-      <p>
-        <% if (currentTag || currentSearch) { %>
-          No images match your current filters.
-          <a href="/gallery">Clear filters</a>
-        <% } else { %>
-          Get started by <a href="/upload">uploading some images</a>.
-        <% } %>
-      </p>
-    </div>
-  <% } %>
-
-  <!-- Bulk Action Bar (floating) -->
-  <div id="bulk-action-bar" class="bulk-action-bar" aria-hidden="true" role="toolbar" aria-label="Bulk actions">
-    <div class="bulk-action-bar-inner">
-      <span class="bulk-count-label">
-        <strong id="bulk-selected-count">0</strong> selected
-      </span>
-      <div class="bulk-action-buttons">
-        <button id="bulk-btn-select-all" class="btn btn-sm btn-secondary">Select All</button>
-        <button id="bulk-btn-deselect-all" class="btn btn-sm btn-secondary">Deselect All</button>
-        <button id="bulk-btn-add-tag" class="btn btn-sm btn-primary">
-          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4px;vertical-align:middle;">
-            <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path>
-            <line x1="7" y1="7" x2="7.01" y2="7"></line>
-          </svg>
-          Add Tag
-        </button>
-        <button id="bulk-btn-remove-tag" class="btn btn-sm btn-secondary">
-          Remove Tag
-        </button>
-        <button id="bulk-btn-delete" class="btn btn-sm btn-danger">
-          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4px;vertical-align:middle;">
-            <polyline points="3 6 5 6 21 6"></polyline>
-            <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path>
-            <path d="M10 11v6"></path>
-            <path d="M14 11v6"></path>
-            <path d="M9 6V4h6v2"></path>
-          </svg>
-          Delete
-        </button>
-        <button id="bulk-btn-cancel" class="btn btn-sm btn-ghost">Cancel</button>
+    <!-- Gallery Header -->
+    <div class="level mb-4">
+      <div class="level-left">
+        <div class="level-item">
+          <div>
+            <h1 class="title is-4 mb-1">Gallery</h1>
+            <p class="subtitle is-6 has-text-grey">
+              <% if (typeof totalImages !== 'undefined') { %>
+                <%= totalImages %> image<%= totalImages !== 1 ? 's' : '' %>
+              <% } %>
+              <% if (typeof currentTag !== 'undefined' && currentTag) { %>
+                tagged with <strong><%= currentTag %></strong>
+              <% } %>
+            </p>
+          </div>
+        </div>
       </div>
-      <span id="bulk-status" class="bulk-status" style="display:none;"></span>
+      <div class="level-right">
+        <div class="level-item">
+          <div class="buttons">
+            <a href="/upload" class="button is-primary">
+              <span class="icon"><i class="fas fa-upload"></i></span>
+              <span>Upload</span>
+            </a>
+            <button id="bulk-select-toggle" class="button is-info">
+              <span class="icon"><i class="fas fa-check-square"></i></span>
+              <span>Select Images</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Filter Panel -->
+    <% if (typeof tags !== 'undefined' && tags && tags.length > 0) { %>
+      <%- include('./partials/filter-panel', { tags: tags, currentTag: currentTag || null, sortBy: sortBy || 'createdAt', sortDir: sortDir || 'DESC' }) %>
+    <% } %>
+
+    <!-- Image Grid -->
+    <% if (typeof images !== 'undefined' && images && images.length > 0) { %>
+      <div class="columns is-multiline is-mobile">
+        <% images.forEach(image => { %>
+          <div class="column is-6-mobile is-4-tablet is-3-desktop">
+            <%- include('./partials/image-card', { image: image }) %>
+          </div>
+        <% }); %>
+      </div>
+
+      <!-- Pagination -->
+      <% if (typeof totalPages !== 'undefined' && totalPages > 1) { %>
+        <%- include('./partials/pagination', {
+          currentPage: currentPage || 1,
+          totalPages: totalPages,
+          baseUrl: '/gallery',
+          queryParams: {}
+        }) %>
+      <% } %>
+    <% } else { %>
+      <div class="has-text-centered py-6">
+        <p class="has-text-grey is-size-5">No images found</p>
+        <a href="/upload" class="button is-primary mt-3">Upload your first image</a>
+      </div>
+    <% } %>
+
+  </div><!-- /.container -->
+</section>
+
+<!-- Bulk Action Floating Bar -->
+<div id="bulk-action-bar" class="bulk-action-bar is-hidden">
+  <div class="bulk-action-bar-inner">
+    <span id="bulk-action-count" class="bulk-action-count">0 images selected</span>
+    <div class="buttons are-small">
+      <button id="bulk-add-tag" class="button is-success is-light">
+        <span class="icon"><i class="fas fa-tag"></i></span>
+        <span>Add Tag</span>
+      </button>
+      <button id="bulk-remove-tag" class="button is-warning is-light">
+        <span class="icon"><i class="fas fa-tag"></i></span>
+        <span>Remove Tag</span>
+      </button>
+      <button id="bulk-delete" class="button is-danger is-light">
+        <span class="icon"><i class="fas fa-trash"></i></span>
+        <span>Delete</span>
+      </button>
+      <button id="bulk-cancel" class="button is-light">
+        <span>Cancel</span>
+      </button>
     </div>
   </div>
-
 </div>
 
 <script src="/js/bulkSelect.js"></script>
-`) %>

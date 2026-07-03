@@ -1,162 +1,259 @@
-<%- include('layouts/base', { title: image.originalName || 'Image Detail', body: `
-<div class="detail-page" data-image-id="${image.id}">
+<%- contentFor('body') %>
+<%
+  // Parse EXIF data safely
+  let exifData = {};
+  try {
+    if (image.exifData) {
+      exifData = typeof image.exifData === 'string' ? JSON.parse(image.exifData) : image.exifData;
+    }
+  } catch(e) {}
 
-  <!-- Breadcrumb -->
-  <nav class="breadcrumb" aria-label="Breadcrumb">
-    <a href="/gallery">← Gallery</a>
-    <span aria-hidden="true"> / </span>
-    <span>${image.originalName || 'Image'}</span>
-  </nav>
+  // Parse manual EXIF
+  let manualExif = {};
+  try {
+    if (image.manualExif) {
+      manualExif = typeof image.manualExif === 'string' ? JSON.parse(image.manualExif) : image.manualExif;
+    }
+  } catch(e) {}
 
-  <div class="detail-layout">
+  const currentRotation = image.rotation || 0;
+%>
 
-    <!-- Main Image Column -->
-    <div class="detail-main">
+<section class="section image-detail-container">
+  <div class="container">
 
-      <div class="detail-image-wrap">
-        <img
-          id="main-image"
-          src="/uploads/${image.filename}"
-          alt="${image.description || image.originalName || 'Image'}"
-          class="detail-image"
-          style="transform: rotate(${image.rotation || 0}deg)${image.flipH ? ' scaleX(-1)' : ''};"
-        />
+    <!-- Breadcrumb -->
+    <nav class="breadcrumb" aria-label="breadcrumbs">
+      <ul>
+        <li><a href="/">Home</a></li>
+        <li><a href="/gallery">Gallery</a></li>
+        <li class="is-active"><a href="#" aria-current="page"><%= image.originalName || image.filename %></a></li>
+      </ul>
+    </nav>
+
+    <!-- Action Bar -->
+    <div class="level mb-4">
+      <div class="level-left">
+        <div class="level-item">
+          <h1 class="title is-4 mb-0"><%= image.originalName || image.filename %></h1>
+        </div>
       </div>
-
-      <!-- Description -->
-      <p
-        id="image-description"
-        class="detail-description"
-        style="${image.description ? '' : 'display:none;'}"
-      >${image.description || ''}</p>
-
-      <!-- Tags -->
-      <div class="detail-tags">
-        <% if (image.Tags && image.Tags.length > 0) { %>
-          <% image.Tags.forEach(tag => { %>
-            <a href="/gallery?tag=<%= encodeURIComponent(tag.name) %>" class="tag-badge"><%= tag.name %></a>
-          <% }); %>
-        <% } else { %>
-          <span class="detail-no-tags">No tags yet</span>
-        <% } %>
+      <div class="level-right">
+        <div class="level-item">
+          <div class="buttons">
+            <a href="/gallery" class="button is-light">
+              <span class="icon"><i class="fas fa-arrow-left"></i></span>
+              <span>Back to Gallery</span>
+            </a>
+            <button id="edit-toggle-btn" class="button is-info">
+              <span class="icon"><i class="fas fa-edit"></i></span>
+              <span>Edit Image</span>
+            </button>
+          </div>
+        </div>
       </div>
-
-      <!-- Quick tag add -->
-      <div class="detail-tag-add">
-        <%- include('partials/tag-cloud', { image }) %>
-      </div>
-
-      <!-- Action Buttons -->
-      <div class="detail-actions">
-        <button id="btn-open-editor" class="btn btn-primary">
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:6px;vertical-align:middle;">
-            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-          </svg>
-          Edit Image
-        </button>
-        <a href="/uploads/${image.filename}" download class="btn btn-secondary">
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:6px;vertical-align:middle;">
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-            <polyline points="7 10 12 15 17 10"></polyline>
-            <line x1="12" y1="15" x2="12" y2="3"></line>
-          </svg>
-          Download
-        </a>
-      </div>
-
     </div>
 
-    <!-- Sidebar: EXIF & Info -->
-    <aside class="detail-sidebar">
-      <div class="detail-info-card">
-        <h3 class="detail-info-title">Image Info</h3>
-        <dl class="detail-info-list">
-          <dt>Filename</dt>
-          <dd>${image.originalName || image.filename}</dd>
-          <% if (image.width && image.height) { %>
-            <dt>Dimensions</dt>
-            <dd>${image.width} × ${image.height} px</dd>
-          <% } %>
-          <% if (image.fileSize) { %>
-            <dt>File Size</dt>
-            <dd>${(image.fileSize / 1024 / 1024).toFixed(2)} MB</dd>
-          <% } %>
-          <% if (image.mimeType) { %>
-            <dt>Type</dt>
-            <dd>${image.mimeType}</dd>
-          <% } %>
-          <dt>Uploaded</dt>
-          <dd>${new Date(image.createdAt).toLocaleDateString()}</dd>
-          <% if (image.rotation && image.rotation !== 0) { %>
-            <dt>Rotation</dt>
-            <dd>${image.rotation}°</dd>
-          <% } %>
-        </dl>
-      </div>
-
-      <!-- Manual EXIF Section -->
-      <% 
-        let manualExifData = {};
-        if (image.manualExif) {
-          try {
-            manualExifData = typeof image.manualExif === 'string' ? JSON.parse(image.manualExif) : image.manualExif;
-          } catch(e) {}
-        }
-        const hasManualExif = Object.keys(manualExifData).length > 0;
-      %>
-      <% if (hasManualExif) { %>
-        <div class="detail-info-card" id="manual-exif-section">
-          <h3 class="detail-info-title">Additional Info</h3>
-          <dl class="detail-info-list">
-            <% if (manualExifData.caption) { %>
-              <dt>Caption</dt>
-              <dd id="exif-caption">${manualExifData.caption}</dd>
-            <% } %>
-            <% if (manualExifData.locationName) { %>
-              <dt>Location</dt>
-              <dd id="exif-location">${manualExifData.locationName}</dd>
-            <% } %>
-            <% if (manualExifData.dateTaken) { %>
-              <dt>Date Taken</dt>
-              <dd id="exif-date-taken">${new Date(manualExifData.dateTaken).toLocaleString()}</dd>
-            <% } %>
-            <% if (manualExifData.camera) { %>
-              <dt>Camera</dt>
-              <dd id="exif-camera">${manualExifData.camera}</dd>
-            <% } %>
-          </dl>
+    <div class="columns is-variable is-6">
+      <!-- Main Image Column -->
+      <div class="column is-7">
+        <!-- Image Display -->
+        <div class="image-display-wrapper card">
+          <div class="card-image">
+            <figure class="image-figure">
+              <img
+                id="main-image"
+                src="/uploads/<%= image.filename %>"
+                alt="<%= image.originalName || image.filename %>"
+                style="transform: rotate(<%= currentRotation %>deg); transition: transform 0.3s ease; max-width: 100%; display: block; margin: auto;"
+              />
+            </figure>
+          </div>
+          <div class="card-content py-2 px-3">
+            <div class="is-flex is-justify-content-space-between is-align-items-center">
+              <span class="is-size-7 has-text-grey">
+                <% if (image.width && image.height) { %>
+                  <%= image.width %> × <%= image.height %>px
+                <% } %>
+                <% if (image.fileSize) { %>
+                  · <%= (image.fileSize / 1024 / 1024).toFixed(2) %> MB
+                <% } %>
+              </span>
+              <a href="/uploads/<%= image.filename %>" download class="button is-small is-light">
+                <span class="icon is-small"><i class="fas fa-download"></i></span>
+                <span>Download</span>
+              </a>
+            </div>
+          </div>
         </div>
-      <% } %>
 
-      <!-- EXIF Data from file -->
-      <%- include('partials/exif-table', { exif: image.exifData }) %>
+        <!-- Description -->
+        <% if (image.description) { %>
+          <div class="box mt-4">
+            <p id="image-description-display" class="content"><%= image.description %></p>
+          </div>
+        <% } else { %>
+          <div class="box mt-4 is-hidden" id="image-description-display-wrapper">
+            <p id="image-description-display" class="content"></p>
+          </div>
+        <% } %>
 
-      <!-- Map if GPS data available -->
-      <% 
-        let hasGps = false;
-        let lat = null, lng = null;
-        if (image.exifData) {
-          const exifObj = typeof image.exifData === 'string' ? JSON.parse(image.exifData) : image.exifData;
-          if (exifObj && exifObj.GPSLatitude && exifObj.GPSLongitude) {
-            hasGps = true;
-            lat = exifObj.GPSLatitude;
-            lng = exifObj.GPSLongitude;
-          }
-        }
-      %>
-      <% if (hasGps) { %>
-        <%- include('partials/map', { lat, lng }) %>
-      <% } %>
+        <!-- Manual EXIF Overrides Display -->
+        <% if (manualExif && Object.keys(manualExif).length > 0) { %>
+          <div class="box mt-4">
+            <h4 class="title is-6 mb-3">
+              <span class="icon is-small"><i class="fas fa-pen"></i></span>
+              Manual Metadata
+            </h4>
+            <% if (manualExif.caption) { %>
+              <div class="manual-exif-row mb-2">
+                <span class="has-text-grey-dark is-size-7 mr-2">Caption:</span>
+                <span id="manual-caption-display"><%= manualExif.caption %></span>
+              </div>
+            <% } else { %>
+              <div class="manual-exif-row mb-2 is-hidden">
+                <span class="has-text-grey-dark is-size-7 mr-2">Caption:</span>
+                <span id="manual-caption-display"></span>
+              </div>
+            <% } %>
+            <% if (manualExif.locationName) { %>
+              <div class="manual-exif-row mb-2">
+                <span class="has-text-grey-dark is-size-7 mr-2">Location:</span>
+                <span id="manual-location-display"><%= manualExif.locationName %></span>
+              </div>
+            <% } else { %>
+              <div class="manual-exif-row mb-2 is-hidden">
+                <span class="has-text-grey-dark is-size-7 mr-2">Location:</span>
+                <span id="manual-location-display"></span>
+              </div>
+            <% } %>
+            <% if (manualExif.dateTaken) { %>
+              <div class="manual-exif-row">
+                <span class="has-text-grey-dark is-size-7 mr-2">Date Taken:</span>
+                <span id="manual-date-taken-display"><%= manualExif.dateTaken %></span>
+              </div>
+            <% } else { %>
+              <div class="manual-exif-row is-hidden">
+                <span class="has-text-grey-dark is-size-7 mr-2">Date Taken:</span>
+                <span id="manual-date-taken-display"></span>
+              </div>
+            <% } %>
+          </div>
+        <% } else { %>
+          <div class="box mt-4" id="manual-exif-section" style="display:none;">
+            <h4 class="title is-6 mb-3">Manual Metadata</h4>
+            <div class="manual-exif-row mb-2 is-hidden">
+              <span class="has-text-grey-dark is-size-7 mr-2">Caption:</span>
+              <span id="manual-caption-display"></span>
+            </div>
+            <div class="manual-exif-row mb-2 is-hidden">
+              <span class="has-text-grey-dark is-size-7 mr-2">Location:</span>
+              <span id="manual-location-display"></span>
+            </div>
+            <div class="manual-exif-row is-hidden">
+              <span class="has-text-grey-dark is-size-7 mr-2">Date Taken:</span>
+              <span id="manual-date-taken-display"></span>
+            </div>
+          </div>
+        <% } %>
 
-    </aside>
+      </div><!-- /.column.is-7 -->
 
-  </div>
+      <!-- Sidebar Column -->
+      <div class="column is-5">
 
-  <!-- Edit Panel (slide-in) -->
-  <%- include('partials/edit-panel', { image }) %>
+        <!-- Tags -->
+        <div class="box">
+          <h4 class="title is-6 mb-3">
+            <span class="icon is-small"><i class="fas fa-tags"></i></span>
+            Tags
+          </h4>
+          <div id="image-tags" class="tags">
+            <% if (image.Tags && image.Tags.length > 0) { %>
+              <% image.Tags.forEach(tag => { %>
+                <span class="tag is-info is-light">
+                  <a href="/gallery?tag=<%= tag.name %>" class="has-text-info"><%= tag.name %></a>
+                </span>
+              <% }); %>
+            <% } else { %>
+              <span class="has-text-grey-light is-size-7">No tags yet</span>
+            <% } %>
+          </div>
+          <!-- Tag management partial -->
+          <%- include('./partials/tag-cloud', { image: image, tags: tags || [] }) %>
+        </div>
 
-</div>
+        <!-- EXIF Data -->
+        <% if (exifData && Object.keys(exifData).length > 0) { %>
+          <div class="box">
+            <h4 class="title is-6 mb-3">
+              <span class="icon is-small"><i class="fas fa-camera"></i></span>
+              EXIF Data
+            </h4>
+            <%- include('./partials/exif-table', { exifData: exifData }) %>
+          </div>
+        <% } %>
+
+        <!-- Image Info -->
+        <div class="box">
+          <h4 class="title is-6 mb-3">
+            <span class="icon is-small"><i class="fas fa-info-circle"></i></span>
+            Image Info
+          </h4>
+          <table class="table is-narrow is-fullwidth is-size-7">
+            <tbody>
+              <% if (image.originalName) { %>
+                <tr>
+                  <td class="has-text-grey-dark">Filename</td>
+                  <td><%= image.originalName %></td>
+                </tr>
+              <% } %>
+              <% if (image.mimeType) { %>
+                <tr>
+                  <td class="has-text-grey-dark">Type</td>
+                  <td><%= image.mimeType %></td>
+                </tr>
+              <% } %>
+              <% if (image.width && image.height) { %>
+                <tr>
+                  <td class="has-text-grey-dark">Dimensions</td>
+                  <td><%= image.width %> × <%= image.height %>px</td>
+                </tr>
+              <% } %>
+              <% if (image.fileSize) { %>
+                <tr>
+                  <td class="has-text-grey-dark">File Size</td>
+                  <td><%= (image.fileSize / 1024 / 1024).toFixed(2) %> MB</td>
+                </tr>
+              <% } %>
+              <% if (image.rotation) { %>
+                <tr>
+                  <td class="has-text-grey-dark">Rotation</td>
+                  <td><%= image.rotation %>°</td>
+                </tr>
+              <% } %>
+              <% if (image.createdAt) { %>
+                <tr>
+                  <td class="has-text-grey-dark">Uploaded</td>
+                  <td><%= new Date(image.createdAt).toLocaleDateString() %></td>
+                </tr>
+              <% } %>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Map (if coordinates available) -->
+        <% if (exifData && exifData.gps && exifData.gps.latitude && exifData.gps.longitude) { %>
+          <%- include('./partials/map', { lat: exifData.gps.latitude, lng: exifData.gps.longitude }) %>
+        <% } %>
+
+      </div><!-- /.column.is-5 -->
+    </div><!-- /.columns -->
+
+    <!-- Edit Panel (slide-in) -->
+    <%- include('./partials/edit-panel', { image: image }) %>
+
+  </div><!-- /.container -->
+</section>
 
 <script src="/js/imageEditor.js"></script>
-`) %>

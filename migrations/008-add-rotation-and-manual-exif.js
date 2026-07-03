@@ -7,23 +7,17 @@ module.exports = {
     if (!tableDescription.rotation) {
       await queryInterface.addColumn('Images', 'rotation', {
         type: Sequelize.INTEGER,
+        allowNull: false,
         defaultValue: 0,
-        allowNull: false
-      });
-    }
-
-    if (!tableDescription.flipH) {
-      await queryInterface.addColumn('Images', 'flipH', {
-        type: Sequelize.BOOLEAN,
-        defaultValue: false,
-        allowNull: false
+        comment: 'Non-destructive rotation in degrees: 0, 90, 180, 270'
       });
     }
 
     if (!tableDescription.manualExif) {
       await queryInterface.addColumn('Images', 'manualExif', {
         type: Sequelize.TEXT,
-        allowNull: true
+        allowNull: true,
+        comment: 'JSON string of manually entered EXIF overrides (caption, locationName, dateTaken)'
       });
     }
   },
@@ -34,9 +28,7 @@ module.exports = {
     if (tableDescription.rotation) {
       await queryInterface.removeColumn('Images', 'rotation');
     }
-    if (tableDescription.flipH) {
-      await queryInterface.removeColumn('Images', 'flipH');
-    }
+
     if (tableDescription.manualExif) {
       await queryInterface.removeColumn('Images', 'manualExif');
     }
