@@ -2,70 +2,108 @@
 
 <div class="gallery-page">
 
+  <!-- Gallery Header -->
   <div class="gallery-header">
-    <h1 class="gallery-title">Photo Gallery</h1>
+    <div class="gallery-header__left">
+      <h1 class="gallery-header__title">Gallery</h1>
+      <% if (typeof totalCount !== 'undefined') { %>
+        <span class="gallery-header__count"><%= totalCount %> image<%= totalCount !== 1 ? 's' : '' %></span>
+      <% } %>
+    </div>
+
     <div class="gallery-header__actions">
-      <a href="/upload" class="btn btn--primary">+ Upload</a>
-      <button id="bulkSelectToggle" class="btn btn--secondary">☑ Select</button>
+      <a href="/upload" class="btn btn--primary btn--sm">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <line x1="12" y1="5" x2="12" y2="19"></line>
+          <line x1="5" y1="12" x2="19" y2="12"></line>
+        </svg>
+        Upload
+      </a>
+      <button id="bulk-select-toggle" class="btn btn--outline btn--sm">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <polyline points="9 11 12 14 22 4"></polyline>
+          <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
+        </svg>
+        Select Images
+      </button>
     </div>
   </div>
 
   <!-- Filter Panel -->
   <%- include('partials/filter-panel') %>
 
-  <!-- Tag Cloud -->
-  <% if (locals.tags && tags.length > 0) { %>
-    <%- include('partials/tag-cloud', { tags }) %>
-  <% } %>
-
-  <!-- Results Info -->
-  <% if (locals.images) { %>
-    <div class="gallery-meta">
-      <span class="gallery-count">
-        <% if (locals.pagination) { %>
-          Showing <%= images.length %> of <%= pagination.total %> images
-        <% } else { %>
-          <%= images.length %> image<%= images.length !== 1 ? 's' : '' %>
-        <% } %>
-      </span>
-    </div>
-  <% } %>
-
-  <!-- Image Grid -->
-  <% if (locals.images && images.length > 0) { %>
+  <!-- Images Grid -->
+  <% if (images && images.length > 0) { %>
     <div class="gallery-grid">
       <% images.forEach(image => { %>
-        <%- include('partials/image-card', { image }) %>
-      <% }); %>
+        <div class="gallery-item">
+          <%- include('partials/image-card', { image: image }) %>
+        </div>
+      <% }) %>
     </div>
+
+    <!-- Pagination -->
+    <% if (typeof pagination !== 'undefined' && pagination) { %>
+      <%- include('partials/pagination', { pagination: pagination }) %>
+    <% } %>
+
   <% } else { %>
     <div class="gallery-empty">
-      <div class="gallery-empty__icon">📷</div>
-      <h2 class="gallery-empty__title">No images yet</h2>
-      <p class="gallery-empty__text">Upload some photos to get started!</p>
-      <a href="/upload" class="btn btn--primary">Upload Images</a>
+      <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+        <circle cx="8.5" cy="8.5" r="1.5"></circle>
+        <polyline points="21 15 16 10 5 21"></polyline>
+      </svg>
+      <h2>No images found</h2>
+      <p>
+        <% if (typeof query !== 'undefined' && query) { %>
+          No images match your search. <a href="/gallery">Clear filters</a>
+        <% } else { %>
+          Get started by <a href="/upload">uploading some images</a>.
+        <% } %>
+      </p>
     </div>
-  <% } %>
-
-  <!-- Pagination -->
-  <% if (locals.pagination && pagination.totalPages > 1) { %>
-    <%- include('partials/pagination', { pagination }) %>
   <% } %>
 
 </div>
 
 <!-- Bulk Action Bar (floating) -->
-<div id="bulkActionBar" class="bulk-action-bar">
+<div id="bulk-action-bar" class="bulk-action-bar" role="toolbar" aria-label="Bulk actions">
   <div class="bulk-action-bar__info">
-    <span id="bulkSelectedCount">0 images selected</span>
+    <span id="bulk-count">0</span> selected
   </div>
-  <div class="bulk-action-bar__controls">
-    <button id="bulkSelectAll" class="btn btn--sm btn--secondary">Select All</button>
-    <button id="bulkDeselectAll" class="btn btn--sm btn--secondary">Deselect All</button>
-    <button id="bulkAddTag" class="btn btn--sm btn--primary">+ Add Tag</button>
-    <button id="bulkRemoveTag" class="btn btn--sm btn--secondary">− Remove Tag</button>
-    <button id="bulkDelete" class="btn btn--sm btn--danger">🗑 Delete</button>
+  <div class="bulk-action-bar__actions">
+    <button id="bulk-add-tag-btn" class="btn btn--sm btn--primary" type="button">
+      <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path>
+        <line x1="7" y1="7" x2="7.01" y2="7"></line>
+        <line x1="12" y1="5" x2="12" y2="9"></line>
+        <line x1="10" y1="7" x2="14" y2="7"></line>
+      </svg>
+      Add Tag
+    </button>
+    <button id="bulk-remove-tag-btn" class="btn btn--sm btn--outline" type="button">
+      <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path>
+        <line x1="7" y1="7" x2="7.01" y2="7"></line>
+        <line x1="9" y1="9" x2="15" y2="15"></line>
+        <line x1="15" y1="9" x2="9" y2="15"></line>
+      </svg>
+      Remove Tag
+    </button>
+    <button id="bulk-delete-btn" class="btn btn--sm btn--danger" type="button">
+      <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <polyline points="3 6 5 6 21 6"></polyline>
+        <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path>
+      </svg>
+      Delete
+    </button>
+    <button id="bulk-cancel-btn" class="btn btn--sm btn--secondary" type="button">
+      Cancel
+    </button>
   </div>
 </div>
 
 ` }) %>
+
+<script src="/js/bulkSelect.js"></script>

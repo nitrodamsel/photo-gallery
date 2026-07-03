@@ -1,11 +1,13 @@
-const { Tag, ImageTag, Image } = require('../models');
+const { Tag, Image, ImageTag } = require('../models');
 const { Op } = require('sequelize');
 
 /**
- * Find or create a tag by name (case-insensitive)
+ * Find or create a tag by name
+ * @param {string} name
+ * @returns {Promise<Tag>}
  */
-async function findOrCreateTag(tagName) {
-  const normalizedName = tagName.trim().toLowerCase();
+async function findOrCreateTag(name) {
+  const normalizedName = name.trim().toLowerCase();
   const [tag] = await Tag.findOrCreate({
     where: { name: normalizedName }
   });
@@ -13,12 +15,13 @@ async function findOrCreateTag(tagName) {
 }
 
 /**
- * Get all tags with image counts
+ * Get all tags with usage counts
  */
 async function getAllTagsWithCounts() {
   const tags = await Tag.findAll({
     include: [{
       model: Image,
+      as: 'images',
       through: { attributes: [] },
       attributes: ['id']
     }],
@@ -28,52 +31,57 @@ async function getAllTagsWithCounts() {
   return tags.map(tag => ({
     id: tag.id,
     name: tag.name,
-    count: tag.Images ? tag.Images.length : 0
+    count: tag.images ? tag.images.length : 0
   }));
 }
 
 /**
  * Get tags for a specific image
+ * @param {number} imageId
  */
 async function getTagsForImage(imageId) {
-  const tags = await Tag.findAll({
-    include: [{
-      model: Image,
-      through: { attributes: [] },
-      where: { id: imageId },
-      attributes: []
-    }]
+  const image = await Image.findByPk(imageId, {
+    include: [{ model: Tag, as: 'tags', through: { attributes: [] } }]
   });
-  return tags;
+  return image ? image.tags : [];
 }
 
 /**
- * Add a tag to an image
+ * Add tag to image
+ * @param {number} imageId
+ * @param {string} tagName
  */
 async function addTagToImage(imageId, tagName) {
   const tag = await findOrCreateTag(tagName);
-  const [imagetag, created] = await ImageTag.findOrCreate({
+  await ImageTag.findOrCreate({
     where: { imageId, tagId: tag.id }
   });
-  return { tag, created };
+  return tag;
 }
 
 /**
- * Remove a tag from an image
+ * Remove tag from image
+ * @param {number} imageId
+ * @param {number} tagId
  */
 async function removeTagFromImage(imageId, tagId) {
-  const deleted = await ImageTag.destroy({
+  await ImageTag.destroy({
     where: { imageId, tagId }
   });
-  return deleted > 0;
 }
 
 /**
- * Delete a tag entirely
+ * Search tags by name prefix
+ * @param {string} query
  */
-async function deleteTag(tagId) {
-  await ImageTag.destroy({ where: { tagId } });
-  await Tag.destroy({ where: { id: tagId } });
+async function searchTags(query) {
+  return Tag.findAll({
+    where: {
+      name: { [Op.like]: `${query}%` }
+    },
+    limit: 20,
+    order: [['name', 'ASC']]
+  });
 }
 
 module.exports = {
@@ -82,5 +90,5 @@ module.exports = {
   getTagsForImage,
   addTagToImage,
   removeTagFromImage,
-  deleteTag
+  searchTags
 };

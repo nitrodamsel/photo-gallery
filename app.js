@@ -1,7 +1,9 @@
 const express = require('express');
 const path = require('path');
-const { sequelize } = require('./models');
-const errorHandler = require('./middleware/errorHandler');
+const morgan = require('morgan');
+
+const { errorHandler } = require('./middleware/errorHandler');
+const routes = require('./routes');
 
 const app = express();
 
@@ -9,7 +11,8 @@ const app = express();
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 
-// Body parsing
+// Middleware
+app.use(morgan('dev'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -18,7 +21,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Routes
-app.use('/', require('./routes/index'));
+app.use('/', routes);
 
 // 404 handler
 app.use((req, res) => {
