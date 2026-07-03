@@ -1,54 +1,59 @@
 const path = require('path');
 const fs = require('fs');
-const { Image, Tag, ImageTag, ThumbnailCache } = require('../models');
+const Image = require('../models/Image');
+const ImageTag = require('../models/ImageTag');
+const ThumbnailCache = require('../models/ThumbnailCache');
 
-const UPLOADS_DIR = path.join(__dirname, '..', 'uploads');
-const THUMBNAILS_DIR = path.join(UPLOADS_DIR, 'thumbnails');
+const UPLOAD_DIR = path.join(__dirname, '..', 'uploads');
 
 /**
- * Delete an image and all associated files + DB records
- * @param {Image} image - Sequelize Image instance
+ * Delete an image and all associated files and DB records
+ * @param {number} imageId
  */
-async function deleteImage(image) {
-  // Delete original file
-  const originalPath = path.join(UPLOADS_DIR, image.filename);
-  if (fs.existsSync(originalPath)) {
-    fs.unlinkSync(originalPath);
+async function deleteImage(imageId) {
+  const image = await Image.findByPk(imageId);
+  if (!image) {
+    throw new Error(`Image with id ${imageId} not found`);
   }
+
+  // Delete associated DB records first
+  await ImageTag.destroy({ where: { imageId } });
+  await ThumbnailCache.destroy({ where: { imageId } });
 
   // Delete thumbnail files
-  const thumbnailSizes = ['small', 'medium', 'large'];
-  for (const size of thumbnailSizes) {
-    const thumbPath = path.join(THUMBNAILS_DIR, size, image.filename);
+  const thumbDir = path.join(UPLOAD_DIR, 'thumbnails');
+  const thumbSizes = ['small', 'medium', 'large'];
+  for (const size of thumbSizes) {
+    const thumbPath = path.join(thumbDir, size, image.filename);
     if (fs.existsSync(thumbPath)) {
-      fs.unlinkSync(thumbPath);
-    }
-    // Also try webp variants
-    const webpFilename = image.filename.replace(/\.[^.]+$/, '.webp');
-    const thumbWebpPath = path.join(THUMBNAILS_DIR, size, webpFilename);
-    if (fs.existsSync(thumbWebpPath)) {
-      fs.unlinkSync(thumbWebpPath);
+      try {
+        fs.unlinkSync(thumbPath);
+      } catch (err) {
+        console.error(`Failed to delete thumbnail ${thumbPath}:`, err);
+      }
     }
   }
 
-  // Delete thumbnail cache records
-  await ThumbnailCache.destroy({ where: { imageId: image.id } });
+  // Delete original file
+  const originalPath = path.join(UPLOAD_DIR, image.filename);
+  if (fs.existsSync(originalPath)) {
+    try {
+      fs.unlinkSync(originalPath);
+    } catch (err) {
+      console.error(`Failed to delete original file ${originalPath}:`, err);
+    }
+  }
 
-  // Delete image-tag associations
-  await ImageTag.destroy({ where: { imageId: image.id } });
-
-  // Delete the image record
+  // Delete DB record
   await image.destroy();
 }
 
 /**
- * Get image with tags
- * @param {number} id
+ * Get image by ID
+ * @param {number} imageId
  */
-async function getImageWithTags(id) {
-  return Image.findByPk(id, {
-    include: [{ model: Tag, as: 'tags', through: { attributes: [] } }]
-  });
+async function getImageById(imageId) {
+  return Image.findByPk(imageId);
 }
 
-module.exports = { deleteImage, getImageWithTags };
+module.exports = { deleteImage, getImageById };

@@ -1,311 +1,303 @@
 /**
- * Bulk Select - Gallery selection mode for bulk operations
+ * Bulk Selection Mode for Gallery
+ * Handles checkbox selection, floating action bar, and bulk API requests
  */
+
 (function () {
   'use strict';
 
-  let selectionMode = false;
-  let selectedIds = new Set();
+  const selectedIds = new Set();
+  let bulkModeActive = false;
+
+  // DOM references
   let toggleBtn = null;
   let actionBar = null;
-  let countEl = null;
+  let actionBarCount = null;
+  let cards = [];
 
   function init() {
     toggleBtn = document.getElementById('bulk-select-toggle');
     actionBar = document.getElementById('bulk-action-bar');
-    countEl = document.getElementById('bulk-count');
+    actionBarCount = document.getElementById('bulk-selected-count');
 
     if (!toggleBtn || !actionBar) return;
 
-    // Toggle selection mode
-    toggleBtn.addEventListener('click', toggleSelectionMode);
+    toggleBtn.addEventListener('click', toggleBulkMode);
 
-    // Bulk action buttons
-    const addTagBtn = document.getElementById('bulk-add-tag-btn');
-    const removeTagBtn = document.getElementById('bulk-remove-tag-btn');
-    const deleteBtn = document.getElementById('bulk-delete-btn');
-    const cancelBtn = document.getElementById('bulk-cancel-btn');
+    // Action bar buttons
+    const addTagBtn = document.getElementById('bulk-add-tag');
+    const removeTagBtn = document.getElementById('bulk-remove-tag');
+    const deleteBtn = document.getElementById('bulk-delete');
+    const cancelBtn = document.getElementById('bulk-cancel');
 
-    if (addTagBtn) addTagBtn.addEventListener('click', handleBulkAddTag);
-    if (removeTagBtn) removeTagBtn.addEventListener('click', handleBulkRemoveTag);
-    if (deleteBtn) deleteBtn.addEventListener('click', handleBulkDelete);
-    if (cancelBtn) cancelBtn.addEventListener('click', exitSelectionMode);
+    if (addTagBtn) addTagBtn.addEventListener('click', handleAddTag);
+    if (removeTagBtn) removeTagBtn.addEventListener('click', handleRemoveTag);
+    if (deleteBtn) deleteBtn.addEventListener('click', handleDelete);
+    if (cancelBtn) cancelBtn.addEventListener('click', exitBulkMode);
   }
 
-  function toggleSelectionMode() {
-    if (selectionMode) {
-      exitSelectionMode();
+  function toggleBulkMode() {
+    if (bulkModeActive) {
+      exitBulkMode();
     } else {
-      enterSelectionMode();
+      enterBulkMode();
     }
   }
 
-  function enterSelectionMode() {
-    selectionMode = true;
+  function enterBulkMode() {
+    bulkModeActive = true;
     selectedIds.clear();
 
-    if (toggleBtn) {
-      toggleBtn.textContent = 'Exit Selection';
-      toggleBtn.classList.add('active');
-    }
+    toggleBtn.textContent = 'Exit Selection';
+    toggleBtn.classList.add('is-warning');
+    toggleBtn.classList.remove('is-light');
 
-    // Add checkboxes to all image cards
-    const cards = document.querySelectorAll('.image-card');
+    // Get all image cards
+    cards = Array.from(document.querySelectorAll('.image-card'));
+
     cards.forEach(card => {
-      addCheckboxToCard(card);
+      const imageId = card.dataset.imageId;
+      if (!imageId) return;
+
+      // Add checkbox overlay
+      const overlay = document.createElement('div');
+      overlay.className = 'bulk-checkbox-overlay';
+
+      const checkbox = document.createElement('input');
+      checkbox.type = 'checkbox';
+      checkbox.className = 'bulk-checkbox';
+      checkbox.dataset.imageId = imageId;
+      checkbox.addEventListener('change', () => handleCheckboxChange(checkbox, imageId));
+
+      overlay.appendChild(checkbox);
+      card.style.position = 'relative';
+      card.appendChild(overlay);
+
+      // Make whole card clickable in bulk mode
+      card.addEventListener('click', handleCardClick);
+      card.classList.add('bulk-selectable');
     });
 
     updateActionBar();
   }
 
-  function exitSelectionMode() {
-    selectionMode = false;
+  function exitBulkMode() {
+    bulkModeActive = false;
     selectedIds.clear();
 
-    if (toggleBtn) {
-      toggleBtn.textContent = 'Select Images';
-      toggleBtn.classList.remove('active');
-    }
+    toggleBtn.textContent = 'Select Images';
+    toggleBtn.classList.remove('is-warning');
+    toggleBtn.classList.add('is-light');
 
-    // Remove all checkboxes
-    const checkboxes = document.querySelectorAll('.bulk-checkbox-wrapper');
-    checkboxes.forEach(cb => cb.remove());
+    // Remove checkboxes and overlays
+    document.querySelectorAll('.bulk-checkbox-overlay').forEach(el => el.remove());
 
-    // Remove selected class from cards
-    const cards = document.querySelectorAll('.image-card');
-    cards.forEach(card => card.classList.remove('image-card--selected'));
+    cards.forEach(card => {
+      card.removeEventListener('click', handleCardClick);
+      card.classList.remove('bulk-selectable', 'bulk-selected');
+    });
 
-    hideActionBar();
+    cards = [];
+    actionBar.classList.add('is-hidden');
   }
 
-  function addCheckboxToCard(card) {
-    // Avoid duplicates
-    if (card.querySelector('.bulk-checkbox-wrapper')) return;
+  function handleCardClick(e) {
+    // Don't interfere with actual links unless in bulk mode
+    if (!bulkModeActive) return;
 
+    // Prevent navigation to image detail
+    const link = e.target.closest('a');
+    if (link && !e.target.classList.contains('bulk-checkbox')) {
+      e.preventDefault();
+    }
+
+    const card = e.currentTarget;
     const imageId = card.dataset.imageId;
     if (!imageId) return;
 
-    const wrapper = document.createElement('div');
-    wrapper.className = 'bulk-checkbox-wrapper';
-
-    const checkbox = document.createElement('input');
-    checkbox.type = 'checkbox';
-    checkbox.className = 'bulk-checkbox';
-    checkbox.dataset.imageId = imageId;
-    checkbox.addEventListener('change', onCheckboxChange);
-
-    wrapper.appendChild(checkbox);
-    card.appendChild(wrapper);
-
-    // Make card clickable to toggle checkbox (except links)
-    card.addEventListener('click', onCardClick);
-  }
-
-  function onCardClick(e) {
-    if (!selectionMode) return;
-
-    // Don't intercept clicks on the actual links/buttons
-    if (e.target.tagName === 'A' || e.target.tagName === 'BUTTON' ||
-        e.target.classList.contains('bulk-checkbox')) {
-      return;
-    }
-
-    e.preventDefault();
-    e.stopPropagation();
-
-    const card = e.currentTarget;
     const checkbox = card.querySelector('.bulk-checkbox');
-    if (checkbox) {
+    if (checkbox && e.target !== checkbox) {
       checkbox.checked = !checkbox.checked;
-      onCheckboxChange({ target: checkbox });
+      handleCheckboxChange(checkbox, imageId);
     }
   }
 
-  function onCheckboxChange(e) {
-    const checkbox = e.target;
-    const imageId = parseInt(checkbox.dataset.imageId, 10);
-    const card = checkbox.closest('.image-card');
-
+  function handleCheckboxChange(checkbox, imageId) {
     if (checkbox.checked) {
       selectedIds.add(imageId);
-      if (card) card.classList.add('image-card--selected');
+      checkbox.closest('.image-card').classList.add('bulk-selected');
     } else {
       selectedIds.delete(imageId);
-      if (card) card.classList.remove('image-card--selected');
+      checkbox.closest('.image-card').classList.remove('bulk-selected');
     }
-
     updateActionBar();
   }
 
   function updateActionBar() {
     const count = selectedIds.size;
 
-    if (countEl) {
-      countEl.textContent = count;
-    }
-
-    if (count >= 1) {
-      showActionBar();
-    } else {
-      // Still show bar in selection mode but with 0 count
-      if (selectionMode) {
-        showActionBar();
-      } else {
-        hideActionBar();
+    if (count > 0) {
+      actionBar.classList.remove('is-hidden');
+      if (actionBarCount) {
+        actionBarCount.textContent = `${count} image${count !== 1 ? 's' : ''} selected`;
       }
+    } else {
+      actionBar.classList.add('is-hidden');
     }
   }
 
-  function showActionBar() {
-    if (actionBar) {
-      actionBar.classList.add('bulk-action-bar--visible');
-    }
-  }
-
-  function hideActionBar() {
-    if (actionBar) {
-      actionBar.classList.remove('bulk-action-bar--visible');
-    }
-  }
-
-  async function handleBulkAddTag() {
-    if (selectedIds.size === 0) {
-      alert('Please select at least one image.');
-      return;
-    }
+  async function handleAddTag() {
+    if (selectedIds.size === 0) return;
 
     const tagName = prompt('Enter tag name to add:');
     if (!tagName || !tagName.trim()) return;
 
-    await performBulkAction('addTag', { tagName: tagName.trim() });
+    try {
+      const result = await bulkRequest({
+        imageIds: Array.from(selectedIds).map(Number),
+        action: 'addTag',
+        payload: { tagName: tagName.trim() }
+      });
+
+      showNotification(
+        `Tag "${tagName}" added to ${result.succeeded.length} image(s)` +
+        (result.failed.length ? `. ${result.failed.length} failed.` : ''),
+        result.failed.length ? 'is-warning' : 'is-success'
+      );
+    } catch (err) {
+      showNotification(`Error: ${err.message}`, 'is-danger');
+    }
   }
 
-  async function handleBulkRemoveTag() {
-    if (selectedIds.size === 0) {
-      alert('Please select at least one image.');
+  async function handleRemoveTag() {
+    if (selectedIds.size === 0) return;
+
+    const tagInput = prompt('Enter tag ID or name to remove:');
+    if (!tagInput || !tagInput.trim()) return;
+
+    // If numeric, treat as ID; otherwise try to find by name
+    let tagId = null;
+    if (/^\d+$/.test(tagInput.trim())) {
+      tagId = parseInt(tagInput.trim(), 10);
+    } else {
+      // Try to find tag by name via API
+      try {
+        const resp = await fetch(`/api/tags?name=${encodeURIComponent(tagInput.trim())}`);
+        if (resp.ok) {
+          const data = await resp.json();
+          if (data && data.id) tagId = data.id;
+          else if (Array.isArray(data) && data.length > 0) tagId = data[0].id;
+        }
+      } catch (e) {
+        // ignore
+      }
+    }
+
+    if (!tagId) {
+      showNotification('Could not find tag. Please use the tag ID number.', 'is-warning');
       return;
     }
 
-    const tagId = prompt('Enter tag ID to remove:');
-    if (!tagId || isNaN(parseInt(tagId, 10))) {
-      alert('Please enter a valid tag ID.');
-      return;
-    }
+    try {
+      const result = await bulkRequest({
+        imageIds: Array.from(selectedIds).map(Number),
+        action: 'removeTag',
+        payload: { tagId }
+      });
 
-    await performBulkAction('removeTag', { tagId: parseInt(tagId, 10) });
+      showNotification(
+        `Tag removed from ${result.succeeded.length} image(s)` +
+        (result.failed.length ? `. ${result.failed.length} failed.` : ''),
+        result.failed.length ? 'is-warning' : 'is-success'
+      );
+    } catch (err) {
+      showNotification(`Error: ${err.message}`, 'is-danger');
+    }
   }
 
-  async function handleBulkDelete() {
-    if (selectedIds.size === 0) {
-      alert('Please select at least one image.');
-      return;
-    }
+  async function handleDelete() {
+    if (selectedIds.size === 0) return;
 
     const count = selectedIds.size;
     if (!confirm(`Are you sure you want to delete ${count} image${count !== 1 ? 's' : ''}? This cannot be undone.`)) {
       return;
     }
 
-    await performBulkAction('delete', null);
-  }
-
-  async function performBulkAction(action, payload) {
-    const imageIds = Array.from(selectedIds);
-
-    // Disable action bar buttons during operation
-    setActionBarLoading(true);
-
     try {
-      const body = { imageIds, action };
-      if (payload) body.payload = payload;
-
-      const response = await fetch('/api/images/bulk', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body)
+      const idsToDelete = Array.from(selectedIds).map(Number);
+      const result = await bulkRequest({
+        imageIds: idsToDelete,
+        action: 'delete'
       });
 
-      const data = await response.json();
+      // Remove deleted cards from DOM
+      result.succeeded.forEach(id => {
+        const card = document.querySelector(`.image-card[data-image-id="${id}"]`);
+        if (card) {
+          // Remove parent column wrapper if present
+          const col = card.closest('.column');
+          if (col) col.remove();
+          else card.remove();
+        }
+        selectedIds.delete(String(id));
+      });
 
-      if (!response.ok) {
-        throw new Error(data.error || 'Bulk operation failed');
+      showNotification(
+        `${result.succeeded.length} image${result.succeeded.length !== 1 ? 's' : ''} deleted` +
+        (result.failed.length ? `. ${result.failed.length} failed.` : ''),
+        result.failed.length ? 'is-warning' : 'is-success'
+      );
+
+      updateActionBar();
+
+      // If no more images, show empty state
+      const remainingCards = document.querySelectorAll('.image-card');
+      if (remainingCards.length === 0) {
+        const gallery = document.getElementById('gallery-grid');
+        if (gallery) {
+          gallery.innerHTML = '<div class="column is-full"><p class="has-text-centered has-text-grey">No images found.</p></div>';
+        }
+        exitBulkMode();
       }
-
-      const result = data.result || {};
-      const succeeded = result.succeeded || [];
-      const failed = result.failed || [];
-
-      // Show result summary
-      let message = `Operation complete: ${succeeded.length} succeeded`;
-      if (failed.length > 0) {
-        message += `, ${failed.length} failed`;
-        console.warn('Failed bulk operations:', failed);
-      }
-
-      // Update the gallery DOM
-      if (action === 'delete') {
-        // Remove deleted cards from DOM
-        succeeded.forEach(id => {
-          const card = document.querySelector(`.image-card[data-image-id="${id}"]`);
-          if (card) {
-            const cardContainer = card.closest('.gallery-item') || card;
-            cardContainer.remove();
-          }
-        });
-        selectedIds.clear();
-      } else if (action === 'addTag' && result.tag) {
-        // Visual feedback - cards still there, just show success
-        succeeded.forEach(id => {
-          const card = document.querySelector(`.image-card[data-image-id="${id}"]`);
-          if (card) {
-            card.classList.add('image-card--tagged');
-            setTimeout(() => card.classList.remove('image-card--tagged'), 2000);
-          }
-        });
-      }
-
-      showNotification(message, failed.length > 0 ? 'warning' : 'success');
-
-      // If all deleted, exit selection mode
-      if (action === 'delete' && failed.length === 0) {
-        exitSelectionMode();
-      } else {
-        updateActionBar();
-      }
-
     } catch (err) {
-      console.error('Bulk action error:', err);
-      showNotification(`Error: ${err.message}`, 'error');
-    } finally {
-      setActionBarLoading(false);
+      showNotification(`Error: ${err.message}`, 'is-danger');
     }
   }
 
-  function setActionBarLoading(loading) {
-    const buttons = actionBar
-      ? actionBar.querySelectorAll('button')
-      : [];
-    buttons.forEach(btn => {
-      btn.disabled = loading;
+  async function bulkRequest(body) {
+    const response = await fetch('/api/images/bulk', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
     });
-  }
 
-  function showNotification(message, type) {
-    // Try to use existing notification system or create a simple one
-    let notifEl = document.getElementById('bulk-notification');
-    if (!notifEl) {
-      notifEl = document.createElement('div');
-      notifEl.id = 'bulk-notification';
-      notifEl.className = 'bulk-notification';
-      document.body.appendChild(notifEl);
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || 'Bulk request failed');
     }
 
-    notifEl.textContent = message;
-    notifEl.className = `bulk-notification bulk-notification--${type} bulk-notification--visible`;
+    return data;
+  }
 
-    clearTimeout(notifEl._timeout);
-    notifEl._timeout = setTimeout(() => {
-      notifEl.classList.remove('bulk-notification--visible');
+  function showNotification(message, type = 'is-info') {
+    // Remove existing notifications
+    document.querySelectorAll('.bulk-notification').forEach(el => el.remove());
+
+    const notification = document.createElement('div');
+    notification.className = `notification ${type} bulk-notification`;
+    notification.style.cssText = 'position: fixed; top: 1rem; right: 1rem; z-index: 9999; max-width: 400px; animation: fadeIn 0.3s ease;';
+    notification.innerHTML = `
+      <button class="delete"></button>
+      ${message}
+    `;
+
+    notification.querySelector('.delete').addEventListener('click', () => notification.remove());
+    document.body.appendChild(notification);
+
+    // Auto-remove after 4 seconds
+    setTimeout(() => {
+      if (notification.parentNode) notification.remove();
     }, 4000);
   }
 

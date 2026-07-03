@@ -1,210 +1,250 @@
 /**
- * Image Editor - handles the edit panel on the image detail page
+ * Image Editor - Client JS for edit panel on detail page
+ * Handles toggle show/hide, form data collection, PATCH via fetch,
+ * DOM update with response, and rotation preview.
  */
+
 (function () {
   'use strict';
 
-  // Current state
   let currentRotation = 0;
-  let originalRotation = 0;
   let imageId = null;
-  let isOpen = false;
-
-  // DOM references
   let editPanel = null;
-  let editToggleBtn = null;
-  let previewImg = null;
+  let mainImage = null;
+  let isDirty = false;
+
+  const ROTATION_LABELS = {
+    0: '0°',
+    90: '90° CW',
+    180: '180°',
+    270: '90° CCW',
+    '-1': 'Flip H',
+    '-2': 'Flip V'
+  };
 
   function init() {
     editPanel = document.getElementById('edit-panel');
-    editToggleBtn = document.getElementById('edit-toggle-btn');
-    previewImg = document.getElementById('main-image');
+    mainImage = document.getElementById('main-image');
 
     if (!editPanel) return;
 
-    // Get image ID from data attribute
-    imageId = editPanel.dataset.imageId;
+    // Get image ID from data attribute or URL
+    const imageContainer = document.getElementById('image-detail-container');
+    if (imageContainer) {
+      imageId = imageContainer.dataset.imageId;
+    }
 
-    // Get initial rotation
-    currentRotation = parseInt(editPanel.dataset.rotation || '0', 10);
-    originalRotation = currentRotation;
+    if (!imageId) {
+      // Fallback: extract from URL
+      const match = window.location.pathname.match(/\/images?\/(\d+)/);
+      if (match) imageId = match[1];
+    }
 
-    // Bind toggle button
+    // Get current rotation from data attribute
+    const rotationEl = document.getElementById('current-rotation');
+    if (rotationEl) {
+      currentRotation = parseInt(rotationEl.value || '0', 10);
+    }
+
+    // Toggle edit panel
+    const editToggleBtn = document.getElementById('edit-toggle-btn');
     if (editToggleBtn) {
-      editToggleBtn.addEventListener('click', togglePanel);
+      editToggleBtn.addEventListener('click', toggleEditPanel);
     }
 
-    // Bind close button
-    const closeBtn = document.getElementById('edit-panel-close');
-    if (closeBtn) {
-      closeBtn.addEventListener('click', closePanel);
-    }
-
-    // Bind cancel button
+    // Close / cancel button
     const cancelBtn = document.getElementById('edit-cancel-btn');
     if (cancelBtn) {
       cancelBtn.addEventListener('click', cancelEdit);
     }
 
-    // Bind save button
+    // Save button
     const saveBtn = document.getElementById('edit-save-btn');
     if (saveBtn) {
       saveBtn.addEventListener('click', saveChanges);
     }
 
-    // Bind rotation buttons
-    const rotateCWBtn = document.getElementById('rotate-cw-btn');
-    const rotateCCWBtn = document.getElementById('rotate-ccw-btn');
-    const flipHBtn = document.getElementById('flip-h-btn');
+    // Rotation buttons
+    document.querySelectorAll('[data-rotation-action]').forEach(btn => {
+      btn.addEventListener('click', () => handleRotationAction(btn.dataset.rotationAction));
+    });
 
-    if (rotateCWBtn) {
-      rotateCWBtn.addEventListener('click', () => rotateImage(90));
-    }
-    if (rotateCCWBtn) {
-      rotateCCWBtn.addEventListener('click', () => rotateImage(-90));
-    }
-    if (flipHBtn) {
-      flipHBtn.addEventListener('click', flipHorizontal);
-    }
-
-    // Bind delete button
+    // Delete button
     const deleteBtn = document.getElementById('delete-image-btn');
     if (deleteBtn) {
-      deleteBtn.addEventListener('click', deleteImage);
+      deleteBtn.addEventListener('click', handleDelete);
     }
 
-    // Bind regenerate thumbnails button
-    const regenBtn = document.getElementById('regen-thumbnails-btn');
+    // Regenerate thumbnails button
+    const regenBtn = document.getElementById('regenerate-thumbnails-btn');
     if (regenBtn) {
-      regenBtn.addEventListener('click', regenerateThumbnails);
+      regenBtn.addEventListener('click', handleRegenerateThumbnails);
     }
 
-    // Update rotation display
-    updateRotationDisplay();
+    // Track changes in form inputs
+    editPanel.querySelectorAll('input, textarea').forEach(el => {
+      el.addEventListener('input', () => { isDirty = true; });
+    });
+
+    // Warn before leaving if unsaved changes
+    window.addEventListener('beforeunload', (e) => {
+      if (isDirty) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    });
   }
 
-  function togglePanel() {
+  function toggleEditPanel() {
+    if (!editPanel) return;
+    const isOpen = editPanel.classList.contains('is-open');
     if (isOpen) {
-      closePanel();
+      closeEditPanel();
     } else {
-      openPanel();
+      openEditPanel();
     }
   }
 
-  function openPanel() {
-    if (!editPanel) return;
-    editPanel.classList.add('edit-panel--open');
-    isOpen = true;
-    if (editToggleBtn) {
-      editToggleBtn.classList.add('active');
-      editToggleBtn.setAttribute('aria-expanded', 'true');
+  function openEditPanel() {
+    editPanel.classList.add('is-open');
+    const btn = document.getElementById('edit-toggle-btn');
+    if (btn) {
+      btn.textContent = '✕ Close Editor';
+      btn.classList.add('is-light');
     }
   }
 
-  function closePanel() {
-    if (!editPanel) return;
-    editPanel.classList.remove('edit-panel--open');
-    isOpen = false;
-    if (editToggleBtn) {
-      editToggleBtn.classList.remove('active');
-      editToggleBtn.setAttribute('aria-expanded', 'false');
+  function closeEditPanel() {
+    editPanel.classList.remove('is-open');
+    const btn = document.getElementById('edit-toggle-btn');
+    if (btn) {
+      btn.textContent = '✏️ Edit';
+      btn.classList.remove('is-light');
     }
   }
 
   function cancelEdit() {
-    // Revert rotation preview
-    currentRotation = originalRotation;
-    updateRotationDisplay();
-    closePanel();
+    if (isDirty && !confirm('Discard unsaved changes?')) return;
+    isDirty = false;
+
+    // Reset rotation preview to saved state
+    const savedRotation = parseInt(document.getElementById('current-rotation')?.value || '0', 10);
+    currentRotation = savedRotation;
+    applyRotationPreview(savedRotation);
+
+    // Reset form fields to original values
+    const form = document.getElementById('edit-form');
+    if (form) form.reset();
+
+    closeEditPanel();
   }
 
-  function rotateImage(degrees) {
-    currentRotation = ((currentRotation + degrees) % 360 + 360) % 360;
-    updateRotationDisplay();
+  function handleRotationAction(action) {
+    let newRotation = currentRotation;
+
+    switch (action) {
+      case 'cw90':
+        // Rotate clockwise 90° — handle special flip values
+        if (currentRotation >= 0) {
+          newRotation = (currentRotation + 90) % 360;
+        }
+        break;
+      case 'ccw90':
+        if (currentRotation >= 0) {
+          newRotation = (currentRotation + 270) % 360;
+        }
+        break;
+      case 'flipH':
+        newRotation = -1;
+        break;
+      case 'flipV':
+        newRotation = -2;
+        break;
+      default:
+        newRotation = parseInt(action, 10) || 0;
+    }
+
+    currentRotation = newRotation;
+    isDirty = true;
+
+    // Update hidden rotation input
+    const rotInput = document.getElementById('rotation-input');
+    if (rotInput) rotInput.value = newRotation;
+
+    // Update rotation label
+    const rotLabel = document.getElementById('rotation-label');
+    if (rotLabel) {
+      rotLabel.textContent = `Current: ${ROTATION_LABELS[newRotation] || newRotation + '°'}`;
+    }
+
+    // Apply CSS preview
+    applyRotationPreview(newRotation);
   }
 
-  function flipHorizontal() {
-    // Flip is represented as 'flip' in the UI - for simplicity we toggle a flip state
-    // In this implementation we'll note flip is handled as rotation 0 with scaleX(-1) preview
-    // but the API doesn't currently support flip, so we just show a visual preview note
-    if (previewImg) {
-      const currentTransform = previewImg.style.transform || '';
-      if (currentTransform.includes('scaleX(-1)')) {
-        previewImg.style.transform = currentTransform.replace(' scaleX(-1)', '').replace('scaleX(-1)', '').trim();
-      } else {
-        previewImg.style.transform = (currentTransform + ' scaleX(-1)').trim();
-      }
-    }
-  }
+  function applyRotationPreview(rotation) {
+    if (!mainImage) return;
 
-  function updateRotationDisplay() {
-    // Update the live CSS preview on the main image
-    if (previewImg) {
-      // Preserve any existing scaleX transform
-      const currentTransform = previewImg.style.transform || '';
-      const hasFlip = currentTransform.includes('scaleX(-1)');
-      const flipStr = hasFlip ? ' scaleX(-1)' : '';
-      previewImg.style.transform = `rotate(${currentRotation}deg)${flipStr}`;
-    }
-
-    // Update rotation value display
-    const rotationDisplay = document.getElementById('rotation-display');
-    if (rotationDisplay) {
-      rotationDisplay.textContent = `${currentRotation}°`;
+    let transform = '';
+    switch (rotation) {
+      case 0:
+        transform = 'rotate(0deg)';
+        break;
+      case 90:
+        transform = 'rotate(90deg)';
+        break;
+      case 180:
+        transform = 'rotate(180deg)';
+        break;
+      case 270:
+        transform = 'rotate(270deg)';
+        break;
+      case -1:
+        transform = 'scaleX(-1)';
+        break;
+      case -2:
+        transform = 'scaleY(-1)';
+        break;
+      default:
+        transform = `rotate(${rotation}deg)`;
     }
 
-    // Update hidden input
-    const rotationInput = document.getElementById('rotation-input');
-    if (rotationInput) {
-      rotationInput.value = currentRotation;
-    }
+    mainImage.style.transform = transform;
+    mainImage.style.transition = 'transform 0.3s ease';
   }
 
   async function saveChanges() {
-    if (!imageId) return;
-
-    const saveBtn = document.getElementById('edit-save-btn');
-    const statusEl = document.getElementById('edit-status');
-
-    // Gather form data
-    const description = document.getElementById('edit-description')
-      ? document.getElementById('edit-description').value
-      : undefined;
-
-    const manualExif = {
-      caption: document.getElementById('edit-caption')
-        ? document.getElementById('edit-caption').value
-        : '',
-      locationName: document.getElementById('edit-location')
-        ? document.getElementById('edit-location').value
-        : '',
-      dateTaken: document.getElementById('edit-date-taken')
-        ? document.getElementById('edit-date-taken').value
-        : ''
-    };
-
-    // Remove empty values
-    Object.keys(manualExif).forEach(key => {
-      if (!manualExif[key]) delete manualExif[key];
-    });
-
-    const body = {
-      description,
-      manualExif: Object.keys(manualExif).length > 0 ? manualExif : undefined,
-      rotation: currentRotation
-    };
-
-    // Remove undefined keys
-    Object.keys(body).forEach(key => body[key] === undefined && delete body[key]);
-
-    if (saveBtn) {
-      saveBtn.disabled = true;
-      saveBtn.textContent = 'Saving...';
+    if (!imageId) {
+      showError('No image ID found');
+      return;
     }
 
-    setStatus('', '');
+    const saveBtn = document.getElementById('edit-save-btn');
+    if (saveBtn) {
+      saveBtn.classList.add('is-loading');
+      saveBtn.disabled = true;
+    }
 
     try {
+      const description = document.getElementById('edit-description')?.value || '';
+      const rotationInput = document.getElementById('rotation-input');
+      const rotation = rotationInput ? parseInt(rotationInput.value, 10) : 0;
+
+      // Collect manual EXIF fields
+      const manualExif = {};
+      const captionEl = document.getElementById('edit-caption');
+      const locationEl = document.getElementById('edit-location');
+      const dateTakenEl = document.getElementById('edit-date-taken');
+      const cameraEl = document.getElementById('edit-camera');
+      const lensEl = document.getElementById('edit-lens');
+
+      if (captionEl && captionEl.value.trim()) manualExif.caption = captionEl.value.trim();
+      if (locationEl && locationEl.value.trim()) manualExif.location = locationEl.value.trim();
+      if (dateTakenEl && dateTakenEl.value.trim()) manualExif.dateTaken = dateTakenEl.value.trim();
+      if (cameraEl && cameraEl.value.trim()) manualExif.camera = cameraEl.value.trim();
+      if (lensEl && lensEl.value.trim()) manualExif.lens = lensEl.value.trim();
+
+      const body = { description, rotation, manualExif };
+
       const response = await fetch(`/api/images/${imageId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -217,89 +257,75 @@
         throw new Error(data.error || 'Failed to save changes');
       }
 
-      // Update state
-      originalRotation = data.image.rotation;
-      currentRotation = originalRotation;
+      // Update DOM with response data
+      updateDetailPage(data);
+      isDirty = false;
 
-      // Update DOM without reload
-      updateDetailPageDOM(data.image);
+      // Update saved rotation reference
+      const currentRotationEl = document.getElementById('current-rotation');
+      if (currentRotationEl) currentRotationEl.value = data.rotation || 0;
 
-      setStatus('Changes saved successfully!', 'success');
+      showSuccess('Changes saved successfully!');
+      closeEditPanel();
 
-      // Close panel after short delay
-      setTimeout(() => {
-        closePanel();
-        setStatus('', '');
-      }, 1500);
-
+      // Refresh image to show new thumbnail/rotation
+      if (mainImage) {
+        const src = mainImage.src.split('?')[0];
+        mainImage.src = `${src}?t=${Date.now()}`;
+        mainImage.style.transform = ''; // Remove preview transform — server handles it now
+      }
     } catch (err) {
-      console.error('Save error:', err);
-      setStatus(`Error: ${err.message}`, 'error');
+      console.error('Error saving changes:', err);
+      showError(err.message || 'Failed to save changes');
     } finally {
       if (saveBtn) {
+        saveBtn.classList.remove('is-loading');
         saveBtn.disabled = false;
-        saveBtn.textContent = 'Save Changes';
       }
     }
   }
 
-  function updateDetailPageDOM(imageData) {
+  function updateDetailPage(imageData) {
     // Update description
-    if (imageData.description !== undefined) {
-      const descEl = document.getElementById('image-description');
-      if (descEl) {
-        descEl.textContent = imageData.description || '';
-      }
+    const descEl = document.getElementById('image-description-display');
+    if (descEl) {
+      descEl.textContent = imageData.description || '';
+      descEl.style.display = imageData.description ? '' : 'none';
     }
 
-    // Update rotation in edit panel data attribute
-    if (editPanel && imageData.rotation !== undefined) {
-      editPanel.dataset.rotation = imageData.rotation;
-    }
+    // Update manual EXIF display if present
+    const manualExif = imageData.manualExif || {};
 
-    // Update manual EXIF fields if displayed
-    if (imageData.manualExif) {
-      const exif = imageData.manualExif;
+    const captionDisplay = document.getElementById('display-caption');
+    if (captionDisplay) captionDisplay.textContent = manualExif.caption || '';
 
-      if (exif.caption) {
-        const captionEl = document.getElementById('display-caption');
-        if (captionEl) captionEl.textContent = exif.caption;
-      }
+    const locationDisplay = document.getElementById('display-location');
+    if (locationDisplay) locationDisplay.textContent = manualExif.location || '';
 
-      if (exif.locationName) {
-        const locationEl = document.getElementById('display-location');
-        if (locationEl) locationEl.textContent = exif.locationName;
-      }
+    const dateTakenDisplay = document.getElementById('display-date-taken');
+    if (dateTakenDisplay) dateTakenDisplay.textContent = manualExif.dateTaken || '';
 
-      if (exif.dateTaken) {
-        const dateEl = document.getElementById('display-date-taken');
-        if (dateEl) dateEl.textContent = exif.dateTaken;
-      }
-    }
+    const cameraDisplay = document.getElementById('display-camera');
+    if (cameraDisplay) cameraDisplay.textContent = manualExif.camera || '';
 
-    // Update image src to bust cache if rotation changed
-    if (previewImg && imageData.rotation !== undefined) {
-      const src = previewImg.src;
-      const baseUrl = src.split('?')[0];
-      previewImg.src = `${baseUrl}?v=${Date.now()}`;
-      // Reset the CSS transform since the actual image will have the rotation applied
-      setTimeout(() => {
-        previewImg.style.transform = '';
-      }, 500);
+    const lensDisplay = document.getElementById('display-lens');
+    if (lensDisplay) lensDisplay.textContent = manualExif.lens || '';
+
+    // Update page title if filename changed (unlikely but safe)
+    if (imageData.originalName) {
+      const titleEl = document.querySelector('h1.title');
+      if (titleEl) titleEl.textContent = imageData.originalName;
     }
   }
 
-  async function deleteImage() {
+  async function handleDelete() {
     if (!imageId) return;
-
-    if (!confirm('Are you sure you want to delete this image? This action cannot be undone.')) {
-      return;
-    }
+    if (!confirm('Are you sure you want to permanently delete this image? This cannot be undone.')) return;
 
     const deleteBtn = document.getElementById('delete-image-btn');
     if (deleteBtn) {
+      deleteBtn.classList.add('is-loading');
       deleteBtn.disabled = true;
-      deleteBtn.textContent = 'Deleting...';
     }
 
     try {
@@ -313,29 +339,29 @@
         throw new Error(data.error || 'Failed to delete image');
       }
 
-      // Redirect to gallery
-      window.location.href = '/gallery';
-
+      // Redirect to gallery after deletion
+      showSuccess('Image deleted. Redirecting...');
+      setTimeout(() => {
+        window.location.href = '/gallery';
+      }, 1000);
     } catch (err) {
-      console.error('Delete error:', err);
-      setStatus(`Error: ${err.message}`, 'error');
+      console.error('Error deleting image:', err);
+      showError(err.message || 'Failed to delete image');
       if (deleteBtn) {
+        deleteBtn.classList.remove('is-loading');
         deleteBtn.disabled = false;
-        deleteBtn.textContent = 'Delete Image';
       }
     }
   }
 
-  async function regenerateThumbnails() {
+  async function handleRegenerateThumbnails() {
     if (!imageId) return;
 
-    const regenBtn = document.getElementById('regen-thumbnails-btn');
+    const regenBtn = document.getElementById('regenerate-thumbnails-btn');
     if (regenBtn) {
+      regenBtn.classList.add('is-loading');
       regenBtn.disabled = true;
-      regenBtn.textContent = 'Regenerating...';
     }
-
-    setStatus('', '');
 
     try {
       const response = await fetch(`/api/images/${imageId}/regenerate-thumbnails`, {
@@ -348,32 +374,56 @@
         throw new Error(data.error || 'Failed to regenerate thumbnails');
       }
 
-      setStatus('Thumbnails regenerated successfully!', 'success');
+      showSuccess('Thumbnails regenerated successfully!');
 
+      // Refresh image src to show updated thumbnail
+      if (mainImage) {
+        const src = mainImage.src.split('?')[0];
+        mainImage.src = `${src}?t=${Date.now()}`;
+      }
     } catch (err) {
-      console.error('Regen error:', err);
-      setStatus(`Error: ${err.message}`, 'error');
+      console.error('Error regenerating thumbnails:', err);
+      showError(err.message || 'Failed to regenerate thumbnails');
     } finally {
       if (regenBtn) {
+        regenBtn.classList.remove('is-loading');
         regenBtn.disabled = false;
-        regenBtn.textContent = 'Regenerate Thumbnails';
       }
     }
   }
 
-  function setStatus(message, type) {
-    const statusEl = document.getElementById('edit-status');
-    if (!statusEl) return;
-
-    statusEl.textContent = message;
-    statusEl.className = 'edit-status';
-    if (type) {
-      statusEl.classList.add(`edit-status--${type}`);
-    }
-    statusEl.style.display = message ? 'block' : 'none';
+  function showSuccess(message) {
+    showToast(message, 'is-success');
   }
 
-  // Initialize when DOM is ready
+  function showError(message) {
+    showToast(message, 'is-danger');
+  }
+
+  function showToast(message, type = 'is-info') {
+    document.querySelectorAll('.editor-toast').forEach(el => el.remove());
+
+    const toast = document.createElement('div');
+    toast.className = `notification ${type} editor-toast`;
+    toast.style.cssText = `
+      position: fixed;
+      bottom: 1.5rem;
+      right: 1.5rem;
+      z-index: 9999;
+      max-width: 380px;
+      animation: slideUp 0.3s ease;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+    `;
+    toast.innerHTML = `<button class="delete"></button>${message}`;
+    toast.querySelector('.delete').addEventListener('click', () => toast.remove());
+    document.body.appendChild(toast);
+
+    setTimeout(() => {
+      if (toast.parentNode) toast.remove();
+    }, 4000);
+  }
+
+  // Initialize
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);
   } else {

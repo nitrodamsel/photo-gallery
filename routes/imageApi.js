@@ -2,11 +2,10 @@ const express = require('express');
 const router = express.Router();
 const path = require('path');
 const fs = require('fs');
-const { Image, Tag, ImageTag } = require('../models');
+const Image = require('../models/Image');
 const imageService = require('../services/imageService');
 const thumbnailService = require('../services/thumbnailService');
 const bulkService = require('../services/bulkService');
-const exifService = require('../services/exifService');
 
 // PATCH /api/images/:id - Update image metadata
 router.patch('/:id', async (req, res) => {
@@ -20,94 +19,55 @@ router.patch('/:id', async (req, res) => {
     }
 
     const previousRotation = image.rotation || 0;
-    const updateData = {};
+    const updates = {};
 
     if (description !== undefined) {
-      updateData.description = description;
+      updates.description = description;
     }
 
     if (manualExif !== undefined) {
-      updateData.manualExif = typeof manualExif === 'string'
-        ? manualExif
-        : JSON.stringify(manualExif);
+      updates.manualExif = manualExif;
     }
 
     if (rotation !== undefined) {
-      const validRotations = [0, 90, 180, 270];
-      const normalizedRotation = ((parseInt(rotation, 10) % 360) + 360) % 360;
-      if (!validRotations.includes(normalizedRotation)) {
-        return res.status(400).json({ error: 'Invalid rotation value. Must be 0, 90, 180, or 270.' });
-      }
-      updateData.rotation = normalizedRotation;
+      updates.rotation = rotation;
     }
 
-    await image.update(updateData);
+    await image.update(updates);
 
     // Regenerate thumbnails if rotation changed
-    if (rotation !== undefined && updateData.rotation !== previousRotation) {
+    if (rotation !== undefined && rotation !== previousRotation) {
       try {
-        const uploadsDir = path.join(__dirname, '..', 'uploads');
-        const originalPath = path.join(uploadsDir, image.filename);
-        if (fs.existsSync(originalPath)) {
-          await thumbnailService.generateThumbnails(originalPath, image.filename, {
-            rotation: updateData.rotation
-          });
-        }
+        const uploadDir = path.join(__dirname, '..', 'uploads');
+        const filePath = path.join(uploadDir, image.filename);
+        await thumbnailService.generateThumbnails(filePath, image.filename, rotation);
       } catch (thumbErr) {
-        console.error('Thumbnail regeneration failed:', thumbErr);
-        // Don't fail the whole request
+        console.error('Error regenerating thumbnails after rotation:', thumbErr);
       }
     }
 
-    const updatedImage = await Image.findByPk(id, {
-      include: [{ model: Tag, as: 'tags', through: { attributes: [] } }]
-    });
-
-    // Parse manualExif for response
-    let parsedManualExif = {};
-    if (updatedImage.manualExif) {
-      try {
-        parsedManualExif = typeof updatedImage.manualExif === 'string'
-          ? JSON.parse(updatedImage.manualExif)
-          : updatedImage.manualExif;
-      } catch (e) {
-        parsedManualExif = {};
-      }
-    }
-
-    return res.json({
-      success: true,
-      image: {
-        id: updatedImage.id,
-        filename: updatedImage.filename,
-        description: updatedImage.description,
-        rotation: updatedImage.rotation || 0,
-        manualExif: parsedManualExif,
-        tags: updatedImage.tags || []
-      }
-    });
+    const updatedImage = await Image.findByPk(id);
+    return res.json(updatedImage);
   } catch (err) {
     console.error('Error updating image:', err);
-    return res.status(500).json({ error: 'Failed to update image', details: err.message });
+    return res.status(500).json({ error: 'Failed to update image' });
   }
 });
 
-// DELETE /api/images/:id - Delete image
+// DELETE /api/images/:id - Delete image and files
 router.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-
     const image = await Image.findByPk(id);
     if (!image) {
       return res.status(404).json({ error: 'Image not found' });
     }
 
-    await imageService.deleteImage(image);
-
+    await imageService.deleteImage(id);
     return res.json({ success: true, message: 'Image deleted successfully' });
   } catch (err) {
     console.error('Error deleting image:', err);
-    return res.status(500).json({ error: 'Failed to delete image', details: err.message });
+    return res.status(500).json({ error: 'Failed to delete image' });
   }
 });
 
@@ -127,32 +87,32 @@ router.post('/bulk', async (req, res) => {
     let result;
 
     switch (action) {
-      case 'addTag': {
+      case 'addTag':
         if (!payload || !payload.tagName) {
           return res.status(400).json({ error: 'payload.tagName is required for addTag action' });
         }
         result = await bulkService.bulkTag(imageIds, payload.tagName);
         break;
-      }
-      case 'removeTag': {
+
+      case 'removeTag':
         if (!payload || !payload.tagId) {
           return res.status(400).json({ error: 'payload.tagId is required for removeTag action' });
         }
         result = await bulkService.bulkUntag(imageIds, payload.tagId);
         break;
-      }
-      case 'delete': {
+
+      case 'delete':
         result = await bulkService.bulkDelete(imageIds);
         break;
-      }
+
       default:
         return res.status(400).json({ error: `Unknown action: ${action}` });
     }
 
-    return res.json({ success: true, result });
+    return res.json(result);
   } catch (err) {
-    console.error('Error performing bulk operation:', err);
-    return res.status(500).json({ error: 'Bulk operation failed', details: err.message });
+    console.error('Error performing bulk action:', err);
+    return res.status(500).json({ error: 'Failed to perform bulk action' });
   }
 });
 
@@ -160,27 +120,23 @@ router.post('/bulk', async (req, res) => {
 router.post('/:id/regenerate-thumbnails', async (req, res) => {
   try {
     const { id } = req.params;
-
     const image = await Image.findByPk(id);
     if (!image) {
       return res.status(404).json({ error: 'Image not found' });
     }
 
-    const uploadsDir = path.join(__dirname, '..', 'uploads');
-    const originalPath = path.join(uploadsDir, image.filename);
+    const uploadDir = path.join(__dirname, '..', 'uploads');
+    const filePath = path.join(uploadDir, image.filename);
 
-    if (!fs.existsSync(originalPath)) {
-      return res.status(404).json({ error: 'Original image file not found on disk' });
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ error: 'Original image file not found' });
     }
 
-    await thumbnailService.generateThumbnails(originalPath, image.filename, {
-      rotation: image.rotation || 0
-    });
-
+    await thumbnailService.generateThumbnails(filePath, image.filename, image.rotation || 0);
     return res.json({ success: true, message: 'Thumbnails regenerated successfully' });
   } catch (err) {
     console.error('Error regenerating thumbnails:', err);
-    return res.status(500).json({ error: 'Failed to regenerate thumbnails', details: err.message });
+    return res.status(500).json({ error: 'Failed to regenerate thumbnails' });
   }
 });
 

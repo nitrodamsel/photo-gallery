@@ -1,42 +1,30 @@
-<%# Image Card Partial %>
-<%# Expects: image object %>
-
-<div
-  class="image-card"
-  data-image-id="<%= image.id %>"
->
-  <a href="/images/<%= image.id %>" class="image-card__link">
-    <div class="image-card__img-wrapper">
-      <img
-        src="/uploads/thumbnails/medium/<%= image.filename %>"
-        alt="<%= image.originalName || image.filename %>"
-        class="image-card__img"
-        loading="lazy"
-        onerror="this.src='/uploads/<%= image.filename %>'"
-      />
+<div class="image-card card" data-image-id="<%= image.id %>">
+  <div class="card-image">
+    <a href="/gallery/<%= image.id %>">
+      <figure class="image is-square">
+        <img
+          src="/uploads/thumbnails/medium/<%= image.filename %>"
+          alt="<%= image.originalName || image.filename %>"
+          loading="lazy"
+          onerror="this.src='/uploads/<%= image.filename %>'"
+          style="object-fit: cover; width: 100%; height: 100%;"
+        >
+      </figure>
+    </a>
+  </div>
+  <div class="card-content p-2">
+    <p class="is-size-7 has-text-grey-dark has-text-truncated" title="<%= image.originalName || image.filename %>">
+      <%= image.originalName || image.filename %>
+    </p>
+    <% if (image.Tags && image.Tags.length > 0) { %>
+    <div class="tags mt-1">
+      <% image.Tags.slice(0, 3).forEach(tag => { %>
+        <span class="tag is-small is-light"><%= tag.name %></span>
+      <% }) %>
+      <% if (image.Tags.length > 3) { %>
+        <span class="tag is-small is-light has-text-grey">+<%= image.Tags.length - 3 %></span>
+      <% } %>
     </div>
-  </a>
-
-  <div class="image-card__body">
-    <% if (image.description) { %>
-      <p class="image-card__desc"><%= image.description.length > 80 ? image.description.substring(0, 80) + '...' : image.description %></p>
     <% } %>
-
-    <% if (image.tags && image.tags.length > 0) { %>
-      <div class="image-card__tags">
-        <% image.tags.slice(0, 3).forEach(tag => { %>
-          <a href="/gallery?tag=<%= tag.id %>" class="tag-badge tag-badge--sm"><%= tag.name %></a>
-        <% }) %>
-        <% if (image.tags.length > 3) { %>
-          <span class="tag-badge tag-badge--sm tag-badge--more">+<%= image.tags.length - 3 %></span>
-        <% } %>
-      </div>
-    <% } %>
-
-    <div class="image-card__meta">
-      <time datetime="<%= image.createdAt %>">
-        <%= new Date(image.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) %>
-      </time>
-    </div>
   </div>
 </div>

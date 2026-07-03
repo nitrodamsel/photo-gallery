@@ -4,21 +4,23 @@ module.exports = {
   up: async (queryInterface, Sequelize) => {
     const tableDescription = await queryInterface.describeTable('Images');
 
-    // Add rotation field
+    // Add rotation column if not exists
     if (!tableDescription.rotation) {
       await queryInterface.addColumn('Images', 'rotation', {
         type: Sequelize.INTEGER,
         allowNull: false,
-        defaultValue: 0
+        defaultValue: 0,
+        comment: 'Non-destructive rotation: 0, 90, 180, 270, -1 (flipH), -2 (flipV)'
       });
     }
 
-    // Add manualExif field (JSON blob for manual overrides)
+    // Add manualExif column if not exists
     if (!tableDescription.manualExif) {
       await queryInterface.addColumn('Images', 'manualExif', {
-        type: Sequelize.TEXT,
+        type: Sequelize.JSON,
         allowNull: true,
-        defaultValue: null
+        defaultValue: null,
+        comment: 'Manual EXIF overrides: { caption, location, dateTaken, camera, lens }'
       });
     }
   },

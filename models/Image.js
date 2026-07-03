@@ -1,9 +1,19 @@
 'use strict';
-
-const { DataTypes } = require('sequelize');
+const { Model, DataTypes } = require('sequelize');
 
 module.exports = (sequelize) => {
-  const Image = sequelize.define('Image', {
+  class Image extends Model {
+    static associate(models) {
+      Image.belongsToMany(models.Tag, {
+        through: models.ImageTag,
+        foreignKey: 'imageId',
+        otherKey: 'tagId',
+        as: 'Tags'
+      });
+    }
+  }
+
+  Image.init({
     id: {
       type: DataTypes.INTEGER,
       primaryKey: true,
@@ -37,43 +47,18 @@ module.exports = (sequelize) => {
       type: DataTypes.TEXT,
       allowNull: true
     },
+    // EXIF data stored as JSON
     exifData: {
-      type: DataTypes.TEXT,
-      allowNull: true,
-      get() {
-        const raw = this.getDataValue('exifData');
-        if (!raw) return null;
-        try {
-          return JSON.parse(raw);
-        } catch (e) {
-          return null;
-        }
-      },
-      set(val) {
-        this.setDataValue('exifData', val ? JSON.stringify(val) : null);
-      }
+      type: DataTypes.JSON,
+      allowNull: true
     },
+    // Manual EXIF overrides
     manualExif: {
-      type: DataTypes.TEXT,
+      type: DataTypes.JSON,
       allowNull: true,
-      get() {
-        const raw = this.getDataValue('manualExif');
-        if (!raw) return null;
-        try {
-          return JSON.parse(raw);
-        } catch (e) {
-          return null;
-        }
-      },
-      set(val) {
-        this.setDataValue('manualExif', val ? JSON.stringify(val) : null);
-      }
+      defaultValue: null
     },
-    rotation: {
-      type: DataTypes.INTEGER,
-      allowNull: false,
-      defaultValue: 0
-    },
+    // GPS coordinates
     latitude: {
       type: DataTypes.FLOAT,
       allowNull: true
@@ -82,27 +67,75 @@ module.exports = (sequelize) => {
       type: DataTypes.FLOAT,
       allowNull: true
     },
-    takenAt: {
+    altitude: {
+      type: DataTypes.FLOAT,
+      allowNull: true
+    },
+    // Camera info
+    cameraMake: {
+      type: DataTypes.STRING,
+      allowNull: true
+    },
+    cameraModel: {
+      type: DataTypes.STRING,
+      allowNull: true
+    },
+    lensModel: {
+      type: DataTypes.STRING,
+      allowNull: true
+    },
+    // Capture settings
+    focalLength: {
+      type: DataTypes.STRING,
+      allowNull: true
+    },
+    aperture: {
+      type: DataTypes.STRING,
+      allowNull: true
+    },
+    shutterSpeed: {
+      type: DataTypes.STRING,
+      allowNull: true
+    },
+    iso: {
+      type: DataTypes.INTEGER,
+      allowNull: true
+    },
+    // Date taken
+    dateTaken: {
       type: DataTypes.DATE,
       allowNull: true
     },
+    // Non-destructive rotation: 0, 90, 180, 270, -1 (flipH), -2 (flipV)
+    rotation: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: 0
+    },
+    // Upload metadata
     uploadedBy: {
       type: DataTypes.STRING,
       allowNull: true
+    },
+    ipAddress: {
+      type: DataTypes.STRING,
+      allowNull: true
+    },
+    // Processing flags
+    thumbnailGenerated: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: false
+    },
+    exifProcessed: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: false
     }
   }, {
+    sequelize,
+    modelName: 'Image',
     tableName: 'Images',
     timestamps: true
   });
-
-  Image.associate = (models) => {
-    Image.belongsToMany(models.Tag, {
-      through: models.ImageTag,
-      foreignKey: 'imageId',
-      otherKey: 'tagId',
-      as: 'Tags'
-    });
-  };
 
   return Image;
 };
