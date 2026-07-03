@@ -1,174 +1,123 @@
-<%
-  const currentRotation = image.rotation || 0;
-  const manualExif = image.manualExif || {};
-  const description = image.description || '';
-%>
-
-<!-- Edit Panel Slide-in -->
+<%# Edit Panel - Slide-in panel for image editing on the detail page %>
 <div
-  id="edit-panel"
-  class="edit-panel panel-closed box"
-  data-current-rotation="<%= currentRotation %>"
-  data-original-description="<%= description.replace(/"/g, '&quot;') %>"
-  aria-label="Image edit panel"
+  id="editPanel"
+  class="edit-panel"
+  data-image-id="<%= image.id %>"
+  data-rotation="<%= image.rotation || 0 %>"
 >
-  <h3 class="title is-5">
-    <span class="icon"><i class="fas fa-edit"></i></span>
-    Edit Image
-  </h3>
+  <div class="edit-panel__header">
+    <h3 class="edit-panel__title">✏️ Edit Image</h3>
+    <span class="edit-panel__subtitle">Changes are saved without modifying the original file</span>
+  </div>
 
-  <!-- Description -->
-  <div class="field">
-    <label class="label" for="edit-description">Description</label>
-    <div class="control">
+  <form id="editForm" class="edit-panel__form">
+
+    <%# Description %>
+    <div class="edit-panel__section">
+      <label class="edit-panel__label" for="editDescription">Description</label>
       <textarea
-        id="edit-description"
-        class="textarea"
-        rows="3"
-        placeholder="Enter image description..."
-      ><%= description %></textarea>
+        id="editDescription"
+        class="edit-panel__textarea"
+        name="description"
+        rows="4"
+        placeholder="Enter a description for this image..."
+      ><%= image.description || '' %></textarea>
     </div>
-  </div>
 
-  <!-- Manual EXIF Overrides -->
-  <h4 class="title is-6 mt-4">Manual EXIF Overrides</h4>
+    <%# Manual EXIF Overrides %>
+    <div class="edit-panel__section">
+      <h4 class="edit-panel__section-title">Manual EXIF Overrides</h4>
+      <p class="edit-panel__hint">These fields override or supplement the auto-detected EXIF data.</p>
 
-  <div class="field">
-    <label class="label" for="edit-caption">Caption</label>
-    <div class="control">
-      <input
-        id="edit-caption"
-        class="input"
-        type="text"
-        placeholder="Photo caption..."
-        value="<%= manualExif.caption || '' %>"
-      />
+      <div class="edit-panel__field">
+        <label class="edit-panel__label" for="editCaption">Caption / Title</label>
+        <input
+          type="text"
+          id="editCaption"
+          class="edit-panel__input"
+          name="caption"
+          placeholder="Caption or title for the image"
+          value="<%= (image.manualExif && image.manualExif.caption) ? image.manualExif.caption : '' %>"
+        >
+      </div>
+
+      <div class="edit-panel__field">
+        <label class="edit-panel__label" for="editLocation">Location Name</label>
+        <input
+          type="text"
+          id="editLocation"
+          class="edit-panel__input"
+          name="location"
+          placeholder="e.g. Paris, France"
+          value="<%= (image.manualExif && image.manualExif.locationName) ? image.manualExif.locationName : '' %>"
+        >
+      </div>
+
+      <div class="edit-panel__field">
+        <label class="edit-panel__label" for="editDateTaken">Date Taken</label>
+        <input
+          type="text"
+          id="editDateTaken"
+          class="edit-panel__input"
+          name="dateTaken"
+          placeholder="e.g. 2024-06-15 or June 15, 2024"
+          value="<%= (image.manualExif && image.manualExif.dateTaken) ? image.manualExif.dateTaken : '' %>"
+        >
+      </div>
     </div>
-  </div>
 
-  <div class="field">
-    <label class="label" for="edit-location-name">Location Name</label>
-    <div class="control">
-      <input
-        id="edit-location-name"
-        class="input"
-        type="text"
-        placeholder="e.g. Paris, France"
-        value="<%= manualExif.locationName || '' %>"
-      />
+    <%# Rotation Controls %>
+    <div class="edit-panel__section" id="rotationSection">
+      <h4 class="edit-panel__section-title">Rotation & Orientation</h4>
+      <p class="edit-panel__hint">Non-destructive — the original file is never modified.</p>
+
+      <div class="rotation-controls">
+        <div class="rotation-current">
+          Current: <strong id="currentRotationDisplay"><%= image.rotation || 0 %>°</strong>
+        </div>
+        <div class="rotation-buttons">
+          <button type="button" id="rotateCCWBtn" class="btn btn--secondary rotation-btn" title="Rotate 90° Counter-Clockwise">
+            ↺ 90° CCW
+          </button>
+          <button type="button" id="rotateCWBtn" class="btn btn--secondary rotation-btn" title="Rotate 90° Clockwise">
+            ↻ 90° CW
+          </button>
+          <button type="button" id="flipHBtn" class="btn btn--secondary rotation-btn" title="Flip Horizontal (180°)">
+            ↔ Flip
+          </button>
+        </div>
+      </div>
     </div>
-  </div>
 
-  <div class="field">
-    <label class="label" for="edit-date-taken">Date Taken</label>
-    <div class="control">
-      <input
-        id="edit-date-taken"
-        class="input"
-        type="date"
-        value="<%= manualExif.dateTaken || '' %>"
-      />
+    <%# Status Message %>
+    <div id="editStatus" class="edit-status" role="status" aria-live="polite"></div>
+
+    <%# Action Buttons %>
+    <div class="edit-panel__actions">
+      <button type="submit" id="saveEditBtn" class="btn btn--primary">
+        💾 Save Changes
+      </button>
+      <button type="button" id="cancelEditBtn" class="btn btn--secondary">
+        Cancel
+      </button>
     </div>
-    <p class="help">Override the EXIF date with a manual entry</p>
-  </div>
 
-  <!-- Rotation Controls -->
-  <h4 class="title is-6 mt-4">Rotation</h4>
+  </form>
 
-  <div class="field">
-    <p class="help mb-2">
-      Current rotation:
-      <strong>
-        <span id="current-rotation-display"><%= currentRotation %>°</span>
-      </strong>
-    </p>
-    <input type="hidden" id="rotation-input" value="<%= currentRotation %>" />
-  </div>
+  <%# Admin / Danger Zone %>
+  <div class="edit-panel__section edit-panel__danger-zone">
+    <h4 class="edit-panel__section-title edit-panel__danger-title">Admin Actions</h4>
 
-  <div class="buttons">
-    <button
-      id="rotate-ccw-btn"
-      class="button is-light"
-      type="button"
-      title="Rotate 90° Counter-Clockwise"
-      aria-label="Rotate 90 degrees counter-clockwise"
-    >
-      <span class="icon"><i class="fas fa-undo"></i></span>
-      <span>90° CCW</span>
-    </button>
+    <div class="edit-panel__admin-actions">
+      <button type="button" id="regenerateThumbsBtn" class="btn btn--secondary">
+        🔄 Regenerate Thumbnails
+      </button>
 
-    <button
-      id="rotate-cw-btn"
-      class="button is-light"
-      type="button"
-      title="Rotate 90° Clockwise"
-      aria-label="Rotate 90 degrees clockwise"
-    >
-      <span class="icon"><i class="fas fa-redo"></i></span>
-      <span>90° CW</span>
-    </button>
+      <button type="button" id="deleteImageBtn" class="btn btn--danger">
+        🗑️ Delete Image
+      </button>
+    </div>
 
-    <button
-      id="flip-h-btn"
-      class="button is-light"
-      type="button"
-      title="Flip Horizontal (preview only)"
-      aria-label="Flip horizontal"
-    >
-      <span class="icon"><i class="fas fa-arrows-alt-h"></i></span>
-      <span>Flip H</span>
-    </button>
-  </div>
-
-  <p
-    id="editor-inline-note"
-    class="help is-info is-hidden"
-  ></p>
-
-  <!-- Save / Cancel -->
-  <div class="buttons mt-4">
-    <button
-      id="edit-save-btn"
-      class="button is-primary"
-      type="button"
-    >
-      <span class="icon"><i class="fas fa-save"></i></span>
-      <span>Save Changes</span>
-    </button>
-
-    <button
-      id="edit-cancel-btn"
-      class="button is-light"
-      type="button"
-    >
-      <span class="icon"><i class="fas fa-times"></i></span>
-      <span>Cancel</span>
-    </button>
-  </div>
-
-  <!-- Danger Zone -->
-  <hr />
-  <h4 class="title is-6 has-text-danger">Admin Actions</h4>
-
-  <div class="buttons">
-    <button
-      id="regenerate-thumbnails-btn"
-      class="button is-warning is-small"
-      type="button"
-      title="Regenerate all thumbnails for this image"
-    >
-      <span class="icon"><i class="fas fa-sync-alt"></i></span>
-      <span>Regenerate Thumbnails</span>
-    </button>
-
-    <button
-      id="delete-image-btn"
-      class="button is-danger is-small"
-      type="button"
-      title="Permanently delete this image"
-    >
-      <span class="icon"><i class="fas fa-trash-alt"></i></span>
-      <span>Delete Image</span>
-    </button>
+    <p class="edit-panel__danger-hint">Deleting an image is permanent and cannot be undone.</p>
   </div>
 </div>

@@ -1,74 +1,53 @@
 const path = require('path');
 const fs = require('fs');
-const Image = require('../models/Image');
-const ImageTag = require('../models/ImageTag');
-const ThumbnailCache = require('../models/ThumbnailCache');
+const { Image, Tag, ImageTag, ThumbnailCache } = require('../models');
 
 const UPLOADS_DIR = path.join(__dirname, '..', 'uploads');
 
 /**
  * Delete an image and all associated files and DB records
+ * @param {number} imageId
  */
 async function deleteImage(imageId) {
   const image = await Image.findByPk(imageId);
-  if (!image) throw new Error(`Image with id ${imageId} not found`);
-
-  // Delete thumbnails from disk
-  const thumbnailCaches = await ThumbnailCache.findAll({ where: { imageId } });
-  for (const cache of thumbnailCaches) {
-    if (fs.existsSync(cache.thumbnailPath)) {
-      try {
-        fs.unlinkSync(cache.thumbnailPath);
-      } catch (e) {
-        console.warn(`Could not delete thumbnail file: ${cache.thumbnailPath}`, e);
-      }
-    }
-    await cache.destroy();
+  if (!image) {
+    throw new Error(`Image ${imageId} not found`);
   }
 
   // Delete original file
-  const filePath = path.join(UPLOADS_DIR, image.filename);
-  if (fs.existsSync(filePath)) {
-    try {
-      fs.unlinkSync(filePath);
-    } catch (e) {
-      console.warn(`Could not delete original file: ${filePath}`, e);
+  const originalPath = path.join(UPLOADS_DIR, image.filename);
+  if (fs.existsSync(originalPath)) {
+    fs.unlinkSync(originalPath);
+  }
+
+  // Delete thumbnail files
+  const thumbDir = path.join(UPLOADS_DIR, 'thumbnails');
+  if (fs.existsSync(thumbDir)) {
+    const basename = path.parse(image.filename).name;
+    const files = fs.readdirSync(thumbDir);
+    for (const file of files) {
+      if (file.startsWith(basename)) {
+        fs.unlinkSync(path.join(thumbDir, file));
+      }
     }
   }
 
-  // Delete image tags
+  // Delete DB associations
   await ImageTag.destroy({ where: { imageId } });
+  await ThumbnailCache.destroy({ where: { imageId } });
 
-  // Delete image record
+  // Delete the image record
   await image.destroy();
-
-  return true;
 }
 
 /**
- * Get image with all associated tags
+ * Get image by ID with tags
+ * @param {number} imageId
  */
 async function getImageWithTags(imageId) {
-  const Tag = require('../models/Tag');
-  const image = await Image.findByPk(imageId, {
-    include: [{ model: Tag, through: ImageTag }]
+  return Image.findByPk(imageId, {
+    include: [{ model: Tag, through: { attributes: [] } }]
   });
-  return image;
 }
 
-/**
- * Update image metadata
- */
-async function updateImage(imageId, updates) {
-  const image = await Image.findByPk(imageId);
-  if (!image) throw new Error(`Image with id ${imageId} not found`);
-
-  await image.update(updates);
-  return image.reload();
-}
-
-module.exports = {
-  deleteImage,
-  getImageWithTags,
-  updateImage
-};
+module.exports = { deleteImage, getImageWithTags };

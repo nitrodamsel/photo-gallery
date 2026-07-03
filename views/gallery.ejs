@@ -1,88 +1,71 @@
 <%- include('layouts/base', { title: 'Gallery', body: `
 
-<section class="section">
-  <div class="container">
+<div class="gallery-page">
 
-    <!-- Page Header -->
-    <div class="level">
-      <div class="level-left">
-        <div class="level-item">
-          <h1 class="title">Gallery</h1>
-        </div>
-      </div>
-      <div class="level-right">
-        <div class="level-item">
-          <button id="bulk-select-toggle" class="button is-info" type="button">
-            <span class="icon"><i class="fas fa-check-square"></i></span>
-            <span>Select Multiple</span>
-          </button>
-        </div>
-        <div class="level-item">
-          <a href="/upload" class="button is-primary">
-            <span class="icon"><i class="fas fa-upload"></i></span>
-            <span>Upload</span>
-          </a>
-        </div>
-      </div>
+  <div class="gallery-header">
+    <h1 class="gallery-title">Photo Gallery</h1>
+    <div class="gallery-header__actions">
+      <a href="/upload" class="btn btn--primary">+ Upload</a>
+      <button id="bulkSelectToggle" class="btn btn--secondary">☑ Select</button>
     </div>
-
-    <!-- Bulk Action Bar (hidden by default) -->
-    <div id="bulk-action-bar" class="notification is-warning is-hidden bulk-action-bar">
-      <div class="level">
-        <div class="level-left">
-          <div class="level-item">
-            <strong><span id="bulk-selected-count">0</span> image(s) selected</strong>
-          </div>
-        </div>
-        <div class="level-right">
-          <div class="level-item">
-            <div class="buttons">
-              <button id="bulk-add-tag-btn" class="button is-success is-small" type="button">
-                <span class="icon"><i class="fas fa-tag"></i></span>
-                <span>Add Tag</span>
-              </button>
-              <button id="bulk-remove-tag-btn" class="button is-warning is-small" type="button">
-                <span class="icon"><i class="fas fa-tag"></i></span>
-                <span>Remove Tag</span>
-              </button>
-              <button id="bulk-delete-btn" class="button is-danger is-small" type="button">
-                <span class="icon"><i class="fas fa-trash"></i></span>
-                <span>Delete Selected</span>
-              </button>
-              <button id="bulk-cancel-btn" class="button is-light is-small" type="button">
-                <span class="icon"><i class="fas fa-times"></i></span>
-                <span>Cancel</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Filter Panel -->
-    <%- include('partials/filter-panel') %>
-
-    <!-- Image Grid -->
-    <% if (images && images.length > 0) { %>
-      <div class="columns is-multiline">
-        <% images.forEach(image => { %>
-          <div class="column is-3-desktop is-4-tablet is-6-mobile">
-            <%- include('partials/image-card', { image }) %>
-          </div>
-        <% }) %>
-      </div>
-
-      <!-- Pagination -->
-      <%- include('partials/pagination', { pagination: pagination || {} }) %>
-
-    <% } else { %>
-      <div class="has-text-centered py-6">
-        <p class="title is-4 has-text-grey-light">No images found</p>
-        <p class="subtitle has-text-grey-light">Try adjusting your filters or <a href="/upload">upload some images</a>.</p>
-      </div>
-    <% } %>
-
   </div>
-</section>
+
+  <!-- Filter Panel -->
+  <%- include('partials/filter-panel') %>
+
+  <!-- Tag Cloud -->
+  <% if (locals.tags && tags.length > 0) { %>
+    <%- include('partials/tag-cloud', { tags }) %>
+  <% } %>
+
+  <!-- Results Info -->
+  <% if (locals.images) { %>
+    <div class="gallery-meta">
+      <span class="gallery-count">
+        <% if (locals.pagination) { %>
+          Showing <%= images.length %> of <%= pagination.total %> images
+        <% } else { %>
+          <%= images.length %> image<%= images.length !== 1 ? 's' : '' %>
+        <% } %>
+      </span>
+    </div>
+  <% } %>
+
+  <!-- Image Grid -->
+  <% if (locals.images && images.length > 0) { %>
+    <div class="gallery-grid">
+      <% images.forEach(image => { %>
+        <%- include('partials/image-card', { image }) %>
+      <% }); %>
+    </div>
+  <% } else { %>
+    <div class="gallery-empty">
+      <div class="gallery-empty__icon">📷</div>
+      <h2 class="gallery-empty__title">No images yet</h2>
+      <p class="gallery-empty__text">Upload some photos to get started!</p>
+      <a href="/upload" class="btn btn--primary">Upload Images</a>
+    </div>
+  <% } %>
+
+  <!-- Pagination -->
+  <% if (locals.pagination && pagination.totalPages > 1) { %>
+    <%- include('partials/pagination', { pagination }) %>
+  <% } %>
+
+</div>
+
+<!-- Bulk Action Bar (floating) -->
+<div id="bulkActionBar" class="bulk-action-bar">
+  <div class="bulk-action-bar__info">
+    <span id="bulkSelectedCount">0 images selected</span>
+  </div>
+  <div class="bulk-action-bar__controls">
+    <button id="bulkSelectAll" class="btn btn--sm btn--secondary">Select All</button>
+    <button id="bulkDeselectAll" class="btn btn--sm btn--secondary">Deselect All</button>
+    <button id="bulkAddTag" class="btn btn--sm btn--primary">+ Add Tag</button>
+    <button id="bulkRemoveTag" class="btn btn--sm btn--secondary">− Remove Tag</button>
+    <button id="bulkDelete" class="btn btn--sm btn--danger">🗑 Delete</button>
+  </div>
+</div>
 
 ` }) %>
