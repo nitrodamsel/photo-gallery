@@ -1,24 +1,22 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title><%= typeof title !== 'undefined' ? title + ' — PhotoGallery' : 'PhotoGallery' %></title>
-  <link rel="stylesheet" href="/css/main.css">
-  <meta name="description" content="Personal photo gallery application">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title><%= typeof title !== 'undefined' ? title : 'Photo Gallery' %></title>
+  <link rel="stylesheet" href="/css/main.css" />
+  <%- typeof extraHead !== 'undefined' ? extraHead : '' %>
 </head>
 <body>
   <%- include('../partials/navbar') %>
 
-  <main>
+  <main class="container">
     <%- body %>
   </main>
 
+  <!-- Lazy loading script — loaded early so images load as user scrolls -->
+  <script src="/js/lazyLoad.js"></script>
   <script src="/js/main.js"></script>
-  <script src="/js/search.js"></script>
-  <script src="/js/tagging.js"></script>
-  <script src="/js/upload.js"></script>
-  <script src="/js/bulkSelect.js"></script>
-  <script src="/js/imageEditor.js"></script>
+  <%- typeof extraScripts !== 'undefined' ? extraScripts : '' %>
 </body>
 </html>

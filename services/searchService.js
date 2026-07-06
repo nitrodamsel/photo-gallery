@@ -1,206 +1,146 @@
-const { Op, literal, fn, col } = require('sequelize');
-const { Image, Tag, ImageTag } = require('../models');
+const { Image, Tag, sequelize } = require('../models');
+const { Op } = require('sequelize');
+const cacheService = require('./cacheService');
 
 /**
- * Search service that accepts a structured query object and returns paginated results.
+ * Full-text / multi-field search for images.
+ * Results are cached using an LRU cache.
+ *
+ * @param {object} params - Search parameters
+ * @param {string} params.query - Search term
+ * @param {number} [params.page=1]
+ * @param {number} [params.limit=24]
+ * @param {string[]} [params.tags=[]] - Tag names to filter by
+ * @param {string} [params.sortBy='created_at']
+ * @param {string} [params.sortOrder='DESC']
+ * @param {string} [params.startDate]
+ * @param {string} [params.endDate]
+ * @returns {Promise<{images: Image[], total: number, page: number, limit: number, totalPages: number, query: string}>}
  */
+async function search(params = {}) {
+  const cacheKey = `search:${cacheService.hashQuery(params)}`;
+  const cached = cacheService.get(cacheKey);
+  if (cached) {
+    return cached;
+  }
 
-async function search({
-  q = '',
-  tags = [],
-  dateFrom = null,
-  dateTo = null,
-  cameraMake = '',
-  hasGps = false,
-  page = 1,
-  limit = 24,
-  sortBy = 'relevance',
-} = {}) {
+  const {
+    query = '',
+    page = 1,
+    limit = 24,
+    tags = [],
+    sortBy = 'created_at',
+    sortOrder = 'DESC',
+    startDate = null,
+    endDate = null,
+  } = params;
+
   const offset = (page - 1) * limit;
-  const whereConditions = [];
+  const where = {};
 
-  // Full-text search across filename, description, and EXIF data
-  if (q && q.trim()) {
-    const searchTerm = q.trim();
-    const likePattern = `%${searchTerm}%`;
-
-    whereConditions.push({
-      [Op.or]: [
-        { originalName: { [Op.like]: likePattern } },
-        { description: { [Op.like]: likePattern } },
-        literal(`JSON_EXTRACT(exifData, '$.Make') LIKE '${escapeLike(searchTerm)}'`),
-        literal(`JSON_EXTRACT(exifData, '$.Model') LIKE '${escapeLike(searchTerm)}'`),
-        literal(`JSON_EXTRACT(exifData, '$.ImageDescription') LIKE '${escapeLike(searchTerm)}'`),
-        literal(`JSON_EXTRACT(exifData, '$.Artist') LIKE '${escapeLike(searchTerm)}'`),
-        literal(`JSON_EXTRACT(exifData, '$.Copyright') LIKE '${escapeLike(searchTerm)}'`),
-      ],
-    });
+  // Text search across multiple fields
+  if (query && query.trim()) {
+    const term = query.trim();
+    where[Op.or] = [
+      { title: { [Op.iLike]: `%${term}%` } },
+      { description: { [Op.iLike]: `%${term}%` } },
+      { original_filename: { [Op.iLike]: `%${term}%` } },
+      { camera_make: { [Op.iLike]: `%${term}%` } },
+      { camera_model: { [Op.iLike]: `%${term}%` } },
+    ];
   }
 
   // Date range filter
-  if (dateFrom || dateTo) {
-    const dateCondition = {};
-    if (dateFrom) dateCondition[Op.gte] = new Date(dateFrom);
-    if (dateTo) {
-      const endDate = new Date(dateTo);
-      endDate.setHours(23, 59, 59, 999);
-      dateCondition[Op.lte] = endDate;
-    }
-    whereConditions.push({ createdAt: dateCondition });
+  if (startDate || endDate) {
+    where.created_at = {};
+    if (startDate) where.created_at[Op.gte] = new Date(startDate);
+    if (endDate) where.created_at[Op.lte] = new Date(endDate);
   }
 
-  // Camera make filter
-  if (cameraMake && cameraMake.trim()) {
-    whereConditions.push(
-      literal(`JSON_EXTRACT(exifData, '$.Make') = '${escapeString(cameraMake.trim())}'`)
-    );
+  // Tag filter
+  const tagIncludeOptions = {
+    model: Tag,
+    as: 'tags',
+    through: { attributes: [] },
+    required: false,
+  };
+
+  if (tags && tags.length > 0) {
+    tagIncludeOptions.where = { name: { [Op.in]: tags } };
+    tagIncludeOptions.required = true;
   }
 
-  // GPS presence filter
-  if (hasGps) {
-    whereConditions.push(
-      literal(`(JSON_EXTRACT(exifData, '$.GPSLatitude') IS NOT NULL OR JSON_EXTRACT(exifData, '$.latitude') IS NOT NULL OR latitude IS NOT NULL)`)
-    );
-  }
+  const validSortColumns = ['created_at', 'updated_at', 'title', 'file_size', 'original_filename'];
+  const safeSortBy = validSortColumns.includes(sortBy) ? sortBy : 'created_at';
+  const safeSortOrder = ['ASC', 'DESC'].includes(sortOrder.toUpperCase())
+    ? sortOrder.toUpperCase()
+    : 'DESC';
 
-  // Tag filter — require all selected tags
-  let includeOptions = [
-    {
-      model: Tag,
-      as: 'tags',
-      through: { attributes: [] },
-      attributes: ['id', 'name', 'color'],
-      required: false,
-    },
-  ];
-
-  const tagIds = Array.isArray(tags) ? tags.map(Number).filter(Boolean) : [];
-
-  if (tagIds.length > 0) {
-    // Use a subquery approach: image must have all requested tags
-    tagIds.forEach((tagId) => {
-      whereConditions.push(
-        literal(
-          `EXISTS (SELECT 1 FROM image_tags WHERE image_tags.imageId = Image.id AND image_tags.tagId = ${tagId})`
-        )
-      );
-    });
-  }
-
-  // Build ORDER BY for relevance
-  let order = [];
-  if (q && q.trim()) {
-    const searchTerm = q.trim();
-    const exactPattern = searchTerm;
-    // Exact filename match ranks highest, then partial matches
-    order.push([
-      literal(
-        `CASE 
-          WHEN originalName = '${escapeString(exactPattern)}' THEN 0
-          WHEN originalName LIKE '${escapeLike(exactPattern)}' THEN 1
-          WHEN description LIKE '${escapeLike(exactPattern)}' THEN 2
-          ELSE 3
-        END`
-      ),
-      'ASC',
-    ]);
-  }
-
-  // Secondary sort
-  if (sortBy === 'date_desc' || (sortBy === 'relevance' && !q)) {
-    order.push(['createdAt', 'DESC']);
-  } else if (sortBy === 'date_asc') {
-    order.push(['createdAt', 'ASC']);
-  } else if (sortBy === 'name') {
-    order.push(['originalName', 'ASC']);
-  } else {
-    order.push(['createdAt', 'DESC']);
-  }
-
-  const where = whereConditions.length > 0 ? { [Op.and]: whereConditions } : {};
-
-  const { rows, count } = await Image.findAndCountAll({
+  const { count, rows } = await Image.findAndCountAll({
     where,
-    include: includeOptions,
-    order,
-    limit,
-    offset,
+    include: [tagIncludeOptions],
+    order: [[safeSortBy, safeSortOrder]],
+    limit: parseInt(limit, 10),
+    offset: parseInt(offset, 10),
     distinct: true,
   });
 
-  const totalPages = Math.ceil(count / limit);
-
-  return {
-    rows,
-    count,
-    totalPages,
-    page,
-    limit,
+  const result = {
+    images: rows,
+    total: count,
+    page: parseInt(page, 10),
+    limit: parseInt(limit, 10),
+    totalPages: Math.ceil(count / limit),
+    query,
   };
+
+  cacheService.set(cacheKey, result);
+  return result;
 }
 
 /**
- * Get distinct camera makes from the database for filter population.
+ * Get search suggestions based on partial query.
+ * @param {string} term
+ * @param {number} [maxResults=10]
+ * @returns {Promise<string[]>}
  */
-async function getDistinctCameraMakes() {
-  const results = await Image.findAll({
-    attributes: [[literal(`DISTINCT JSON_EXTRACT(exifData, '$.Make')`), 'make']],
-    where: literal(`JSON_EXTRACT(exifData, '$.Make') IS NOT NULL`),
-    raw: true,
+async function getSuggestions(term, maxResults = 10) {
+  if (!term || term.trim().length < 2) return [];
+
+  const cacheKey = `suggestions:${cacheService.hashQuery({ term, maxResults })}`;
+  const cached = cacheService.get(cacheKey);
+  if (cached) return cached;
+
+  const cleanTerm = term.trim();
+
+  // Search tags
+  const matchingTags = await Tag.findAll({
+    where: { name: { [Op.iLike]: `%${cleanTerm}%` } },
+    limit: maxResults,
+    attributes: ['name'],
+    order: [['name', 'ASC']],
   });
 
-  return results
-    .map((r) => r.make)
-    .filter(Boolean)
-    .sort();
+  // Search image titles
+  const matchingTitles = await Image.findAll({
+    where: {
+      title: { [Op.iLike]: `%${cleanTerm}%` },
+    },
+    limit: maxResults,
+    attributes: ['title'],
+    order: [['title', 'ASC']],
+  });
+
+  const suggestions = [
+    ...matchingTags.map((t) => ({ type: 'tag', value: t.name })),
+    ...matchingTitles.map((i) => ({ type: 'title', value: i.title })),
+  ].slice(0, maxResults);
+
+  cacheService.set(cacheKey, suggestions);
+  return suggestions;
 }
 
-/**
- * Get search facets: camera makes and tags with counts.
- */
-async function getFacets() {
-  const [cameraMakes, tags] = await Promise.all([
-    getDistinctCameraMakes(),
-    Tag.findAll({
-      attributes: [
-        'id',
-        'name',
-        'color',
-        [fn('COUNT', col('images.id')), 'imageCount'],
-      ],
-      include: [
-        {
-          model: Image,
-          as: 'images',
-          attributes: [],
-          through: { attributes: [] },
-          required: false,
-        },
-      ],
-      group: ['Tag.id'],
-      order: [['name', 'ASC']],
-    }),
-  ]);
-
-  return {
-    cameraMakes,
-    tags: tags.map((t) => ({
-      id: t.id,
-      name: t.name,
-      color: t.color,
-      imageCount: parseInt(t.get('imageCount')) || 0,
-    })),
-  };
-}
-
-// Escape string for use in SQL LIKE patterns
-function escapeLike(str) {
-  return str.replace(/'/g, "''").replace(/%/g, '\\%').replace(/_/g, '\\_');
-}
-
-// Escape string for SQL equality
-function escapeString(str) {
-  return str.replace(/'/g, "''");
-}
-
-module.exports = { search, getFacets, getDistinctCameraMakes };
+module.exports = {
+  search,
+  getSuggestions,
+};

@@ -1,26 +1,32 @@
 const express = require('express');
 const router = express.Router();
+const cacheService = require('../services/cacheService');
 
-const galleryRouter = require('./gallery');
-const uploadRouter = require('./upload');
-const tagsRouter = require('./tags');
-const searchRouter = require('./search');
-const imageApiRouter = require('./imageApi');
-const imageTagsRouter = require('./imageTags');
+// Home page
+router.get('/', async (req, res) => {
+  try {
+    res.render('home', {
+      title: 'Photo Gallery',
+    });
+  } catch (err) {
+    res.status(500).render('error', { error: err, title: 'Error' });
+  }
+});
 
-// Mount API routes
-router.use('/api/images', imageApiRouter);
-router.use('/api/image-tags', imageTagsRouter);
+// Admin: flush LRU cache
+router.post('/admin/cache/flush', (req, res) => {
+  cacheService.flush();
+  res.json({ success: true, message: 'Cache flushed successfully' });
+});
 
-// Mount page routes
-router.use('/gallery', galleryRouter);
-router.use('/upload', uploadRouter);
-router.use('/tags', tagsRouter);
-router.use('/search', searchRouter);
-
-// Home route
-router.get('/', (req, res) => {
-  res.redirect('/gallery');
+// Admin: cache stats
+router.get('/admin/cache', (req, res) => {
+  const stats = cacheService.stats();
+  res.json({
+    success: true,
+    cache: stats,
+    timestamp: new Date().toISOString(),
+  });
 });
 
 module.exports = router;

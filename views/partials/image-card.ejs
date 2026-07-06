@@ -1,44 +1,56 @@
 <%
-  const imageId = image.id;
-  const filename = image.filename;
-  const originalName = image.originalName || filename;
-  const ext = filename ? filename.split('.').pop() : 'jpg';
-  const base = filename ? filename.substring(0, filename.lastIndexOf('.')) : filename;
-  const thumbSrc = `/uploads/thumbnails/${base}_medium.webp`;
-  const detailUrl = `/gallery/${imageId}`;
-  const tags = image.Tags || [];
+  // Determine thumbnail URL — prefer the dedicated thumbnails route for caching
+  const thumbUrl = `/thumbnails/medium/${image.id}`;
+  const detailUrl = `/gallery/${image.id}`;
+  const imageTitle = image.title || image.original_filename || 'Untitled';
+  const imageTags = image.tags || [];
 %>
+<article class="image-card" data-image-id="<%= image.id %>">
+  <% if (typeof showCheckbox !== 'undefined' && showCheckbox) { %>
+    <input
+      type="checkbox"
+      class="image-card-checkbox"
+      data-image-id="<%= image.id %>"
+      aria-label="Select <%= imageTitle %>"
+    />
+  <% } %>
 
-<div class="image-card card" data-image-id="<%= imageId %>">
   <a href="<%= detailUrl %>" class="image-card-link">
-    <div class="card-image">
-      <figure class="image is-4by3">
-        <img
-          src="<%= thumbSrc %>"
-          alt="<%= originalName %>"
-          loading="lazy"
-          onerror="this.src='/uploads/<%= filename %>'"
-        />
-      </figure>
-    </div>
+    <img
+      class="image-card-thumbnail lazy"
+      data-src="<%= thumbUrl %>"
+      alt="<%= imageTitle %>"
+      width="400"
+      height="300"
+      loading="lazy"
+    />
   </a>
-  <div class="card-content px-3 py-2">
-    <p class="image-card-title is-size-7 has-text-grey-dark" title="<%= originalName %>">
-      <%= originalName.length > 30 ? originalName.substring(0, 27) + '...' : originalName %>
-    </p>
-    <% if (tags.length > 0) { %>
-      <div class="tags mt-1" style="flex-wrap: nowrap; overflow: hidden;">
-        <% tags.slice(0, 3).forEach(tag => { %>
-          <span class="tag is-light is-info is-small">
-            <a href="/gallery?tag=<%= tag.name %>" class="has-text-info" onclick="event.stopPropagation()">
-              <%= tag.name %>
-            </a>
-          </span>
-        <% }); %>
-        <% if (tags.length > 3) { %>
-          <span class="tag is-light is-small">+<%= tags.length - 3 %></span>
+
+  <div class="image-card-body">
+    <h3 class="image-card-title">
+      <a href="<%= detailUrl %>"><%= imageTitle %></a>
+    </h3>
+
+    <% if (image.created_at) { %>
+      <p class="image-card-meta">
+        <%= new Date(image.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) %>
+        <% if (image.file_size) { %>
+          &middot; <%= (image.file_size / 1024 / 1024).toFixed(1) %>MB
+        <% } %>
+      </p>
+    <% } %>
+
+    <% if (imageTags.length > 0) { %>
+      <div class="image-card-tags">
+        <% imageTags.slice(0, 4).forEach(tag => { %>
+          <a href="/gallery?tag=<%= encodeURIComponent(tag.name) %>" class="tag">
+            <%= tag.name %>
+          </a>
+        <% }) %>
+        <% if (imageTags.length > 4) { %>
+          <span class="tag text-muted">+<%= imageTags.length - 4 %> more</span>
         <% } %>
       </div>
     <% } %>
   </div>
-</div>
+</article>
