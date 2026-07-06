@@ -1,19 +1,17 @@
 const compression = require('compression');
 
 /**
- * Compression middleware configured for production use.
- * Excludes already-compressed image formats.
- * Threshold: 1KB — don't compress responses smaller than this.
+ * Already-compressed file formats that should not be re-compressed.
+ * Attempting to compress these wastes CPU without size benefit.
  */
-const alreadyCompressedMimeTypes = new Set([
+const SKIP_COMPRESSION_TYPES = new Set([
   'image/jpeg',
   'image/jpg',
   'image/png',
   'image/gif',
   'image/webp',
   'image/avif',
-  'image/bmp',
-  'image/tiff',
+  'image/svg+xml',
   'video/mp4',
   'video/webm',
   'audio/mpeg',
@@ -23,14 +21,20 @@ const alreadyCompressedMimeTypes = new Set([
   'application/x-gzip',
   'application/x-bzip2',
   'application/x-7z-compressed',
-  'application/x-rar-compressed',
+  'application/pdf',
 ]);
 
-function shouldCompress(req, res) {
+/**
+ * Filter function: skip compression for already-compressed formats.
+ * @param {Object} req - Express request
+ * @param {Object} res - Express response
+ * @returns {boolean} Whether to compress
+ */
+function compressionFilter(req, res) {
   const contentType = res.getHeader('Content-Type') || '';
   const mimeType = contentType.split(';')[0].trim().toLowerCase();
 
-  if (alreadyCompressedMimeTypes.has(mimeType)) {
+  if (SKIP_COMPRESSION_TYPES.has(mimeType)) {
     return false;
   }
 
@@ -38,10 +42,18 @@ function shouldCompress(req, res) {
   return compression.filter(req, res);
 }
 
+/**
+ * Configured compression middleware.
+ * - threshold: 1KB minimum response size to compress
+ * - level: zlib compression level (6 is a good balance)
+ * - filter: skips already-compressed formats
+ */
 const compressionMiddleware = compression({
   threshold: 1024, // 1KB
-  filter: shouldCompress,
-  level: 6, // zlib compression level (1-9, default 6 is a good balance)
+  level: 6,
+  filter: compressionFilter,
+  // Use gzip/deflate/brotli depending on Accept-Encoding
+  strategy: 0, // Z_DEFAULT_STRATEGY
 });
 
 module.exports = compressionMiddleware;

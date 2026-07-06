@@ -1,56 +1,64 @@
 <%
-  // Determine thumbnail URL — prefer the dedicated thumbnails route for caching
-  const thumbUrl = `/thumbnails/medium/${image.id}`;
+  // image-card.ejs partial
+  // Props: image (Image model instance), showSelect (bool for bulk mode)
+  const imgSrc = `/thumbnails/medium/${image.id}`;
   const detailUrl = `/gallery/${image.id}`;
-  const imageTitle = image.title || image.original_filename || 'Untitled';
-  const imageTags = image.tags || [];
+  const title = image.title || image.original_filename || 'Untitled';
+  const tags = image.tags || [];
 %>
-<article class="image-card" data-image-id="<%= image.id %>">
-  <% if (typeof showCheckbox !== 'undefined' && showCheckbox) { %>
-    <input
-      type="checkbox"
-      class="image-card-checkbox"
-      data-image-id="<%= image.id %>"
-      aria-label="Select <%= imageTitle %>"
-    />
-  <% } %>
-
-  <a href="<%= detailUrl %>" class="image-card-link">
-    <img
-      class="image-card-thumbnail lazy"
-      data-src="<%= thumbUrl %>"
-      alt="<%= imageTitle %>"
-      width="400"
-      height="300"
-      loading="lazy"
-    />
+<article class="image-card<%= locals.showSelect ? ' selectable' : '' %>" data-id="<%= image.id %>">
+  <a href="<%= detailUrl %>" class="card-img-link">
+    <div class="card-img-wrapper" data-img-wrapper>
+      <%# Use data-src for lazy loading, src is a low-res placeholder %>
+      <img
+        class="lazy"
+        data-src="<%= imgSrc %>"
+        src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 300'%3E%3Crect width='400' height='300' fill='%23e2e8f0'/%3E%3C/svg%3E"
+        alt="<%= title %>"
+        width="400"
+        height="300"
+        loading="lazy"
+      />
+    </div>
   </a>
-
-  <div class="image-card-body">
-    <h3 class="image-card-title">
-      <a href="<%= detailUrl %>"><%= imageTitle %></a>
-    </h3>
-
-    <% if (image.created_at) { %>
-      <p class="image-card-meta">
-        <%= new Date(image.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) %>
-        <% if (image.file_size) { %>
-          &middot; <%= (image.file_size / 1024 / 1024).toFixed(1) %>MB
-        <% } %>
-      </p>
+  <div class="card-body">
+    <div class="card-title" title="<%= title %>"><%= title %></div>
+    <% if (tags.length > 0) { %>
+    <div class="tags-list mt-1">
+      <% tags.slice(0, 3).forEach(tag => { %>
+      <a href="/gallery?tag=<%= encodeURIComponent(tag.name) %>" class="tag">
+        <%= tag.name %>
+      </a>
+      <% }); %>
+      <% if (tags.length > 3) { %>
+      <span class="badge">+<%= tags.length - 3 %></span>
+      <% } %>
+    </div>
     <% } %>
-
-    <% if (imageTags.length > 0) { %>
-      <div class="image-card-tags">
-        <% imageTags.slice(0, 4).forEach(tag => { %>
-          <a href="/gallery?tag=<%= encodeURIComponent(tag.name) %>" class="tag">
-            <%= tag.name %>
-          </a>
-        <% }) %>
-        <% if (imageTags.length > 4) { %>
-          <span class="tag text-muted">+<%= imageTags.length - 4 %> more</span>
-        <% } %>
-      </div>
-    <% } %>
+    <div class="card-meta mt-1">
+      <span class="text-muted text-xs">
+        <%= image.createdAt ? new Date(image.createdAt).toLocaleDateString() : '' %>
+      </span>
+    </div>
   </div>
+  <% if (locals.showSelect) { %>
+  <label class="select-checkbox" title="Select image">
+    <input type="checkbox" class="bulk-checkbox" data-id="<%= image.id %>" />
+  </label>
+  <% } %>
 </article>
+
+<script>
+  // Mark wrapper as loaded when image loads (removes skeleton animation)
+  (function() {
+    var wrappers = document.querySelectorAll('[data-img-wrapper]');
+    wrappers.forEach(function(wrapper) {
+      var img = wrapper.querySelector('img.lazy');
+      if (img) {
+        img.addEventListener('load', function() {
+          wrapper.classList.add('loaded');
+        });
+      }
+    });
+  })();
+</script>

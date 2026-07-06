@@ -4,112 +4,80 @@ const { Image, Tag, ImageTag, sequelize } = require('../models');
 const { Op } = require('sequelize');
 const cacheService = require('./cacheService');
 
-const UPLOADS_DIR = path.join(__dirname, '..', 'uploads');
+const UPLOAD_DIR = path.join(__dirname, '..', 'uploads');
 
 /**
- * Get a paginated list of images with optional filters.
- * Results are cached using an LRU cache.
+ * Get paginated images with optional filtering.
+ * Results are cached using LRU cache.
  */
-async function getImages(options = {}) {
-  const cacheKey = `getImages:${cacheService.hashQuery(options)}`;
+async function getImages({
+  page = 1,
+  limit = 20,
+  sort = 'createdAt',
+  order = 'DESC',
+  tag = null,
+  search = null,
+} = {}) {
+  // Build cache key from query parameters
+  const cacheKey = cacheService.hashQuery({ page, limit, sort, order, tag, search });
   const cached = cacheService.get(cacheKey);
   if (cached) {
     return cached;
   }
 
-  const {
-    page = 1,
-    limit = 24,
-    sortBy = 'created_at',
-    sortOrder = 'DESC',
-    tagIds = [],
-    search = '',
-    startDate = null,
-    endDate = null,
-  } = options;
-
   const offset = (page - 1) * limit;
 
-  const where = {};
-  const include = [
+  const whereClause = {};
+  if (search) {
+    whereClause[Op.or] = [
+      { title: { [Op.like]: `%${search}%` } },
+      { description: { [Op.like]: `%${search}%` } },
+      { original_filename: { [Op.like]: `%${search}%` } },
+    ];
+  }
+
+  const includeOptions = [
     {
       model: Tag,
       as: 'tags',
       through: { attributes: [] },
-      required: false,
+      required: !!tag,
+      ...(tag && { where: { name: tag } }),
     },
   ];
 
-  if (search) {
-    where[Op.or] = [
-      { title: { [Op.iLike]: `%${search}%` } },
-      { description: { [Op.iLike]: `%${search}%` } },
-      { original_filename: { [Op.iLike]: `%${search}%` } },
-    ];
-  }
-
-  if (startDate || endDate) {
-    where.created_at = {};
-    if (startDate) where.created_at[Op.gte] = new Date(startDate);
-    if (endDate) where.created_at[Op.lte] = new Date(endDate);
-  }
-
-  let havingTagFilter = false;
-  if (tagIds && tagIds.length > 0) {
-    havingTagFilter = true;
-  }
-
-  let query;
-
-  if (havingTagFilter) {
-    // Use subquery to filter by tags
-    const taggedImageIds = await ImageTag.findAll({
-      attributes: ['image_id'],
-      where: { tag_id: { [Op.in]: tagIds } },
-      group: ['image_id'],
-      having: sequelize.literal(`COUNT(DISTINCT tag_id) = ${tagIds.length}`),
-      raw: true,
-    });
-
-    const ids = taggedImageIds.map((r) => r.image_id);
-    if (ids.length === 0) {
-      const emptyResult = { images: [], total: 0, page, limit, totalPages: 0 };
-      cacheService.set(cacheKey, emptyResult);
-      return emptyResult;
-    }
-    where.id = { [Op.in]: ids };
-  }
-
-  const validSortColumns = ['created_at', 'updated_at', 'title', 'file_size', 'original_filename'];
-  const safeSortBy = validSortColumns.includes(sortBy) ? sortBy : 'created_at';
-  const safeSortOrder = ['ASC', 'DESC'].includes(sortOrder.toUpperCase()) ? sortOrder.toUpperCase() : 'DESC';
+  const validSortFields = ['createdAt', 'updatedAt', 'title', 'file_size', 'taken_at'];
+  const sortField = validSortFields.includes(sort) ? sort : 'createdAt';
+  const sortOrder = order.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
 
   const { count, rows } = await Image.findAndCountAll({
-    where,
-    include,
-    order: [[safeSortBy, safeSortOrder]],
-    limit: parseInt(limit, 10),
-    offset: parseInt(offset, 10),
+    where: whereClause,
+    include: includeOptions,
+    order: [[sortField, sortOrder]],
+    limit: parseInt(limit),
+    offset: parseInt(offset),
     distinct: true,
   });
 
   const result = {
     images: rows,
     total: count,
-    page: parseInt(page, 10),
-    limit: parseInt(limit, 10),
+    page: parseInt(page),
+    limit: parseInt(limit),
     totalPages: Math.ceil(count / limit),
   };
 
+  // Cache the result
   cacheService.set(cacheKey, result);
+
   return result;
 }
 
 /**
- * Get a single image by ID, with tags.
+ * Get a single image by ID with tags.
  */
 async function getImageById(id) {
-  const cacheKey = `getImageById:${id}`;
+  const cacheKey = `image:${id}`;
   const cached = cacheService.get(cacheKey);
   if (cached) return cached;
 
@@ -133,134 +101,155 @@ async function getImageById(id) {
 
 /**
  * Create a new image record.
- * Invalidates getImages cache entries (flush all since keys are hashed).
  */
 async function createImage(data) {
   const image = await Image.create(data);
-  // Flush cache since a new image was added
+  // Invalidate list cache
   cacheService.flush();
   return image;
 }
 
 /**
- * Update an image record by ID.
- * Invalidates specific image cache and general list cache.
+ * Update an image record.
  */
 async function updateImage(id, data) {
-  const [updatedCount, updatedRows] = await Image.update(data, {
-    where: { id },
-    returning: true,
-  });
-
-  if (updatedCount > 0) {
-    cacheService.del(`getImageById:${id}`);
-    // Flush list caches since content changed
-    cacheService.flush();
+  const image = await Image.findByPk(id);
+  if (!image) {
+    throw new Error('Image not found');
   }
 
-  return updatedRows ? updatedRows[0] : null;
+  await image.update(data);
+
+  // Invalidate cache for this image and lists
+  cacheService.del(`image:${id}`);
+  cacheService.flush();
+
+  return image;
 }
 
 /**
- * Delete an image by ID. Also removes the file from disk.
+ * Delete an image record and its file.
  */
 async function deleteImage(id) {
   const image = await Image.findByPk(id);
-  if (!image) return false;
-
-  // Remove file from disk
-  try {
-    const filename = image.filename || image.file_path;
-    if (filename) {
-      const filePath = path.isAbsolute(filename)
-        ? filename
-        : path.join(UPLOADS_DIR, path.basename(filename));
-      if (fs.existsSync(filePath)) {
-        fs.unlinkSync(filePath);
-      }
-    }
-  } catch (err) {
-    console.warn(`[ImageService] Could not delete file for image ${id}:`, err.message);
+  if (!image) {
+    throw new Error('Image not found');
   }
 
-  // Remove thumbnail cache files
-  try {
-    const thumbnailsDir = path.join(UPLOADS_DIR, 'thumbnails');
-    const sizes = ['small', 'medium', 'large', 'thumb'];
-    sizes.forEach((size) => {
-      const thumbPath = path.join(thumbnailsDir, `${id}_${size}.webp`);
-      if (fs.existsSync(thumbPath)) {
-        fs.unlinkSync(thumbPath);
-      }
-    });
-  } catch (err) {
-    console.warn(`[ImageService] Could not delete thumbnails for image ${id}:`, err.message);
+  // Delete file from disk
+  if (image.filename) {
+    const filePath = path.join(UPLOAD_DIR, path.basename(image.filename));
+    if (fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
+    }
   }
 
   await image.destroy();
 
-  cacheService.del(`getImageById:${id}`);
+  // Invalidate cache
+  cacheService.del(`image:${id}`);
   cacheService.flush();
 
   return true;
 }
 
 /**
- * Get images by tag ID.
+ * Get recent images.
  */
-async function getImagesByTag(tagId, options = {}) {
-  const cacheKey = `getImagesByTag:${cacheService.hashQuery({ tagId, ...options })}`;
+async function getRecentImages(limit = 12) {
+  const cacheKey = `recent:${limit}`;
   const cached = cacheService.get(cacheKey);
   if (cached) return cached;
 
-  const { page = 1, limit = 24 } = options;
-  const offset = (page - 1) * limit;
+  const images = await Image.findAll({
+    include: [{ model: Tag, as: 'tags', through: { attributes: [] } }],
+    order: [['createdAt', 'DESC']],
+    limit: parseInt(limit),
+  });
 
-  const { count, rows } = await Image.findAndCountAll({
-    include: [
-      {
-        model: Tag,
-        as: 'tags',
-        through: { attributes: [] },
-        where: { id: tagId },
-        required: true,
-      },
+  cacheService.set(cacheKey, images, { ttl: 2 * 60 * 1000 }); // 2 min TTL for recent
+  return images;
+}
+
+/**
+ * Get image stats (total count, total size).
+ */
+async function getImageStats() {
+  const cacheKey = 'image:stats';
+  const cached = cacheService.get(cacheKey);
+  if (cached) return cached;
+
+  const stats = await Image.findOne({
+    attributes: [
+      [sequelize.fn('COUNT', sequelize.col('id')), 'count'],
+      [sequelize.fn('SUM', sequelize.col('file_size')), 'totalSize'],
     ],
-    order: [['created_at', 'DESC']],
-    limit: parseInt(limit, 10),
-    offset: parseInt(offset, 10),
-    distinct: true,
+    raw: true,
   });
 
   const result = {
-    images: rows,
-    total: count,
-    page: parseInt(page, 10),
-    limit: parseInt(limit, 10),
-    totalPages: Math.ceil(count / limit),
+    count: parseInt(stats.count) || 0,
+    totalSize: parseInt(stats.totalSize) || 0,
   };
 
-  cacheService.set(cacheKey, result);
+  cacheService.set(cacheKey, result, { ttl: 60 * 1000 }); // 1 min TTL
   return result;
 }
 
 /**
- * Serve an original image file for download/inline viewing.
+ * Serve original image file with proper headers.
+ * @param {string} id - Image ID
+ * @param {Object} res - Express response
  */
-async function getImageFilePath(id) {
+async function serveOriginal(id, res) {
   const image = await Image.findByPk(id);
-  if (!image) return null;
+  if (!image) {
+    return res.status(404).json({ error: 'Image not found' });
+  }
 
   const filename = image.filename || image.file_path;
-  if (!filename) return null;
+  if (!filename) {
+    return res.status(404).json({ error: 'Image file not found' });
+  }
 
-  const filePath = path.isAbsolute(filename)
-    ? filename
-    : path.join(UPLOADS_DIR, path.basename(filename));
+  const filePath = path.join(UPLOAD_DIR, path.basename(filename));
+  if (!fs.existsSync(filePath)) {
+    return res.status(404).json({ error: 'Image file not found on disk' });
+  }
 
-  if (!fs.existsSync(filePath)) return null;
+  const stats = fs.statSync(filePath);
+  const mimeType = image.mime_type || getMimeType(filename);
 
-  return { filePath, image };
+  res.setHeader('Content-Type', mimeType);
+  res.setHeader('Content-Disposition', `inline; filename="${image.original_filename || path.basename(filename)}"`);
+  res.setHeader('Content-Length', stats.size);
+  res.setHeader('Last-Modified', stats.mtime.toUTCString());
+  res.setHeader('Cache-Control', 'public, max-age=86400'); // 1 day for originals
+
+  const readStream = fs.createReadStream(filePath);
+  readStream.pipe(res);
+}
+
+/**
+ * Get MIME type from file extension.
+ */
+function getMimeType(filename) {
+  const ext = path.extname(filename).toLowerCase();
+  const mimeTypes = {
+    '.jpg': 'image/jpeg',
+    '.jpeg': 'image/jpeg',
+    '.png': 'image/png',
+    '.gif': 'image/gif',
+    '.webp': 'image/webp',
+    '.avif': 'image/avif',
+    '.tiff': 'image/tiff',
+    '.tif': 'image/tiff',
+    '.bmp': 'image/bmp',
+    '.svg': 'image/svg+xml',
+    '.heic': 'image/heic',
+    '.heif': 'image/heif',
+  };
+  return mimeTypes[ext] || 'application/octet-stream';
 }
 
 module.exports = {
@@ -269,6 +258,8 @@ module.exports = {
   createImage,
   updateImage,
   deleteImage,
-  getImagesByTag,
-  getImageFilePath,
+  getRecentImages,
+  getImageStats,
+  serveOriginal,
+  getMimeType,
 };

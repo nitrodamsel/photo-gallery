@@ -4,148 +4,143 @@ const path = require('path');
 const fs = require('fs');
 const sharp = require('sharp');
 const { Image } = require('../models');
-const cacheMiddleware = require('../middleware/cache');
+const { generateETag } = require('../middleware/cache');
 
-const VALID_SIZES = {
+const UPLOAD_DIR = path.join(__dirname, '..', 'uploads');
+
+const THUMBNAIL_SIZES = {
   small: { width: 200, height: 200 },
   medium: { width: 400, height: 400 },
   large: { width: 800, height: 800 },
-  thumb: { width: 300, height: 300 },
+  thumb: { width: 200, height: 200 },
 };
 
-const UPLOADS_DIR = path.join(__dirname, '..', 'uploads');
-const THUMBNAILS_DIR = path.join(UPLOADS_DIR, 'thumbnails');
+const THUMBNAIL_CACHE_DIR = path.join(__dirname, '..', 'uploads', 'thumbnails');
 
-// Ensure thumbnails directory exists
-if (!fs.existsSync(THUMBNAILS_DIR)) {
-  fs.mkdirSync(THUMBNAILS_DIR, { recursive: true });
-}
-
-/**
- * Get the thumbnail cache path for a given image ID and size.
- */
-function getThumbnailPath(imageId, size) {
-  return path.join(THUMBNAILS_DIR, `${imageId}_${size}.webp`);
-}
-
-/**
- * Generate a thumbnail using Sharp and save it to disk.
- */
-async function generateThumbnail(sourcePath, destPath, size) {
-  const dimensions = VALID_SIZES[size];
-  await sharp(sourcePath)
-    .rotate() // Auto-rotate based on EXIF orientation
-    .resize(dimensions.width, dimensions.height, {
-      fit: 'cover',
-      position: 'centre',
-      withoutEnlargement: true,
-    })
-    .webp({ quality: 82 })
-    .toFile(destPath);
-}
-
-/**
- * Stream a file with proper caching headers.
- */
-function streamWithCacheHeaders(req, res, filePath, mimeType = 'image/webp') {
-  try {
-    const stat = fs.statSync(filePath);
-    const mtime = stat.mtime;
-    const etag = `"${stat.size}-${mtime.getTime()}"`;
-
-    res.setHeader('ETag', etag);
-    res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
-    res.setHeader('Last-Modified', mtime.toUTCString());
-    res.setHeader('Content-Type', mimeType);
-    res.setHeader('Content-Length', stat.size);
-
-    // Check If-None-Match (ETag)
-    const ifNoneMatch = req.headers['if-none-match'];
-    if (ifNoneMatch && ifNoneMatch === etag) {
-      return res.status(304).end();
-    }
-
-    // Check If-Modified-Since
-    const ifModifiedSince = req.headers['if-modified-since'];
-    if (ifModifiedSince) {
-      const ifModifiedDate = new Date(ifModifiedSince);
-      if (mtime <= ifModifiedDate) {
-        return res.status(304).end();
-      }
-    }
-
-    const stream = fs.createReadStream(filePath);
-    stream.on('error', (err) => {
-      if (!res.headersSent) {
-        res.status(500).json({ error: 'Failed to stream file' });
-      }
-    });
-    stream.pipe(res);
-  } catch (err) {
-    if (!res.headersSent) {
-      res.status(500).json({ error: 'Failed to read file' });
-    }
-  }
+// Ensure thumbnail cache directory exists
+if (!fs.existsSync(THUMBNAIL_CACHE_DIR)) {
+  fs.mkdirSync(THUMBNAIL_CACHE_DIR, { recursive: true });
 }
 
 /**
  * GET /thumbnails/:size/:imageId
- * Serves a thumbnail for the given image at the given size.
- * Generates WebP thumbnail on first request, serves from disk cache thereafter.
+ * Serves a thumbnail for the given image at the specified size.
+ * Sets aggressive Cache-Control and ETag headers.
+ * Converts to WebP for better performance.
  */
-router.get('/:size/:imageId', async (req, res) => {
+router.get('/:size/:imageId', async (req, res, next) => {
   const { size, imageId } = req.params;
 
   // Validate size
-  if (!VALID_SIZES[size]) {
+  const dimensions = THUMBNAIL_SIZES[size];
+  if (!dimensions) {
     return res.status(400).json({
-      error: `Invalid size. Valid sizes: ${Object.keys(VALID_SIZES).join(', ')}`,
+      error: `Invalid size. Must be one of: ${Object.keys(THUMBNAIL_SIZES).join(', ')}`,
     });
   }
 
-  // Validate imageId (UUID format)
-  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-  if (!uuidRegex.test(imageId)) {
-    return res.status(400).json({ error: 'Invalid image ID format' });
-  }
-
   try {
-    // Check disk cache first
-    const thumbnailPath = getThumbnailPath(imageId, size);
-    if (fs.existsSync(thumbnailPath)) {
-      return streamWithCacheHeaders(req, res, thumbnailPath, 'image/webp');
-    }
-
-    // Fetch image record from database
+    // Look up image in database
     const image = await Image.findOne({ where: { id: imageId } });
     if (!image) {
       return res.status(404).json({ error: 'Image not found' });
     }
 
-    // Resolve source file path
+    // Determine original file path
     const filename = image.filename || image.file_path;
     if (!filename) {
-      return res.status(404).json({ error: 'Image file path not found' });
+      return res.status(404).json({ error: 'Image file not found' });
     }
 
-    const sourcePath = path.isAbsolute(filename)
-      ? filename
-      : path.join(UPLOADS_DIR, path.basename(filename));
+    const originalPath = path.join(UPLOAD_DIR, path.basename(filename));
 
-    if (!fs.existsSync(sourcePath)) {
+    // Check original file exists
+    if (!fs.existsSync(originalPath)) {
       return res.status(404).json({ error: 'Image file not found on disk' });
     }
 
-    // Generate thumbnail
-    await generateThumbnail(sourcePath, thumbnailPath, size);
+    // Thumbnail cache path: uploads/thumbnails/{size}_{imageId}.webp
+    const thumbnailFilename = `${size}_${imageId}.webp`;
+    const thumbnailPath = path.join(THUMBNAIL_CACHE_DIR, thumbnailFilename);
 
-    // Stream the newly generated thumbnail
-    return streamWithCacheHeaders(req, res, thumbnailPath, 'image/webp');
-  } catch (err) {
-    console.error(`[Thumbnails] Error serving thumbnail for ${imageId}:`, err.message);
-    if (!res.headersSent) {
-      res.status(500).json({ error: 'Failed to generate thumbnail' });
+    // Check if cached thumbnail exists
+    let servePath = thumbnailPath;
+    let needsGeneration = true;
+
+    if (fs.existsSync(thumbnailPath)) {
+      // Check if thumbnail is newer than original
+      const origStats = fs.statSync(originalPath);
+      const thumbStats = fs.statSync(thumbnailPath);
+      if (thumbStats.mtimeMs >= origStats.mtimeMs) {
+        needsGeneration = false;
+      }
     }
+
+    if (needsGeneration) {
+      // Generate thumbnail with Sharp, convert to WebP
+      await sharp(originalPath)
+        .resize(dimensions.width, dimensions.height, {
+          fit: 'cover',
+          position: 'centre',
+          withoutEnlargement: true,
+        })
+        .webp({ quality: 82, effort: 4 })
+        .toFile(thumbnailPath);
+    }
+
+    // Get file stats for ETag
+    const stats = fs.statSync(thumbnailPath);
+    const etag = generateETag(stats);
+    const ifNoneMatch = req.headers['if-none-match'];
+
+    // ETag check — 304 Not Modified
+    if (ifNoneMatch && ifNoneMatch === etag) {
+      return res.status(304).end();
+    }
+
+    // Set caching headers
+    res.setHeader('ETag', etag);
+    res.setHeader('Last-Modified', stats.mtime.toUTCString());
+    res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    res.setHeader('Content-Type', 'image/webp');
+    res.setHeader('Content-Length', stats.size);
+    res.setHeader('Vary', 'Accept-Encoding');
+
+    // Stream thumbnail to response
+    const readStream = fs.createReadStream(thumbnailPath);
+    readStream.on('error', (err) => {
+      console.error('Error streaming thumbnail:', err);
+      if (!res.headersSent) {
+        res.status(500).json({ error: 'Error serving thumbnail' });
+      }
+    });
+    readStream.pipe(res);
+
+  } catch (err) {
+    console.error('Thumbnail error:', err);
+    next(err);
+  }
+});
+
+/**
+ * DELETE /thumbnails/cache/:imageId
+ * Purge cached thumbnails for a specific image (all sizes).
+ */
+router.delete('/cache/:imageId', async (req, res) => {
+  const { imageId } = req.params;
+
+  try {
+    let deleted = 0;
+    for (const size of Object.keys(THUMBNAIL_SIZES)) {
+      const thumbnailPath = path.join(THUMBNAIL_CACHE_DIR, `${size}_${imageId}.webp`);
+      if (fs.existsSync(thumbnailPath)) {
+        fs.unlinkSync(thumbnailPath);
+        deleted++;
+      }
+    }
+    res.json({ success: true, deleted, imageId });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 
