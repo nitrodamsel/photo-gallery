@@ -1,31 +1,45 @@
 const fs = require('fs');
-const path = require('path');
 
 /**
  * Express middleware factory for HTTP caching with ETag support.
- * Checks If-None-Match header against file mtime-based ETag.
- * @param {number} ttlSeconds - Cache-Control max-age value
+ * @param {number} ttlSeconds - Cache-Control max-age value in seconds
  */
 function cacheMiddleware(ttlSeconds = 31536000) {
-  return (req, res, next) => {
+  return function (req, res, next) {
     // Store original send to intercept
-    const originalSend = res.send.bind(res);
-    const originalJson = res.json.bind(res);
+    const originalSendFile = res.sendFile.bind(res);
 
-    // Set cache control headers
-    res.setHeader('Cache-Control', `public, max-age=${ttlSeconds}, immutable`);
+    res.sendFile = function (filePath, options, callback) {
+      try {
+        const stat = fs.statSync(filePath);
+        const mtime = stat.mtime.getTime();
+        const etag = `"${mtime.toString(16)}-${stat.size.toString(16)}"`;
 
-    // Check If-None-Match for ETag validation
-    const ifNoneMatch = req.headers['if-none-match'];
+        res.setHeader('ETag', etag);
+        res.setHeader('Cache-Control', `public, max-age=${ttlSeconds}, immutable`);
+        res.setHeader('Last-Modified', stat.mtime.toUTCString());
 
-    // Attach helper to check ETag early (used by thumbnail route)
-    res.checkETag = (etag) => {
-      if (ifNoneMatch && ifNoneMatch === etag) {
-        res.status(304).end();
-        return true;
+        const ifNoneMatch = req.headers['if-none-match'];
+        const ifModifiedSince = req.headers['if-modified-since'];
+
+        if (ifNoneMatch && ifNoneMatch === etag) {
+          res.status(304).end();
+          return;
+        }
+
+        if (!ifNoneMatch && ifModifiedSince) {
+          const ifModifiedSinceDate = new Date(ifModifiedSince).getTime();
+          if (mtime <= ifModifiedSinceDate) {
+            res.status(304).end();
+            return;
+          }
+        }
+
+        originalSendFile(filePath, options, callback);
+      } catch (err) {
+        // File doesn't exist or can't be stat'd, let next handler deal with it
+        originalSendFile(filePath, options, callback);
       }
-      res.setHeader('ETag', etag);
-      return false;
     };
 
     next();
@@ -33,46 +47,39 @@ function cacheMiddleware(ttlSeconds = 31536000) {
 }
 
 /**
- * Generate ETag from file stats (mtime + size)
- * @param {fs.Stats} stats - File stats object
- * @returns {string} ETag string
+ * Middleware to set ETag and Cache-Control for a given file path.
+ * Use this directly on routes that serve files.
  */
-function generateETag(stats) {
-  const mtime = stats.mtimeMs || stats.mtime.getTime();
-  const size = stats.size;
-  return `"${mtime.toString(16)}-${size.toString(16)}"`;
+function setFileHeaders(filePath, res, ttlSeconds = 31536000) {
+  try {
+    const stat = fs.statSync(filePath);
+    const mtime = stat.mtime.getTime();
+    const etag = `"${mtime.toString(16)}-${stat.size.toString(16)}"`;
+
+    res.setHeader('ETag', etag);
+    res.setHeader('Cache-Control', `public, max-age=${ttlSeconds}, immutable`);
+    res.setHeader('Last-Modified', stat.mtime.toUTCString());
+
+    return etag;
+  } catch (err) {
+    return null;
+  }
 }
 
 /**
- * Middleware for static file ETag support based on file mtime.
- * @param {string} filePath - Absolute path to the file
+ * Check if the request can be served with 304 Not Modified.
+ * @returns {boolean} true if 304 was sent
  */
-function fileETagMiddleware(filePath) {
-  return (req, res, next) => {
-    fs.stat(filePath, (err, stats) => {
-      if (err) return next();
+function checkNotModified(req, res, etag) {
+  if (!etag) return false;
 
-      const etag = generateETag(stats);
-      const ifNoneMatch = req.headers['if-none-match'];
+  const ifNoneMatch = req.headers['if-none-match'];
+  if (ifNoneMatch && ifNoneMatch === etag) {
+    res.status(304).end();
+    return true;
+  }
 
-      res.setHeader('ETag', etag);
-      res.setHeader('Last-Modified', stats.mtime.toUTCString());
-
-      if (ifNoneMatch && ifNoneMatch === etag) {
-        return res.status(304).end();
-      }
-
-      const ifModifiedSince = req.headers['if-modified-since'];
-      if (ifModifiedSince) {
-        const modifiedSince = new Date(ifModifiedSince);
-        if (stats.mtime <= modifiedSince) {
-          return res.status(304).end();
-        }
-      }
-
-      next();
-    });
-  };
+  return false;
 }
 
-module.exports = { cacheMiddleware, generateETag, fileETagMiddleware };
+module.exports = { cacheMiddleware, setFileHeaders, checkNotModified };

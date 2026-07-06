@@ -1,79 +1,71 @@
 const { LRUCache } = require('lru-cache');
 
 /**
- * Simple djb2 hash for compact cache keys.
- * @param {string} str - Input string
- * @returns {string} Hex hash string
+ * djb2 hash function for compact cache keys.
+ * @param {string} str
+ * @returns {string} hex hash string
  */
 function djb2Hash(str) {
   let hash = 5381;
   for (let i = 0; i < str.length; i++) {
-    // hash * 33 + char code
-    hash = ((hash << 5) + hash) + str.charCodeAt(i);
-    hash = hash & hash; // Convert to 32-bit integer
+    // hash * 33 ^ char
+    hash = ((hash << 5) + hash) ^ str.charCodeAt(i);
+    hash = hash >>> 0; // Convert to unsigned 32-bit integer
   }
-  // Convert to unsigned 32-bit and then to hex
-  return (hash >>> 0).toString(16);
+  return hash.toString(16);
 }
 
 /**
- * Generate a compact cache key from a query object.
- * Uses JSON.stringify for deterministic serialization + djb2 hash.
- * @param {Object|string} obj - Query parameters or string key
- * @returns {string} Compact cache key
+ * Generates a compact cache key from a query object.
+ * @param {object|string} obj
+ * @returns {string}
  */
 function hashQuery(obj) {
-  if (typeof obj === 'string') {
-    return djb2Hash(obj);
-  }
-  // Sort keys for deterministic output
-  const sorted = JSON.stringify(obj, Object.keys(obj).sort());
-  return djb2Hash(sorted);
+  const str = typeof obj === 'string' ? obj : JSON.stringify(obj);
+  return djb2Hash(str);
 }
 
-/**
- * LRU Cache instance.
- * - max: 200 entries
- * - ttl: 5 minutes (300,000 ms)
- * - allowStale: false (expired entries not returned)
- */
+// Create LRU cache instance
+// max: 200 entries
+// ttl: 5 minutes (300,000 ms)
 const cache = new LRUCache({
   max: 200,
-  ttl: 5 * 60 * 1000, // 5 minutes in milliseconds
+  ttl: 1000 * 60 * 5, // 5 minutes
+  ttlAutopurge: false, // Purge on access only to avoid overhead
   allowStale: false,
   updateAgeOnGet: false,
   updateAgeOnHas: false,
 });
 
 /**
- * Get a value from cache.
- * @param {string} key - Cache key
- * @returns {*} Cached value or undefined
+ * Get a value from the cache.
+ * @param {string} key
+ * @returns {*} cached value or undefined
  */
 function get(key) {
   return cache.get(key);
 }
 
 /**
- * Set a value in cache.
- * @param {string} key - Cache key
- * @param {*} value - Value to cache
- * @param {Object} [options] - Optional LRU cache options (e.g., { ttl })
+ * Set a value in the cache.
+ * @param {string} key
+ * @param {*} value
+ * @param {object} [options] - optional lru-cache options (e.g., { ttl: ms })
  */
 function set(key, value, options = {}) {
   cache.set(key, value, options);
 }
 
 /**
- * Delete a specific key from cache.
- * @param {string} key - Cache key
+ * Delete a specific key from the cache.
+ * @param {string} key
  */
 function del(key) {
   cache.delete(key);
 }
 
 /**
- * Flush / clear all cache entries.
+ * Flush (clear) all entries from the cache.
  */
 function flush() {
   cache.clear();
@@ -81,22 +73,14 @@ function flush() {
 
 /**
  * Get cache statistics.
- * @returns {Object} Stats object with size and itemCount
+ * @returns {object}
  */
 function stats() {
   return {
     size: cache.size,
-    maxSize: cache.max,
+    max: 200,
     calculatedSize: cache.calculatedSize,
   };
 }
 
-module.exports = {
-  get,
-  set,
-  del,
-  flush,
-  hashQuery,
-  cache, // Expose underlying cache for advanced use
-  stats,
-};
+module.exports = { get, set, del, flush, hashQuery, stats };

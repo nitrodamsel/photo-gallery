@@ -1,69 +1,69 @@
 /**
- * Lazy Loading with IntersectionObserver
+ * Lazy Loading via IntersectionObserver
  * Watches all img[data-src] elements and swaps data-src → src
- * when the element enters the viewport (with 200px root margin).
+ * when the element enters the viewport (with 200px rootMargin).
  * Adds 'loaded' class for CSS fade-in transition.
  */
 (function () {
   'use strict';
 
   /**
-   * Load a lazy image by swapping data-src to src.
-   * Also handles data-srcset for responsive images.
+   * Load a single image element by swapping data-src to src.
    * @param {HTMLImageElement} img
    */
   function loadImage(img) {
     const src = img.dataset.src;
     const srcset = img.dataset.srcset;
 
-    if (!src && !srcset) return;
+    if (!src) return;
 
-    // Create a new Image to preload before displaying
-    const tempImg = new window.Image();
+    // Create a new image to preload
+    const tempImg = new Image();
 
     tempImg.onload = function () {
-      if (src) img.src = src;
-      if (srcset) img.srcset = srcset;
-      img.classList.add('loaded');
+      img.src = src;
+      if (srcset) {
+        img.srcset = srcset;
+      }
       img.removeAttribute('data-src');
       img.removeAttribute('data-srcset');
+      // Small timeout to allow repaint before adding class
+      requestAnimationFrame(function () {
+        img.classList.add('loaded');
+      });
     };
 
     tempImg.onerror = function () {
-      // Still try to show even on error, mark as loaded to prevent retries
-      if (src) img.src = src;
-      img.classList.add('loaded');
+      // Still mark as attempted to avoid re-trying
       img.classList.add('error');
       img.removeAttribute('data-src');
     };
 
-    // Start loading
-    tempImg.src = src || srcset;
+    tempImg.src = src;
+    if (srcset) {
+      tempImg.srcset = srcset;
+    }
   }
 
   /**
-   * Fallback for browsers without IntersectionObserver support.
-   * Loads all lazy images immediately.
-   */
-  function loadAllImages() {
-    const lazyImages = document.querySelectorAll('img[data-src]');
-    lazyImages.forEach(loadImage);
-  }
-
-  /**
-   * Initialize IntersectionObserver-based lazy loading.
+   * Initialize lazy loading with IntersectionObserver.
    */
   function initLazyLoad() {
+    const lazyImages = Array.from(document.querySelectorAll('img[data-src]'));
+
+    if (lazyImages.length === 0) return;
+
+    // Check for IntersectionObserver support
     if (!('IntersectionObserver' in window)) {
       // Fallback: load all images immediately
-      loadAllImages();
+      lazyImages.forEach(loadImage);
       return;
     }
 
     const observerOptions = {
       root: null, // Use viewport as root
       rootMargin: '200px 0px', // Load images 200px before they enter viewport
-      threshold: 0.01, // Trigger when 1% of element is visible
+      threshold: 0,
     };
 
     const observer = new IntersectionObserver(function (entries, obs) {
@@ -71,60 +71,67 @@
         if (entry.isIntersecting) {
           const img = entry.target;
           loadImage(img);
-          obs.unobserve(img); // Stop observing once loaded
+          obs.unobserve(img); // Stop watching once loaded
         }
       });
     }, observerOptions);
 
-    // Observe all current lazy images
-    const lazyImages = document.querySelectorAll('img[data-src]');
     lazyImages.forEach(function (img) {
+      // Add skeleton/placeholder class
+      if (!img.classList.contains('lazy')) {
+        img.classList.add('lazy');
+      }
       observer.observe(img);
     });
-
-    // Also observe dynamically added images using a MutationObserver
-    if ('MutationObserver' in window) {
-      const mutationObserver = new MutationObserver(function (mutations) {
-        mutations.forEach(function (mutation) {
-          mutation.addedNodes.forEach(function (node) {
-            if (node.nodeType !== Node.ELEMENT_NODE) return;
-
-            // Check if the node itself is a lazy image
-            if (node.tagName === 'IMG' && node.dataset.src) {
-              observer.observe(node);
-            }
-
-            // Check for lazy images within the added node
-            const imgs = node.querySelectorAll && node.querySelectorAll('img[data-src]');
-            if (imgs) {
-              imgs.forEach(function (img) {
-                observer.observe(img);
-              });
-            }
-          });
-        });
-      });
-
-      mutationObserver.observe(document.body, {
-        childList: true,
-        subtree: true,
-      });
-    }
-
-    return observer;
   }
 
-  // Initialize when DOM is ready
+  /**
+   * Re-initialize lazy loading (e.g., after dynamic content is added).
+   */
+  function refreshLazyLoad() {
+    const unloadedImages = document.querySelectorAll('img[data-src]');
+    if (unloadedImages.length === 0) return;
+
+    if (!('IntersectionObserver' in window)) {
+      unloadedImages.forEach(loadImage);
+      return;
+    }
+
+    const observerOptions = {
+      root: null,
+      rootMargin: '200px 0px',
+      threshold: 0,
+    };
+
+    const observer = new IntersectionObserver(function (entries, obs) {
+      entries.forEach(function (entry) {
+        if (entry.isIntersecting) {
+          const img = entry.target;
+          loadImage(img);
+          obs.unobserve(img);
+        }
+      });
+    }, observerOptions);
+
+    unloadedImages.forEach(function (img) {
+      if (!img.classList.contains('lazy')) {
+        img.classList.add('lazy');
+      }
+      observer.observe(img);
+    });
+  }
+
+  // Initialize on DOM ready
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', initLazyLoad);
   } else {
     initLazyLoad();
   }
 
-  // Expose for manual triggering if needed
+  // Expose API for dynamic content scenarios
   window.LazyLoad = {
     init: initLazyLoad,
-    loadAll: loadAllImages,
+    refresh: refreshLazyLoad,
     loadImage: loadImage,
   };
 })();

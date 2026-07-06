@@ -1,0 +1,50 @@
+<%
+  // Determine thumbnail URL — use /thumbnails/:size/:id route for WebP + caching
+  const thumbUrl = `/thumbnails/medium/${image.id}`;
+  const cardTitle = image.title || image.originalName || 'Untitled';
+  const cardDate = image.createdAt
+    ? new Date(image.createdAt).toLocaleDateString()
+    : '';
+%>
+<div class="image-card<%= selected ? ' selected' : '' %>" data-id="<%= image.id %>">
+  <% if (typeof showCheckbox !== 'undefined' && showCheckbox) { %>
+    <input
+      type="checkbox"
+      class="select-checkbox"
+      data-id="<%= image.id %>"
+      <%= selected ? 'checked' : '' %>
+      aria-label="Select <%= cardTitle %>"
+    />
+  <% } %>
+
+  <a href="/images/<%= image.id %>" class="card-img-link">
+    <div class="card-img-wrapper">
+      <img
+        data-src="<%= thumbUrl %>"
+        alt="<%= cardTitle %>"
+        class="lazy"
+        width="400"
+        height="300"
+        loading="lazy"
+      />
+    </div>
+  </a>
+
+  <div class="card-body">
+    <p class="card-title" title="<%= cardTitle %>"><%= cardTitle %></p>
+    <% if (cardDate) { %>
+      <p class="card-meta"><%= cardDate %></p>
+    <% } %>
+
+    <% if (image.tags && image.tags.length > 0) { %>
+      <div class="card-tags">
+        <% image.tags.slice(0, 3).forEach(tag => { %>
+          <a href="/gallery?tagId=<%= tag.id %>" class="tag-badge"><%= tag.name %></a>
+        <% }) %>
+        <% if (image.tags.length > 3) { %>
+          <span class="tag-badge">+<%= image.tags.length - 3 %></span>
+        <% } %>
+      </div>
+    <% } %>
+  </div>
+</div>

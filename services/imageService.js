@@ -1,38 +1,39 @@
 const path = require('path');
 const fs = require('fs');
-const { Image, Tag, ImageTag, sequelize } = require('../models');
+const sharp = require('sharp');
+const { Image, Tag, ImageTag } = require('../models');
 const { Op } = require('sequelize');
 const cacheService = require('./cacheService');
 
 const UPLOAD_DIR = path.join(__dirname, '..', 'uploads');
 
 /**
- * Get paginated images with optional filtering.
- * Results are cached using LRU cache.
+ * Get a paginated list of images with optional filtering.
  */
-async function getImages({
-  page = 1,
-  limit = 20,
-  sort = 'createdAt',
-  order = 'DESC',
-  tag = null,
-  search = null,
-} = {}) {
-  // Build cache key from query parameters
-  const cacheKey = cacheService.hashQuery({ page, limit, sort, order, tag, search });
+async function getImages(options = {}) {
+  const {
+    page = 1,
+    limit = 20,
+    sortBy = 'createdAt',
+    sortOrder = 'DESC',
+    tagId,
+    search,
+  } = options;
+
+  const cacheKey = cacheService.hashQuery({ fn: 'getImages', ...options });
   const cached = cacheService.get(cacheKey);
   if (cached) {
     return cached;
   }
 
   const offset = (page - 1) * limit;
+  const where = {};
 
-  const whereClause = {};
   if (search) {
-    whereClause[Op.or] = [
+    where[Op.or] = [
       { title: { [Op.like]: `%${search}%` } },
       { description: { [Op.like]: `%${search}%` } },
-      { original_filename: { [Op.like]: `%${search}%` } },
+      { originalName: { [Op.like]: `%${search}%` } },
     ];
   }
 
@@ -41,21 +42,17 @@ async function getImages({
       model: Tag,
       as: 'tags',
       through: { attributes: [] },
-      required: !!tag,
-      ...(tag && { where: { name: tag } }),
+      required: !!tagId,
+      ...(tagId ? { where: { id: tagId } } : {}),
     },
   ];
 
-  const validSortFields = ['createdAt', 'updatedAt', 'title', 'file_size', 'taken_at'];
-  const sortField = validSortFields.includes(sort) ? sort : 'createdAt';
-  const sortOrder = order.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
-
   const { count, rows } = await Image.findAndCountAll({
-    where: whereClause,
+    where,
     include: includeOptions,
-    order: [[sortField, sortOrder]],
+    order: [[sortBy, sortOrder]],
     limit: parseInt(limit),
-    offset: parseInt(offset),
+    offset,
     distinct: true,
   });
 
@@ -63,26 +60,25 @@ async function getImages({
     images: rows,
     total: count,
     page: parseInt(page),
-    limit: parseInt(limit),
     totalPages: Math.ceil(count / limit),
+    limit: parseInt(limit),
   };
 
-  // Cache the result
   cacheService.set(cacheKey, result);
-
   return result;
 }
 
 /**
- * Get a single image by ID with tags.
+ * Get a single image by ID with its tags.
  */
 async function getImageById(id) {
-  const cacheKey = `image:${id}`;
+  const cacheKey = cacheService.hashQuery({ fn: 'getImageById', id });
   const cached = cacheService.get(cacheKey);
-  if (cached) return cached;
+  if (cached) {
+    return cached;
+  }
 
-  const image = await Image.findOne({
-    where: { id },
+  const image = await Image.findByPk(id, {
     include: [
       {
         model: Tag,
@@ -100,35 +96,7 @@ async function getImageById(id) {
 }
 
 /**
- * Create a new image record.
- */
-async function createImage(data) {
-  const image = await Image.create(data);
-  // Invalidate list cache
-  cacheService.flush();
-  return image;
-}
-
-/**
- * Update an image record.
- */
-async function updateImage(id, data) {
-  const image = await Image.findByPk(id);
-  if (!image) {
-    throw new Error('Image not found');
-  }
-
-  await image.update(data);
-
-  // Invalidate cache for this image and lists
-  cacheService.del(`image:${id}`);
-  cacheService.flush();
-
-  return image;
-}
-
-/**
- * Delete an image record and its file.
+ * Delete an image and its file from disk.
  */
 async function deleteImage(id) {
   const image = await Image.findByPk(id);
@@ -136,105 +104,108 @@ async function deleteImage(id) {
     throw new Error('Image not found');
   }
 
-  // Delete file from disk
-  if (image.filename) {
-    const filePath = path.join(UPLOAD_DIR, path.basename(image.filename));
-    if (fs.existsSync(filePath)) {
-      fs.unlinkSync(filePath);
+  // Remove file from disk
+  const filePath = path.join(UPLOAD_DIR, image.filename);
+  if (fs.existsSync(filePath)) {
+    fs.unlinkSync(filePath);
+  }
+
+  // Remove any thumbnails
+  const sizes = ['small', 'medium', 'large', 'thumb'];
+  for (const size of sizes) {
+    const thumbPath = path.join(UPLOAD_DIR, 'thumbnails', size, `${id}.webp`);
+    if (fs.existsSync(thumbPath)) {
+      fs.unlinkSync(thumbPath);
     }
   }
 
+  await ImageTag.destroy({ where: { imageId: id } });
   await image.destroy();
 
-  // Invalidate cache
-  cacheService.del(`image:${id}`);
-  cacheService.flush();
+  // Invalidate caches
+  cacheService.del(cacheService.hashQuery({ fn: 'getImageById', id }));
 
   return true;
 }
 
 /**
- * Get recent images.
+ * Update image metadata.
  */
-async function getRecentImages(limit = 12) {
-  const cacheKey = `recent:${limit}`;
-  const cached = cacheService.get(cacheKey);
-  if (cached) return cached;
+async function updateImage(id, updates) {
+  const image = await Image.findByPk(id);
+  if (!image) {
+    throw new Error('Image not found');
+  }
 
-  const images = await Image.findAll({
-    include: [{ model: Tag, as: 'tags', through: { attributes: [] } }],
-    order: [['createdAt', 'DESC']],
-    limit: parseInt(limit),
-  });
+  await image.update(updates);
 
-  cacheService.set(cacheKey, images, { ttl: 2 * 60 * 1000 }); // 2 min TTL for recent
-  return images;
+  // Invalidate cache for this image
+  cacheService.del(cacheService.hashQuery({ fn: 'getImageById', id }));
+
+  return image;
 }
 
 /**
- * Get image stats (total count, total size).
+ * Generate a thumbnail for an image at a given size.
  */
-async function getImageStats() {
-  const cacheKey = 'image:stats';
-  const cached = cacheService.get(cacheKey);
-  if (cached) return cached;
-
-  const stats = await Image.findOne({
-    attributes: [
-      [sequelize.fn('COUNT', sequelize.col('id')), 'count'],
-      [sequelize.fn('SUM', sequelize.col('file_size')), 'totalSize'],
-    ],
-    raw: true,
-  });
-
-  const result = {
-    count: parseInt(stats.count) || 0,
-    totalSize: parseInt(stats.totalSize) || 0,
+async function generateThumbnail(imageId, size = 'medium') {
+  const SIZE_MAP = {
+    small: { width: 200, height: 200 },
+    medium: { width: 400, height: 400 },
+    large: { width: 800, height: 800 },
+    thumb: { width: 150, height: 150 },
   };
 
-  cacheService.set(cacheKey, result, { ttl: 60 * 1000 }); // 1 min TTL
-  return result;
+  const dimensions = SIZE_MAP[size];
+  if (!dimensions) {
+    throw new Error(`Invalid size: ${size}`);
+  }
+
+  const image = await Image.findByPk(imageId);
+  if (!image) {
+    throw new Error('Image not found');
+  }
+
+  const originalPath = path.join(UPLOAD_DIR, image.filename);
+  if (!fs.existsSync(originalPath)) {
+    throw new Error('Original image file not found');
+  }
+
+  const thumbnailDir = path.join(UPLOAD_DIR, 'thumbnails', size);
+  if (!fs.existsSync(thumbnailDir)) {
+    fs.mkdirSync(thumbnailDir, { recursive: true });
+  }
+
+  const thumbnailPath = path.join(thumbnailDir, `${imageId}.webp`);
+
+  await sharp(originalPath)
+    .resize(dimensions.width, dimensions.height, {
+      fit: 'cover',
+      position: 'center',
+      withoutEnlargement: true,
+    })
+    .webp({ quality: 82, effort: 4 })
+    .toFile(thumbnailPath);
+
+  return thumbnailPath;
 }
 
 /**
  * Serve original image file with proper headers.
- * @param {string} id - Image ID
- * @param {Object} res - Express response
  */
-async function serveOriginal(id, res) {
+async function serveOriginal(id, req, res) {
   const image = await Image.findByPk(id);
   if (!image) {
     return res.status(404).json({ error: 'Image not found' });
   }
 
-  const filename = image.filename || image.file_path;
-  if (!filename) {
-    return res.status(404).json({ error: 'Image file not found' });
-  }
-
-  const filePath = path.join(UPLOAD_DIR, path.basename(filename));
+  const filePath = path.join(UPLOAD_DIR, image.filename);
   if (!fs.existsSync(filePath)) {
     return res.status(404).json({ error: 'Image file not found on disk' });
   }
 
-  const stats = fs.statSync(filePath);
-  const mimeType = image.mime_type || getMimeType(filename);
-
-  res.setHeader('Content-Type', mimeType);
-  res.setHeader('Content-Disposition', `inline; filename="${image.original_filename || path.basename(filename)}"`);
-  res.setHeader('Content-Length', stats.size);
-  res.setHeader('Last-Modified', stats.mtime.toUTCString());
-  res.setHeader('Cache-Control', 'public, max-age=86400'); // 1 day for originals
-
-  const readStream = fs.createReadStream(filePath);
-  readStream.pipe(res);
-}
-
-/**
- * Get MIME type from file extension.
- */
-function getMimeType(filename) {
-  const ext = path.extname(filename).toLowerCase();
+  // Determine MIME type
+  const ext = path.extname(image.filename).toLowerCase();
   const mimeTypes = {
     '.jpg': 'image/jpeg',
     '.jpeg': 'image/jpeg',
@@ -242,24 +213,41 @@ function getMimeType(filename) {
     '.gif': 'image/gif',
     '.webp': 'image/webp',
     '.avif': 'image/avif',
-    '.tiff': 'image/tiff',
-    '.tif': 'image/tiff',
-    '.bmp': 'image/bmp',
-    '.svg': 'image/svg+xml',
     '.heic': 'image/heic',
-    '.heif': 'image/heif',
+    '.tiff': 'image/tiff',
+    '.bmp': 'image/bmp',
   };
-  return mimeTypes[ext] || 'application/octet-stream';
+
+  const mimeType = mimeTypes[ext] || 'application/octet-stream';
+  res.setHeader('Content-Type', mimeType);
+  res.setHeader('Content-Disposition', `inline; filename="${image.originalName || image.filename}"`);
+
+  // Set caching headers for original
+  const stat = fs.statSync(filePath);
+  const etag = `"${stat.mtime.getTime().toString(16)}-${stat.size.toString(16)}"`;
+  res.setHeader('ETag', etag);
+  res.setHeader('Cache-Control', 'public, max-age=86400'); // 1 day for originals
+
+  const ifNoneMatch = req.headers['if-none-match'];
+  if (ifNoneMatch && ifNoneMatch === etag) {
+    return res.status(304).end();
+  }
+
+  const stream = fs.createReadStream(filePath);
+  stream.on('error', (err) => {
+    console.error('Error streaming original image:', err);
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'Failed to serve image' });
+    }
+  });
+  stream.pipe(res);
 }
 
 module.exports = {
   getImages,
   getImageById,
-  createImage,
-  updateImage,
   deleteImage,
-  getRecentImages,
-  getImageStats,
+  updateImage,
+  generateThumbnail,
   serveOriginal,
-  getMimeType,
 };
