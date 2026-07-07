@@ -1,40 +1,70 @@
 'use strict';
 
-const { ThumbnailCache } = require('../models');
+const NodeCache = require('node-cache');
 
-/**
- * Cache service for managing thumbnail and other caches.
- */
+// Default TTL: 5 minutes
+const cache = new NodeCache({ stdTTL: 300, checkperiod: 60 });
+
 const cacheService = {
   /**
-   * Flush all thumbnail cache records from the database.
-   * Note: Does not delete actual thumbnail files from disk.
+   * Get a value from cache.
+   * @param {string} key
+   * @returns {any|undefined}
    */
-  async flush() {
-    try {
-      const count = await ThumbnailCache.destroy({ where: {}, truncate: true });
-      console.log(`[CacheService] Flushed all thumbnail cache records`);
-      return { flushed: true };
-    } catch (err) {
-      console.error('[CacheService] Error flushing cache:', err);
-      throw err;
+  get(key) {
+    return cache.get(key);
+  },
+
+  /**
+   * Set a value in cache.
+   * @param {string} key
+   * @param {any} value
+   * @param {number} [ttl] - TTL in seconds (optional, uses default if not specified)
+   */
+  set(key, value, ttl) {
+    if (ttl !== undefined) {
+      cache.set(key, value, ttl);
+    } else {
+      cache.set(key, value);
     }
   },
 
   /**
-   * Get cache stats
+   * Delete a value from cache.
+   * @param {string} key
    */
-  async getStats() {
-    const count = await ThumbnailCache.count();
-    return { thumbnailCacheCount: count };
+  del(key) {
+    cache.del(key);
   },
 
   /**
-   * Invalidate cache for a specific image
+   * Flush all cache entries.
    */
-  async invalidateImage(imageId) {
-    await ThumbnailCache.destroy({ where: { imageId } });
-    console.log(`[CacheService] Invalidated cache for image ${imageId}`);
+  flush() {
+    cache.flushAll();
+    return Promise.resolve();
+  },
+
+  /**
+   * Get cache statistics.
+   */
+  stats() {
+    return cache.getStats();
+  },
+
+  /**
+   * Get all cache keys.
+   */
+  keys() {
+    return cache.keys();
+  },
+
+  /**
+   * Check if a key exists.
+   * @param {string} key
+   */
+  has(key) {
+    return cache.has(key);
   },
 };
 

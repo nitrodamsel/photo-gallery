@@ -1,23 +1,21 @@
 openapi: 3.1.0
 info:
-  title: Photo Gallery API
+  title: Gallery API
   version: 1.0.0
   description: |
-    REST API for the Photo Gallery application.
+    REST API for the Gallery application. Manage images, tags, and search with full CRUD support.
     
     ## Authentication
-    All API endpoints require an API key passed as a Bearer token in the `Authorization` header:
+    All `/api/v1/*` endpoints require an API key sent as a Bearer token:
     ```
-    Authorization: Bearer <your_api_key>
+    Authorization: Bearer <your-api-key>
     ```
+    Generate an API key using: `node scripts/generate-api-key.js --label "My App"`
     
-    Generate API keys using the CLI:
-    ```bash
-    node scripts/generate-api-key.js --label "My App"
-    ```
-    
+    ## Rate Limiting
+    100 requests per minute per API key. Headers `RateLimit-Limit`, `RateLimit-Remaining`, and `RateLimit-Reset` are included in responses.
   contact:
-    name: API Support
+    name: Gallery API Support
   license:
     name: MIT
 
@@ -25,13 +23,16 @@ servers:
   - url: /api/v1
     description: API v1
 
+security:
+  - BearerAuth: []
+
 components:
   securitySchemes:
     BearerAuth:
       type: http
       scheme: bearer
       bearerFormat: API Key
-      description: API key generated via the CLI tool
+      description: API key generated via `node scripts/generate-api-key.js`
 
   schemas:
     Error:
@@ -47,31 +48,26 @@ components:
           properties:
             code:
               type: string
-              description: Machine-readable error code
               example: NOT_FOUND
             message:
               type: string
-              description: Human-readable error message
-              example: Image not found
+              example: Image with id 'abc' not found.
 
     Pagination:
       type: object
       properties:
         page:
           type: integer
-          minimum: 1
           example: 1
         limit:
           type: integer
-          minimum: 1
-          maximum: 100
           example: 20
         total:
           type: integer
-          example: 150
+          example: 100
         totalPages:
           type: integer
-          example: 8
+          example: 5
         hasNext:
           type: boolean
           example: true
@@ -87,94 +83,76 @@ components:
           example: 1
         name:
           type: string
-          example: Landscape
-        slug:
-          type: string
           example: landscape
-        imageCount:
-          type: integer
-          example: 42
         createdAt:
           type: string
           format: date-time
-        updatedAt:
-          type: string
-          format: date-time
+          example: "2026-01-15T10:30:00Z"
 
     Image:
       type: object
       properties:
         id:
           type: integer
-          example: 1
+          example: 42
         filename:
           type: string
-          example: 1720000000000-photo.jpg
+          example: "1704067200000-photo.jpg"
         originalName:
           type: string
-          example: vacation-photo.jpg
-        mimeType:
-          type: string
-          example: image/jpeg
-        fileSize:
-          type: integer
-          description: File size in bytes
-          example: 2048576
-        width:
-          type: integer
-          example: 4032
-        height:
-          type: integer
-          example: 3024
+          example: "photo.jpg"
         title:
           type: string
           nullable: true
-          example: Sunset at the beach
+          example: "Mountain Sunset"
         description:
           type: string
           nullable: true
-          example: A beautiful sunset photo taken in Hawaii
-        cameraMake:
+          example: "Beautiful sunset over the mountains"
+        mimeType:
+          type: string
+          example: "image/jpeg"
+        fileSize:
+          type: integer
+          example: 2048576
+        width:
+          type: integer
+          nullable: true
+          example: 4032
+        height:
+          type: integer
+          nullable: true
+          example: 3024
+        rating:
+          type: integer
+          nullable: true
+          minimum: 1
+          maximum: 5
+          example: 4
+        exifCameraMake:
           type: string
           nullable: true
-          example: Apple
-        cameraModel:
+          example: "Apple"
+        exifCameraModel:
           type: string
           nullable: true
-          example: iPhone 14 Pro
-        takenAt:
+          example: "iPhone 14 Pro"
+        exifDateTaken:
           type: string
           format: date-time
           nullable: true
-        latitude:
-          type: number
-          format: double
-          nullable: true
-          example: 21.3069
-        longitude:
-          type: number
-          format: double
-          nullable: true
-          example: -157.8583
         tags:
           type: array
           items:
             $ref: '#/components/schemas/Tag'
-        urls:
-          type: object
-          properties:
-            original:
-              type: string
-              example: /uploads/1720000000000-photo.jpg
-            thumbnail:
-              type: string
-              example: /thumbnails/1?size=300
         createdAt:
           type: string
           format: date-time
+          example: "2026-01-15T10:30:00Z"
         updatedAt:
           type: string
           format: date-time
+          example: "2026-01-15T10:30:00Z"
 
     ImageList:
       type: object
@@ -186,6 +164,12 @@ components:
         pagination:
           $ref: '#/components/schemas/Pagination'
 
+    ImageSingle:
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/Image'
+
     TagList:
       type: object
       properties:
@@ -193,128 +177,118 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Tag'
-        pagination:
-          $ref: '#/components/schemas/Pagination'
 
-    SearchQuery:
-      type: object
-      properties:
-        q:
-          type: string
-          nullable: true
-        tags:
-          type: string
-          nullable: true
-        cameraMake:
-          type: string
-          nullable: true
-        cameraModel:
-          type: string
-          nullable: true
-        dateFrom:
-          type: string
-          nullable: true
-        dateTo:
-          type: string
-          nullable: true
-        sortBy:
-          type: string
-        sortDir:
-          type: string
-          enum: [ASC, DESC]
-
-    SearchResult:
+    TagSingle:
       type: object
       properties:
         data:
-          type: array
-          items:
-            $ref: '#/components/schemas/Image'
-        pagination:
-          $ref: '#/components/schemas/Pagination'
-        query:
-          $ref: '#/components/schemas/SearchQuery'
+          $ref: '#/components/schemas/Tag'
 
-    Facets:
+    SearchFacets:
       type: object
       properties:
         data:
           type: object
           properties:
-            cameraMakes:
-              type: array
-              items:
-                type: object
-                properties:
-                  value:
-                    type: string
-                  count:
-                    type: integer
-            cameraModels:
-              type: array
-              items:
-                type: object
-                properties:
-                  value:
-                    type: string
-                  count:
-                    type: integer
             tags:
               type: array
               items:
+                allOf:
+                  - $ref: '#/components/schemas/Tag'
+                  - type: object
+                    properties:
+                      imageCount:
+                        type: integer
+            mimeTypes:
+              type: array
+              items:
                 type: object
                 properties:
-                  id:
-                    type: integer
-                  name:
-                    type: string
-                  slug:
+                  mimeType:
                     type: string
                   count:
                     type: integer
             dateRange:
               type: object
-              nullable: true
               properties:
-                earliest:
+                oldest:
                   type: string
                   format: date-time
-                latest:
+                  nullable: true
+                newest:
                   type: string
                   format: date-time
+                  nullable: true
 
-security:
-  - BearerAuth: []
+  parameters:
+    PageParam:
+      name: page
+      in: query
+      description: Page number (1-based)
+      schema:
+        type: integer
+        default: 1
+        minimum: 1
+    LimitParam:
+      name: limit
+      in: query
+      description: Items per page (max 100)
+      schema:
+        type: integer
+        default: 20
+        minimum: 1
+        maximum: 100
+
+  responses:
+    Unauthorized:
+      description: Missing or invalid API key
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error:
+              code: UNAUTHORIZED
+              message: Missing or invalid Authorization header.
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    RateLimited:
+      description: Rate limit exceeded
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error:
+              code: RATE_LIMIT_EXCEEDED
+              message: Too many requests. Limit: 100 requests per minute.
+    ServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
 
 paths:
   /images:
     get:
       summary: List images
-      description: Returns a paginated list of all images
+      description: Returns a paginated list of all images.
       operationId: listImages
       tags:
         - Images
       parameters:
-        - name: page
-          in: query
-          schema:
-            type: integer
-            minimum: 1
-            default: 1
-          description: Page number
-        - name: limit
-          in: query
-          schema:
-            type: integer
-            minimum: 1
-            maximum: 100
-            default: 20
-          description: Items per page
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LimitParam'
         - name: search
           in: query
+          description: Filter by filename
           schema:
             type: string
-          description: Search in title, description, and filename
       responses:
         '200':
           description: Successful response
@@ -323,21 +297,15 @@ paths:
               schema:
                 $ref: '#/components/schemas/ImageList'
         '401':
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
+          $ref: '#/components/responses/Unauthorized'
         '429':
-          description: Rate limit exceeded
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
+          $ref: '#/components/responses/RateLimited'
+        '500':
+          $ref: '#/components/responses/ServerError'
 
     post:
       summary: Upload an image
-      description: Upload a new image via multipart form data
+      description: Upload a new image file with optional metadata and tags.
       operationId: uploadImage
       tags:
         - Images
@@ -356,84 +324,65 @@ paths:
                   description: Image file (JPEG, PNG, GIF, WebP)
                 title:
                   type: string
+                  description: Image title
                 description:
                   type: string
+                  description: Image description
                 tags:
                   type: string
                   description: Comma-separated tag names
       responses:
         '201':
-          description: Image uploaded successfully
+          description: Image created
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  data:
-                    $ref: '#/components/schemas/Image'
+                $ref: '#/components/schemas/ImageSingle'
         '400':
-          description: Bad request
+          description: Bad request (missing file or validation error)
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
         '401':
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/RateLimited'
 
   /images/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: Image ID
+        schema:
+          type: integer
+
     get:
       summary: Get image by ID
       operationId: getImage
       tags:
         - Images
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
-          description: Image ID
       responses:
         '200':
           description: Successful response
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  data:
-                    $ref: '#/components/schemas/Image'
+                $ref: '#/components/schemas/ImageSingle'
         '401':
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
+          $ref: '#/components/responses/Unauthorized'
         '404':
-          description: Image not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
 
     patch:
       summary: Update image metadata
       operationId: updateImage
       tags:
         - Images
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
-          description: Image ID
       requestBody:
-        required: true
         content:
           application/json:
             schema:
@@ -441,93 +390,50 @@ paths:
               properties:
                 title:
                   type: string
-                  nullable: true
                 description:
                   type: string
-                  nullable: true
+                rating:
+                  type: integer
+                  minimum: 1
+                  maximum: 5
+                tags:
+                  type: string
+                  description: Comma-separated tag names (replaces existing tags)
       responses:
         '200':
-          description: Image updated successfully
+          description: Image updated
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  data:
-                    $ref: '#/components/schemas/Image'
-        '400':
-          description: Bad request
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
+                $ref: '#/components/schemas/ImageSingle'
         '401':
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
+          $ref: '#/components/responses/Unauthorized'
         '404':
-          description: Image not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
 
     delete:
-      summary: Delete an image
+      summary: Delete image
       operationId: deleteImage
       tags:
         - Images
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
-          description: Image ID
       responses:
         '204':
-          description: Image deleted successfully
+          description: Image deleted
         '401':
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
+          $ref: '#/components/responses/Unauthorized'
         '404':
-          description: Image not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
 
   /tags:
     get:
-      summary: List tags
-      description: Returns a paginated list of all tags
+      summary: List all tags
       operationId: listTags
       tags:
         - Tags
-      parameters:
-        - name: page
-          in: query
-          schema:
-            type: integer
-            minimum: 1
-            default: 1
-        - name: limit
-          in: query
-          schema:
-            type: integer
-            minimum: 1
-            maximum: 200
-            default: 50
-        - name: search
-          in: query
-          schema:
-            type: string
-          description: Search in tag names
       responses:
         '200':
           description: Successful response
@@ -536,11 +442,9 @@ paths:
               schema:
                 $ref: '#/components/schemas/TagList'
         '401':
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/RateLimited'
 
     post:
       summary: Create a tag
@@ -558,82 +462,61 @@ paths:
               properties:
                 name:
                   type: string
-                  example: Landscape
+                  example: landscape
       responses:
         '201':
-          description: Tag created successfully
+          description: Tag created
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  data:
-                    $ref: '#/components/schemas/Tag'
+                $ref: '#/components/schemas/TagSingle'
+        '200':
+          description: Tag already exists (returned existing tag)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TagSingle'
         '400':
-          description: Bad request
+          description: Validation error
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
         '401':
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '409':
-          description: Tag already exists
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
+          $ref: '#/components/responses/Unauthorized'
 
   /tags/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: Tag ID
+        schema:
+          type: integer
+
     get:
       summary: Get tag by ID
+      description: Returns a tag with its associated images.
       operationId: getTag
       tags:
         - Tags
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
       responses:
         '200':
           description: Successful response
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  data:
-                    $ref: '#/components/schemas/Tag'
+                $ref: '#/components/schemas/TagSingle'
         '401':
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
+          $ref: '#/components/responses/Unauthorized'
         '404':
-          description: Tag not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
+          $ref: '#/components/responses/NotFound'
 
     patch:
       summary: Rename a tag
       operationId: updateTag
       tags:
         - Tags
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
       requestBody:
         required: true
         content:
@@ -645,36 +528,26 @@ paths:
               properties:
                 name:
                   type: string
+                  example: new-tag-name
       responses:
         '200':
-          description: Tag updated successfully
+          description: Tag updated
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  data:
-                    $ref: '#/components/schemas/Tag'
+                $ref: '#/components/schemas/TagSingle'
         '400':
-          description: Bad request
+          description: Validation error
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
         '401':
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
+          $ref: '#/components/responses/Unauthorized'
         '404':
-          description: Tag not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
+          $ref: '#/components/responses/NotFound'
         '409':
-          description: Tag name conflict
+          description: Tag name already exists
           content:
             application/json:
               schema:
@@ -685,147 +558,107 @@ paths:
       operationId: deleteTag
       tags:
         - Tags
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
       responses:
         '204':
-          description: Tag deleted successfully
+          description: Tag deleted
         '401':
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
+          $ref: '#/components/responses/Unauthorized'
         '404':
-          description: Tag not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
+          $ref: '#/components/responses/NotFound'
 
   /search:
     get:
       summary: Search images
-      description: Search images with multiple filter options
+      description: Full-text search with filtering, sorting, and pagination.
       operationId: searchImages
       tags:
         - Search
       parameters:
         - name: q
           in: query
+          description: Search query (matches title, description, filename)
           schema:
             type: string
-          description: Full-text search query
-        - name: tags
+        - name: tag
           in: query
+          description: Filter by tag name
           schema:
             type: string
-          description: Comma-separated tag slugs to filter by
-          example: landscape,sunset
-        - name: cameraMake
-          in: query
-          schema:
-            type: string
-          description: Filter by camera manufacturer
-          example: Apple
-        - name: cameraModel
-          in: query
-          schema:
-            type: string
-          description: Filter by camera model
-          example: iPhone 14 Pro
         - name: dateFrom
           in: query
+          description: Filter images from this date (ISO 8601)
           schema:
             type: string
             format: date
-          description: Filter images taken on or after this date
         - name: dateTo
           in: query
+          description: Filter images up to this date (ISO 8601)
           schema:
             type: string
             format: date
-          description: Filter images taken on or before this date
-        - name: minWidth
+        - name: mimeType
           in: query
-          schema:
-            type: integer
-          description: Minimum image width in pixels
-        - name: maxWidth
-          in: query
-          schema:
-            type: integer
-          description: Maximum image width in pixels
-        - name: minHeight
-          in: query
-          schema:
-            type: integer
-          description: Minimum image height in pixels
-        - name: maxHeight
-          in: query
-          schema:
-            type: integer
-          description: Maximum image height in pixels
-        - name: sortBy
-          in: query
+          description: Filter by MIME type
           schema:
             type: string
-            enum: [createdAt, updatedAt, takenAt, fileSize, title, originalName]
+            example: image/jpeg
+        - name: sort
+          in: query
+          description: Sort field
+          schema:
+            type: string
+            enum: [createdAt, title, fileSize]
             default: createdAt
-        - name: sortDir
+        - name: order
           in: query
+          description: Sort order
           schema:
             type: string
-            enum: [ASC, DESC]
-            default: DESC
-        - name: page
-          in: query
-          schema:
-            type: integer
-            minimum: 1
-            default: 1
-        - name: limit
-          in: query
-          schema:
-            type: integer
-            minimum: 1
-            maximum: 100
-            default: 20
+            enum: [asc, desc]
+            default: desc
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LimitParam'
       responses:
         '200':
-          description: Search results
+          description: Successful response
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SearchResult'
+                allOf:
+                  - $ref: '#/components/schemas/ImageList'
+                  - type: object
+                    properties:
+                      query:
+                        type: object
+                        description: Echoed query parameters
         '401':
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/RateLimited'
 
   /search/facets:
     get:
       summary: Get search facets
-      description: Returns aggregated facet data for building filter UI
+      description: Returns aggregated data for building filter UIs (top tags, mime types, date range).
       operationId: getSearchFacets
       tags:
         - Search
       responses:
         '200':
-          description: Facet data
+          description: Successful response
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Facets'
+                $ref: '#/components/schemas/SearchFacets'
         '401':
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+tags:
+  - name: Images
+    description: Image management (CRUD + upload)
+  - name: Tags
+    description: Tag management
+  - name: Search
+    description: Search and filter images

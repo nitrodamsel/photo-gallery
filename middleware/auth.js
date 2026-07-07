@@ -4,56 +4,60 @@ const { ApiKey } = require('../models');
 
 /**
  * API Key authentication middleware.
- * Validates Bearer token from Authorization header against ApiKey model.
- * Only applies to routes starting with /api/
+ * Extracts Bearer token from Authorization header,
+ * validates against ApiKey model, calls touch(), attaches to req.apiKey.
+ * Only applies to routes starting with /api.
  */
-const auth = async (req, res, next) => {
+async function apiKeyAuth(req, res, next) {
   // Skip auth for non-/api routes
-  if (!req.path.startsWith('/api/') && !req.originalUrl.startsWith('/api/')) {
+  if (!req.path.startsWith('/api')) {
     return next();
   }
 
-  // Skip auth for docs endpoints
-  if (req.originalUrl.startsWith('/api/docs')) {
+  // Skip auth for docs routes
+  if (req.path.startsWith('/api/docs')) {
     return next();
   }
 
   const authHeader = req.headers['authorization'];
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    const err = new Error('Missing or invalid Authorization header. Use: Authorization: Bearer <api_key>');
-    err.status = 401;
-    err.code = 'UNAUTHORIZED';
-    return next(err);
+    return res.status(401).json({
+      error: {
+        code: 'UNAUTHORIZED',
+        message: 'Missing or invalid Authorization header. Use: Authorization: Bearer <key>',
+      },
+    });
   }
 
   const token = authHeader.slice(7).trim();
   if (!token) {
-    const err = new Error('Bearer token is empty');
-    err.status = 401;
-    err.code = 'UNAUTHORIZED';
-    return next(err);
+    return res.status(401).json({
+      error: {
+        code: 'UNAUTHORIZED',
+        message: 'Bearer token is empty.',
+      },
+    });
   }
 
   try {
     const apiKey = await ApiKey.findOne({ where: { key: token } });
     if (!apiKey) {
-      const err = new Error('Invalid API key');
-      err.status = 401;
-      err.code = 'UNAUTHORIZED';
-      return next(err);
+      return res.status(401).json({
+        error: {
+          code: 'UNAUTHORIZED',
+          message: 'Invalid API key.',
+        },
+      });
     }
 
-    // Update lastUsedAt asynchronously (don't await to avoid slowing requests)
-    apiKey.touch().catch(e => console.error('Error updating lastUsedAt:', e));
+    // Update lastUsedAt asynchronously (don't block the request)
+    apiKey.touch().catch((err) => console.error('Failed to touch API key:', err));
 
     req.apiKey = apiKey;
     return next();
   } catch (err) {
-    console.error('Auth middleware error:', err);
-    err.status = 500;
-    err.code = 'INTERNAL_ERROR';
     return next(err);
   }
-};
+}
 
-module.exports = auth;
+module.exports = apiKeyAuth;

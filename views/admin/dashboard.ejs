@@ -1,45 +1,61 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title><%= title %> — Photo Gallery</title>
-  <link rel="stylesheet" href="/css/main.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title><%= title %> — Gallery</title>
+  <link rel="stylesheet" href="/css/main.css" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <style>
+    :root {
+      --primary: #2c3e50;
+      --accent: #3498db;
+      --success: #27ae60;
+      --warning: #f39c12;
+      --danger: #e74c3c;
+      --light-bg: #f5f7fa;
+      --card-bg: #ffffff;
+      --text: #2c3e50;
+      --text-muted: #7f8c8d;
+      --border: #e1e8ed;
+      --radius: 12px;
+      --shadow: 0 2px 12px rgba(0,0,0,0.08);
+    }
+
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: #f5f7fa;
-      color: #333;
+      background: var(--light-bg);
+      color: var(--text);
+      min-height: 100vh;
     }
 
     .admin-header {
-      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      background: var(--primary);
       color: white;
       padding: 1rem 2rem;
       display: flex;
-      justify-content: space-between;
       align-items: center;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+      justify-content: space-between;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
     }
 
     .admin-header h1 {
-      font-size: 1.5rem;
-      font-weight: 700;
+      font-size: 1.4rem;
+      font-weight: 600;
+      letter-spacing: 0.5px;
     }
 
-    .admin-header a {
-      color: #a0aec0;
+    .admin-header nav a {
+      color: rgba(255,255,255,0.8);
       text-decoration: none;
       margin-left: 1.5rem;
+      font-size: 0.9rem;
       transition: color 0.2s;
     }
 
-    .admin-header a:hover { color: white; }
-
-    .admin-nav a.active { color: #63b3ed; }
+    .admin-header nav a:hover { color: white; }
 
     .admin-main {
       max-width: 1400px;
@@ -47,420 +63,433 @@
       padding: 2rem;
     }
 
-    .page-title {
-      font-size: 1.75rem;
-      font-weight: 700;
-      margin-bottom: 1.5rem;
-      color: #1a1a2e;
+    .section-title {
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 1rem;
     }
 
     /* Stat Cards */
-    .stat-cards {
+    .stats-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 1.25rem;
-      margin-bottom: 2rem;
+      gap: 1.5rem;
+      margin-bottom: 2.5rem;
     }
 
     .stat-card {
-      background: white;
-      border-radius: 12px;
+      background: var(--card-bg);
+      border-radius: var(--radius);
       padding: 1.5rem;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-      border-left: 4px solid #63b3ed;
+      box-shadow: var(--shadow);
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      border-left: 4px solid var(--accent);
       transition: transform 0.2s, box-shadow 0.2s;
     }
 
     .stat-card:hover {
       transform: translateY(-2px);
-      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      box-shadow: 0 6px 20px rgba(0,0,0,0.12);
     }
 
-    .stat-card:nth-child(1) { border-color: #63b3ed; }
-    .stat-card:nth-child(2) { border-color: #68d391; }
-    .stat-card:nth-child(3) { border-color: #f6ad55; }
-    .stat-card:nth-child(4) { border-color: #fc8181; }
+    .stat-card:nth-child(1) { border-left-color: var(--accent); }
+    .stat-card:nth-child(2) { border-left-color: var(--success); }
+    .stat-card:nth-child(3) { border-left-color: var(--warning); }
+    .stat-card:nth-child(4) { border-left-color: var(--danger); }
 
-    .stat-card .label {
+    .stat-card .stat-label {
       font-size: 0.8rem;
       font-weight: 600;
       text-transform: uppercase;
-      letter-spacing: 0.05em;
-      color: #718096;
-      margin-bottom: 0.5rem;
+      letter-spacing: 0.5px;
+      color: var(--text-muted);
     }
 
-    .stat-card .value {
+    .stat-card .stat-value {
       font-size: 2rem;
-      font-weight: 800;
-      color: #1a1a2e;
+      font-weight: 700;
+      color: var(--text);
       line-height: 1;
     }
 
-    .stat-card .sub {
+    .stat-card .stat-sub {
       font-size: 0.8rem;
-      color: #a0aec0;
-      margin-top: 0.25rem;
+      color: var(--text-muted);
     }
 
-    /* Charts grid */
-    .charts-grid {
+    /* Charts Row */
+    .charts-row {
       display: grid;
       grid-template-columns: 2fr 1fr;
       gap: 1.5rem;
-      margin-bottom: 2rem;
-    }
-
-    @media (max-width: 900px) {
-      .charts-grid { grid-template-columns: 1fr; }
+      margin-bottom: 2.5rem;
     }
 
     .chart-card {
-      background: white;
-      border-radius: 12px;
+      background: var(--card-bg);
+      border-radius: var(--radius);
       padding: 1.5rem;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      box-shadow: var(--shadow);
     }
 
-    .chart-card h2 {
+    .chart-card h3 {
       font-size: 1rem;
-      font-weight: 700;
-      color: #2d3748;
-      margin-bottom: 1rem;
-      padding-bottom: 0.75rem;
-      border-bottom: 1px solid #e2e8f0;
+      font-weight: 600;
+      margin-bottom: 1.2rem;
+      color: var(--text);
     }
 
     .chart-container {
       position: relative;
-      height: 250px;
+      height: 280px;
     }
 
-    /* Tables */
-    .data-grid {
+    /* Tables Row */
+    .tables-row {
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 1.5rem;
-      margin-bottom: 2rem;
+      margin-bottom: 2.5rem;
     }
 
-    @media (max-width: 900px) {
-      .data-grid { grid-template-columns: 1fr; }
-    }
-
-    .data-card {
-      background: white;
-      border-radius: 12px;
+    .table-card {
+      background: var(--card-bg);
+      border-radius: var(--radius);
       padding: 1.5rem;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      box-shadow: var(--shadow);
     }
 
-    .data-card h2 {
+    .table-card h3 {
       font-size: 1rem;
-      font-weight: 700;
-      color: #2d3748;
+      font-weight: 600;
       margin-bottom: 1rem;
-      padding-bottom: 0.75rem;
-      border-bottom: 1px solid #e2e8f0;
+      color: var(--text);
     }
 
     .data-table {
       width: 100%;
       border-collapse: collapse;
-      font-size: 0.875rem;
     }
 
     .data-table th {
       text-align: left;
-      font-weight: 600;
-      color: #718096;
       font-size: 0.75rem;
+      font-weight: 600;
       text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-muted);
       padding: 0.5rem 0.75rem;
-      border-bottom: 1px solid #e2e8f0;
+      border-bottom: 2px solid var(--border);
     }
 
     .data-table td {
       padding: 0.6rem 0.75rem;
-      border-bottom: 1px solid #f7fafc;
-      color: #4a5568;
+      font-size: 0.875rem;
+      border-bottom: 1px solid var(--border);
     }
 
     .data-table tr:last-child td { border-bottom: none; }
-    .data-table tr:hover td { background: #f7fafc; }
+    .data-table tr:hover td { background: var(--light-bg); }
 
-    .badge {
+    .tag-badge {
       display: inline-block;
-      padding: 0.15rem 0.5rem;
-      border-radius: 9999px;
-      font-size: 0.75rem;
+      background: var(--accent);
+      color: white;
+      font-size: 0.7rem;
       font-weight: 600;
-      background: #ebf8ff;
-      color: #2b6cb0;
+      padding: 0.2em 0.6em;
+      border-radius: 99px;
     }
 
-    /* Actions bar */
-    .actions-bar {
+    .bar-fill {
+      display: inline-block;
+      height: 8px;
+      background: var(--accent);
+      border-radius: 4px;
+      opacity: 0.7;
+    }
+
+    /* Recent Uploads */
+    .recent-uploads {
+      background: var(--card-bg);
+      border-radius: var(--radius);
+      padding: 1.5rem;
+      box-shadow: var(--shadow);
+      margin-bottom: 2.5rem;
+    }
+
+    .recent-uploads h3 {
+      font-size: 1rem;
+      font-weight: 600;
+      margin-bottom: 1rem;
+    }
+
+    .upload-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+      gap: 1rem;
+    }
+
+    .upload-item {
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      transition: transform 0.2s;
+    }
+
+    .upload-item:hover { transform: scale(1.02); }
+
+    .upload-item img {
+      width: 100%;
+      height: 100px;
+      object-fit: cover;
+      display: block;
+    }
+
+    .upload-item .upload-info {
+      padding: 0.5rem;
+    }
+
+    .upload-item .upload-name {
+      font-size: 0.75rem;
+      font-weight: 500;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .upload-item .upload-date {
+      font-size: 0.7rem;
+      color: var(--text-muted);
+    }
+
+    /* Actions */
+    .actions-row {
       display: flex;
       gap: 1rem;
-      margin-bottom: 1.5rem;
-      flex-wrap: wrap;
+      margin-bottom: 2rem;
     }
 
     .btn {
       display: inline-flex;
       align-items: center;
-      gap: 0.5rem;
-      padding: 0.6rem 1.25rem;
+      gap: 0.4rem;
+      padding: 0.6rem 1.2rem;
       border-radius: 8px;
       font-size: 0.875rem;
-      font-weight: 600;
+      font-weight: 500;
       cursor: pointer;
       border: none;
       text-decoration: none;
-      transition: all 0.2s;
+      transition: background 0.2s, transform 0.1s;
     }
 
-    .btn-primary {
-      background: #3182ce;
-      color: white;
-    }
+    .btn:active { transform: scale(0.98); }
 
-    .btn-primary:hover { background: #2b6cb0; }
+    .btn-primary { background: var(--accent); color: white; }
+    .btn-primary:hover { background: #2980b9; }
 
-    .btn-danger {
-      background: #fc8181;
-      color: white;
-    }
+    .btn-danger { background: var(--danger); color: white; }
+    .btn-danger:hover { background: #c0392b; }
 
-    .btn-danger:hover { background: #f56565; }
+    .btn-secondary { background: var(--border); color: var(--text); }
+    .btn-secondary:hover { background: #d1dce5; }
 
-    .btn-secondary {
-      background: #e2e8f0;
-      color: #4a5568;
-    }
-
-    .btn-secondary:hover { background: #cbd5e0; }
-
-    /* Recent uploads */
-    .recent-upload {
-      display: flex;
-      align-items: center;
-      gap: 0.75rem;
-      padding: 0.6rem 0;
-      border-bottom: 1px solid #f7fafc;
-    }
-
-    .recent-upload:last-child { border-bottom: none; }
-
-    .recent-upload-thumb {
-      width: 48px;
-      height: 48px;
-      border-radius: 6px;
-      object-fit: cover;
-      background: #e2e8f0;
-      flex-shrink: 0;
-    }
-
-    .recent-upload-info .name {
+    .alert {
+      padding: 0.75rem 1rem;
+      border-radius: 8px;
       font-size: 0.875rem;
-      font-weight: 500;
-      color: #2d3748;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      max-width: 200px;
+      margin-bottom: 1rem;
+      display: none;
     }
+    .alert.show { display: block; }
+    .alert-success { background: #d5f5e3; color: #1e8449; border: 1px solid #a9dfbf; }
+    .alert-error { background: #fadbd8; color: #922b21; border: 1px solid #f1948a; }
 
-    .recent-upload-info .meta {
-      font-size: 0.75rem;
-      color: #a0aec0;
+    @media (max-width: 900px) {
+      .charts-row { grid-template-columns: 1fr; }
+      .tables-row { grid-template-columns: 1fr; }
     }
-
-    .api-link {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.4rem;
-      color: #3182ce;
-      text-decoration: none;
-      font-size: 0.875rem;
-      font-weight: 500;
-    }
-
-    .api-link:hover { color: #2b6cb0; text-decoration: underline; }
-
-    #flush-btn.loading { opacity: 0.6; pointer-events: none; }
-    #flush-msg { font-size: 0.8rem; color: #38a169; display: none; margin-left: 0.5rem; }
   </style>
 </head>
 <body>
 
 <header class="admin-header">
   <h1>⚙️ Admin Dashboard</h1>
-  <nav class="admin-nav">
-    <a href="/admin" class="active">Dashboard</a>
+  <nav>
+    <a href="/">← Gallery</a>
+    <a href="/admin/stats">Stats JSON</a>
     <a href="/api/docs/ui" target="_blank">API Docs</a>
-    <a href="/">← Back to Gallery</a>
   </nav>
 </header>
 
 <main class="admin-main">
-  <h2 class="page-title">Overview</h2>
 
-  <div class="actions-bar">
-    <button class="btn btn-danger" id="flush-btn" onclick="flushCache()">
-      🗑️ Flush Cache
-    </button>
-    <span id="flush-msg">✅ Cache flushed!</span>
-    <a href="/api/docs/ui" target="_blank" class="btn btn-secondary">📖 API Documentation</a>
-    <a href="/api/docs" target="_blank" class="btn btn-secondary">📄 OpenAPI Spec (YAML)</a>
-  </div>
+  <div id="alert" class="alert"></div>
 
   <!-- Stat Cards -->
-  <div class="stat-cards">
+  <p class="section-title">Overview</p>
+  <div class="stats-grid">
     <div class="stat-card">
-      <div class="label">Total Images</div>
-      <div class="value"><%= stats.totalImages.toLocaleString() %></div>
-      <div class="sub">Across all albums</div>
+      <div class="stat-label">Total Images</div>
+      <div class="stat-value"><%= stats.totalImages.toLocaleString() %></div>
+      <div class="stat-sub">Uploaded files</div>
     </div>
     <div class="stat-card">
-      <div class="label">Storage Used</div>
-      <div class="value"><%= stats.totalStorageMB %> MB</div>
-      <div class="sub"><%= stats.totalStorageGB %> GB total</div>
+      <div class="stat-label">Storage Used</div>
+      <div class="stat-value"><%= formatBytes(stats.totalStorageBytes) %></div>
+      <div class="stat-sub"><%= stats.totalStorageBytes.toLocaleString() %> bytes</div>
     </div>
     <div class="stat-card">
-      <div class="label">Total Tags</div>
-      <div class="value"><%= stats.totalTags.toLocaleString() %></div>
-      <div class="sub">Unique tags</div>
+      <div class="stat-label">Total Tags</div>
+      <div class="stat-value"><%= stats.totalTags.toLocaleString() %></div>
+      <div class="stat-sub">Unique tags</div>
     </div>
     <div class="stat-card">
-      <div class="label">API Keys</div>
-      <div class="value"><%= stats.totalApiKeys %></div>
-      <div class="sub">Active integrations</div>
+      <div class="stat-label">API Keys</div>
+      <div class="stat-value"><%= stats.totalApiKeys.toLocaleString() %></div>
+      <div class="stat-sub">Active keys</div>
     </div>
+  </div>
+
+  <!-- Actions -->
+  <p class="section-title">Actions</p>
+  <div class="actions-row">
+    <button class="btn btn-danger" onclick="flushCache()">🗑️ Flush Cache</button>
+    <a href="/upload" class="btn btn-primary">📤 Upload Images</a>
+    <a href="/api/docs/ui" class="btn btn-secondary" target="_blank">📖 API Docs</a>
   </div>
 
   <!-- Charts -->
-  <div class="charts-grid">
+  <p class="section-title">Analytics</p>
+  <div class="charts-row">
     <div class="chart-card">
-      <h2>📈 Uploads per Month (Last 12 months)</h2>
+      <h3>📅 Uploads Per Month</h3>
       <div class="chart-container">
         <canvas id="uploadsChart"></canvas>
       </div>
     </div>
     <div class="chart-card">
-      <h2>📷 Camera Make Distribution</h2>
+      <h3>📷 Camera Makes</h3>
       <div class="chart-container">
-        <canvas id="cameraMakeChart"></canvas>
+        <canvas id="cameraChart"></canvas>
       </div>
     </div>
   </div>
 
-  <!-- Data Tables -->
-  <div class="data-grid">
-    <!-- Top Tags -->
-    <div class="data-card">
-      <h2>🏷️ Top 10 Tags</h2>
-      <% if (stats.topTags.length === 0) { %>
-        <p style="color:#a0aec0; font-size:0.875rem;">No tags yet.</p>
+  <!-- Tables -->
+  <div class="tables-row">
+    <div class="table-card">
+      <h3>🏷️ Top 10 Tags</h3>
+      <% if (stats.topTags && stats.topTags.length > 0) { %>
+        <%
+          const maxCount = Math.max(...stats.topTags.map(t => parseInt(t.dataValues?.imageCount || t.get?.('imageCount') || 0)));
+        %>
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Tag</th>
+              <th>Images</th>
+              <th>Bar</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% stats.topTags.forEach((tag, i) => {
+              const count = parseInt(tag.dataValues?.imageCount || tag.get?.('imageCount') || 0);
+              const pct = maxCount > 0 ? Math.round((count / maxCount) * 100) : 0;
+            %>
+            <tr>
+              <td><%= i + 1 %></td>
+              <td><span class="tag-badge"><%= tag.name %></span></td>
+              <td><%= count %></td>
+              <td><span class="bar-fill" style="width:<%= pct %>px;max-width:80px;"></span></td>
+            </tr>
+            <% }) %>
+          </tbody>
+        </table>
       <% } else { %>
+        <p style="color:var(--text-muted);font-size:0.875rem;">No tags yet.</p>
+      <% } %>
+    </div>
+
+    <div class="table-card">
+      <h3>📊 Storage Summary</h3>
       <table class="data-table">
-        <thead>
-          <tr>
-            <th>#</th>
-            <th>Tag</th>
-            <th>Images</th>
-          </tr>
-        </thead>
         <tbody>
-          <% stats.topTags.forEach((tag, i) => { %>
           <tr>
-            <td style="color:#a0aec0"><%= i + 1 %></td>
-            <td><a href="/tags/<%= tag.slug %>" style="color:#3182ce;text-decoration:none"><%= tag.name %></a></td>
-            <td><span class="badge"><%= tag.imageCount %></span></td>
+            <td>Total Images</td>
+            <td><strong><%= stats.totalImages %></strong></td>
           </tr>
-          <% }) %>
+          <tr>
+            <td>Total Storage</td>
+            <td><strong><%= formatBytes(stats.totalStorageBytes) %></strong></td>
+          </tr>
+          <tr>
+            <td>Avg Image Size</td>
+            <td><strong><%= stats.totalImages > 0 ? formatBytes(Math.round(stats.totalStorageBytes / stats.totalImages)) : '—' %></strong></td>
+          </tr>
+          <tr>
+            <td>Total Tags</td>
+            <td><strong><%= stats.totalTags %></strong></td>
+          </tr>
+          <tr>
+            <td>API Keys</td>
+            <td><strong><%= stats.totalApiKeys %></strong></td>
+          </tr>
         </tbody>
       </table>
-      <% } %>
     </div>
+  </div>
 
-    <!-- Recent Uploads -->
-    <div class="data-card">
-      <h2>🕐 Recent Uploads</h2>
-      <% if (stats.recentUploads.length === 0) { %>
-        <p style="color:#a0aec0; font-size:0.875rem;">No images uploaded yet.</p>
-      <% } else { %>
-        <% stats.recentUploads.forEach(img => { %>
-        <div class="recent-upload">
-          <img
-            src="/thumbnails/<%= img.id %>?size=100"
-            alt="<%= img.title || img.originalName %>"
-            class="recent-upload-thumb"
-            onerror="this.style.display='none'"
-          />
-          <div class="recent-upload-info">
-            <div class="name"><%= img.title || img.originalName || img.filename %></div>
-            <div class="meta">
-              <%= (img.fileSize / 1024).toFixed(1) %> KB
-              · <%= new Date(img.createdAt).toLocaleDateString() %>
-            </div>
+  <!-- Recent Uploads -->
+  <% if (stats.recentUploads && stats.recentUploads.length > 0) { %>
+  <div class="recent-uploads">
+    <h3>🕐 Recent Uploads</h3>
+    <div class="upload-list">
+      <% stats.recentUploads.forEach(img => { %>
+      <div class="upload-item">
+        <a href="/image/<%= img.id %>">
+          <img src="/thumbnails/<%= img.filename %>?w=160&h=100" alt="<%= img.title || img.originalName %>"
+               onerror="this.src='/uploads/<%= img.filename %>'" loading="lazy" />
+        </a>
+        <div class="upload-info">
+          <div class="upload-name" title="<%= img.title || img.originalName %>">
+            <%= img.title || img.originalName %>
+          </div>
+          <div class="upload-date">
+            <%= new Date(img.createdAt).toLocaleDateString() %>
           </div>
         </div>
-        <% }) %>
-      <% } %>
+      </div>
+      <% }) %>
     </div>
   </div>
+  <% } %>
 
-  <!-- API Links -->
-  <div class="data-card" style="margin-bottom:2rem">
-    <h2>🔗 Quick Links</h2>
-    <div style="display:flex;gap:1.5rem;flex-wrap:wrap;padding:0.5rem 0">
-      <a href="/api/v1" class="api-link">📡 API v1 Info</a>
-      <a href="/api/v1/images" class="api-link">🖼️ GET /api/v1/images</a>
-      <a href="/api/v1/tags" class="api-link">🏷️ GET /api/v1/tags</a>
-      <a href="/api/v1/search" class="api-link">🔍 GET /api/v1/search</a>
-      <a href="/api/v1/search/facets" class="api-link">⚡ GET /api/v1/search/facets</a>
-      <a href="/api/docs/ui" target="_blank" class="api-link">📖 Swagger UI</a>
-    </div>
-  </div>
 </main>
 
 <script>
   // Uploads per month chart
-  const uploadsData = <%- JSON.stringify(stats.uploadsPerMonth) %>;
-  const cameraData = <%- JSON.stringify(stats.cameraMakeDistribution) %>;
+  const uploadsData = <%- JSON.stringify(stats.imagesPerMonth) %>;
+  const cameraData = <%- JSON.stringify(stats.cameraMakes) %>;
 
-  // Fill in missing months
-  function getLast12Months() {
-    const months = [];
-    const now = new Date();
-    for (let i = 11; i >= 0; i--) {
-      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const key = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
-      months.push(key);
-    }
-    return months;
-  }
-
-  const months = getLast12Months();
-  const uploadsMap = {};
-  uploadsData.forEach(d => { uploadsMap[d.month] = d.count; });
-  const uploadCounts = months.map(m => uploadsMap[m] || 0);
-  const monthLabels = months.map(m => {
-    const [y, mo] = m.split('-');
-    return new Date(parseInt(y), parseInt(mo) - 1).toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
-  });
-
-  new Chart(document.getElementById('uploadsChart'), {
+  // Bar chart: uploads per month
+  const uploadsCtx = document.getElementById('uploadsChart').getContext('2d');
+  new Chart(uploadsCtx, {
     type: 'bar',
     data: {
-      labels: monthLabels,
+      labels: uploadsData.map(d => d.month || d.MONTH),
       datasets: [{
         label: 'Uploads',
-        data: uploadCounts,
-        backgroundColor: 'rgba(99, 179, 237, 0.7)',
-        borderColor: '#63b3ed',
+        data: uploadsData.map(d => parseInt(d.count || d.COUNT || 0)),
+        backgroundColor: 'rgba(52, 152, 219, 0.7)',
+        borderColor: 'rgba(52, 152, 219, 1)',
         borderWidth: 1,
         borderRadius: 4,
       }]
@@ -468,72 +497,55 @@
     options: {
       responsive: true,
       maintainAspectRatio: false,
-      plugins: {
-        legend: { display: false },
-      },
+      plugins: { legend: { display: false } },
       scales: {
-        y: {
-          beginAtZero: true,
-          ticks: { stepSize: 1 },
-          grid: { color: '#f7fafc' },
-        },
-        x: {
-          grid: { display: false },
-        }
+        y: { beginAtZero: true, ticks: { stepSize: 1 } },
+        x: { grid: { display: false } }
       }
     }
   });
 
-  // Camera make doughnut chart
-  if (cameraData.length > 0) {
-    const palette = ['#63b3ed','#68d391','#f6ad55','#fc8181','#b794f4','#76e4f7','#fbb6ce','#e9d8fd','#c6f6d5','#fefcbf'];
-    new Chart(document.getElementById('cameraMakeChart'), {
-      type: 'doughnut',
-      data: {
-        labels: cameraData.map(d => d.make),
-        datasets: [{
-          data: cameraData.map(d => d.count),
-          backgroundColor: palette.slice(0, cameraData.length),
-          borderWidth: 2,
-          borderColor: 'white',
-        }]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          legend: {
-            position: 'bottom',
-            labels: { font: { size: 11 }, boxWidth: 12 },
-          },
-        }
+  // Doughnut chart: camera makes
+  const cameraCtx = document.getElementById('cameraChart').getContext('2d');
+  const cameraColors = [
+    '#3498db','#e74c3c','#2ecc71','#f39c12','#9b59b6',
+    '#1abc9c','#e67e22','#34495e','#e91e63','#00bcd4'
+  ];
+  new Chart(cameraCtx, {
+    type: 'doughnut',
+    data: {
+      labels: cameraData.length > 0 ? cameraData.map(d => d.make || 'Unknown') : ['No data'],
+      datasets: [{
+        data: cameraData.length > 0 ? cameraData.map(d => parseInt(d.count || 0)) : [1],
+        backgroundColor: cameraColors,
+        borderWidth: 2,
+        borderColor: '#fff',
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'bottom', labels: { font: { size: 11 } } }
       }
-    });
-  } else {
-    document.getElementById('cameraMakeChart').parentElement.innerHTML =
-      '<p style="color:#a0aec0;font-size:0.875rem;text-align:center;padding:2rem">No EXIF camera data available</p>';
-  }
+    }
+  });
 
   // Flush cache
   async function flushCache() {
-    const btn = document.getElementById('flush-btn');
-    const msg = document.getElementById('flush-msg');
-    btn.classList.add('loading');
-    btn.textContent = 'Flushing...';
+    const alertEl = document.getElementById('alert');
     try {
-      const resp = await fetch('/admin/cache/flush', { method: 'POST' });
-      const data = await resp.json();
-      if (data.success) {
-        msg.style.display = 'inline';
-        setTimeout(() => { msg.style.display = 'none'; }, 3000);
-      }
-    } catch (e) {
-      alert('Failed to flush cache: ' + e.message);
-    } finally {
-      btn.classList.remove('loading');
-      btn.textContent = '🗑️ Flush Cache';
+      const res = await fetch('/admin/cache/flush', { method: 'POST' });
+      const data = await res.json();
+      alertEl.textContent = data.message || 'Cache flushed!';
+      alertEl.className = 'alert alert-success show';
+    } catch (err) {
+      alertEl.textContent = 'Failed to flush cache: ' + err.message;
+      alertEl.className = 'alert alert-error show';
     }
+    setTimeout(() => alertEl.classList.remove('show'), 3000);
   }
 </script>
+
 </body>
 </html>
