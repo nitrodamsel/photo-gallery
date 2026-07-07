@@ -1,7 +1,7 @@
 'use strict';
 
 module.exports = {
-  up: async (queryInterface, Sequelize) => {
+  async up(queryInterface, Sequelize) {
     await queryInterface.createTable('api_keys', {
       id: {
         type: Sequelize.UUID,
@@ -11,30 +11,33 @@ module.exports = {
       },
       key: {
         type: Sequelize.STRING(64),
-        unique: true,
         allowNull: false,
+        unique: true,
       },
       label: {
         type: Sequelize.STRING,
         allowNull: false,
-        defaultValue: 'Unnamed Key',
+        defaultValue: 'Default',
       },
       lastUsedAt: {
         type: Sequelize.DATE,
         allowNull: true,
         defaultValue: null,
-        field: 'last_used_at',
       },
       createdAt: {
         type: Sequelize.DATE,
         allowNull: false,
-        defaultValue: Sequelize.NOW,
-        field: 'created_at',
+        defaultValue: Sequelize.fn('NOW'),
       },
+    });
+
+    await queryInterface.addIndex('api_keys', ['key'], {
+      unique: true,
+      name: 'api_keys_key_unique',
     });
   },
 
-  down: async (queryInterface) => {
+  async down(queryInterface) {
     await queryInterface.dropTable('api_keys');
   },
 };

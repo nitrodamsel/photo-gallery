@@ -1,70 +1,34 @@
 'use strict';
 
-const NodeCache = require('node-cache');
+const { ThumbnailCache, sequelize } = require('../models');
 
-// Default TTL: 5 minutes
-const cache = new NodeCache({ stdTTL: 300, checkperiod: 60 });
-
+/**
+ * Simple cache service for managing thumbnail and other caches.
+ */
 const cacheService = {
   /**
-   * Get a value from cache.
-   * @param {string} key
-   * @returns {any|undefined}
+   * Flush all cached thumbnail records from the database.
+   * Physical files are not deleted — they will be regenerated on demand.
    */
-  get(key) {
-    return cache.get(key);
+  async flush() {
+    await ThumbnailCache.destroy({ where: {}, truncate: true });
+    console.log('[CacheService] Thumbnail cache flushed');
+    return true;
   },
 
   /**
-   * Set a value in cache.
-   * @param {string} key
-   * @param {any} value
-   * @param {number} [ttl] - TTL in seconds (optional, uses default if not specified)
+   * Get cache statistics
    */
-  set(key, value, ttl) {
-    if (ttl !== undefined) {
-      cache.set(key, value, ttl);
-    } else {
-      cache.set(key, value);
-    }
-  },
-
-  /**
-   * Delete a value from cache.
-   * @param {string} key
-   */
-  del(key) {
-    cache.del(key);
-  },
-
-  /**
-   * Flush all cache entries.
-   */
-  flush() {
-    cache.flushAll();
-    return Promise.resolve();
-  },
-
-  /**
-   * Get cache statistics.
-   */
-  stats() {
-    return cache.getStats();
-  },
-
-  /**
-   * Get all cache keys.
-   */
-  keys() {
-    return cache.keys();
-  },
-
-  /**
-   * Check if a key exists.
-   * @param {string} key
-   */
-  has(key) {
-    return cache.has(key);
+  async stats() {
+    const count = await ThumbnailCache.count();
+    const sizeResult = await ThumbnailCache.findOne({
+      attributes: [[sequelize.fn('SUM', sequelize.col('fileSize')), 'totalBytes']],
+      raw: true,
+    });
+    return {
+      count,
+      totalBytes: parseInt(sizeResult?.totalBytes || 0),
+    };
   },
 };
 

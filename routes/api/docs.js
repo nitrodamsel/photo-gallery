@@ -7,35 +7,51 @@ const fs = require('fs');
 const yaml = require('js-yaml');
 const swaggerUi = require('swagger-ui-express');
 
-// Load the OpenAPI spec
 let swaggerDocument;
-try {
-  const specPath = path.join(__dirname, '../../openapi.yaml');
-  const fileContents = fs.readFileSync(specPath, 'utf8');
-  swaggerDocument = yaml.load(fileContents);
-} catch (err) {
-  console.error('Failed to load OpenAPI spec:', err.message);
-  swaggerDocument = { openapi: '3.1.0', info: { title: 'API', version: '1.0.0' }, paths: {} };
+
+function getSwaggerDocument() {
+  if (!swaggerDocument) {
+    try {
+      const yamlPath = path.join(__dirname, '../../openapi.yaml');
+      const yamlContent = fs.readFileSync(yamlPath, 'utf8');
+      swaggerDocument = yaml.load(yamlContent);
+    } catch (err) {
+      console.error('Failed to load openapi.yaml:', err);
+      swaggerDocument = { openapi: '3.1.0', info: { title: 'API', version: '1.0.0' }, paths: {} };
+    }
+  }
+  return swaggerDocument;
 }
 
 // Serve raw OpenAPI spec as JSON
 router.get('/', (req, res) => {
-  res.json(swaggerDocument);
+  const accept = req.headers['accept'] || '';
+  const doc = getSwaggerDocument();
+
+  if (accept.includes('application/json')) {
+    return res.json(doc);
+  }
+
+  // Default: serve YAML
+  try {
+    const yamlPath = path.join(__dirname, '../../openapi.yaml');
+    res.setHeader('Content-Type', 'application/yaml');
+    res.sendFile(yamlPath);
+  } catch (err) {
+    res.json(doc);
+  }
 });
 
-// Serve raw OpenAPI spec as YAML
-router.get('/yaml', (req, res) => {
-  res.type('text/yaml').send(yaml.dump(swaggerDocument));
-});
-
-// Serve Swagger UI
+// Swagger UI
 router.use('/ui', swaggerUi.serve);
-router.get('/ui', swaggerUi.setup(swaggerDocument, {
-  customSiteTitle: 'Gallery API Docs',
-  customCss: '.swagger-ui .topbar { background-color: #2c3e50; }',
-  swaggerOptions: {
-    persistAuthorization: true,
-  },
-}));
+router.get('/ui', (req, res, next) => {
+  const doc = getSwaggerDocument();
+  swaggerUi.setup(doc, {
+    customSiteTitle: 'Gallery API Docs',
+    swaggerOptions: {
+      persistAuthorization: true,
+    },
+  })(req, res, next);
+});
 
 module.exports = router;

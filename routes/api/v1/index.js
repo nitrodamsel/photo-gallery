@@ -9,7 +9,7 @@ const imagesRouter = require('./images');
 const tagsRouter = require('./tags');
 const searchRouter = require('./search');
 
-// Apply auth and rate limiting to all v1 routes
+// Apply auth and rate limiting to all v1 API routes
 router.use(apiKeyAuth);
 router.use(rateLimiter);
 
@@ -18,19 +18,11 @@ router.use('/images', imagesRouter);
 router.use('/tags', tagsRouter);
 router.use('/search', searchRouter);
 
-// API v1 info
+// API v1 info endpoint
 router.get('/', (req, res) => {
   res.json({
-    version: '1.0.0',
-    endpoints: [
-      { path: '/api/v1/images', methods: ['GET', 'POST'] },
-      { path: '/api/v1/images/:id', methods: ['GET', 'PATCH', 'DELETE'] },
-      { path: '/api/v1/tags', methods: ['GET', 'POST'] },
-      { path: '/api/v1/tags/:id', methods: ['GET', 'PATCH', 'DELETE'] },
-      { path: '/api/v1/search', methods: ['GET'] },
-      { path: '/api/v1/search/facets', methods: ['GET'] },
-    ],
-    documentation: '/api/docs',
+    version: 'v1',
+    endpoints: ['/api/v1/images', '/api/v1/tags', '/api/v1/search'],
   });
 });
 

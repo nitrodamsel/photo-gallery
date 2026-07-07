@@ -2,31 +2,26 @@
 
 const express = require('express');
 const router = express.Router();
-const { Image, Tag, ImageTag } = require('../../../models');
-const { Op } = require('sequelize');
-const path = require('path');
-const fs = require('fs').promises;
 const multer = require('multer');
-const upload = require('../../../middleware/upload');
+const path = require('path');
+const { Image, Tag, ImageTag, sequelize } = require('../../../models');
+const imageService = require('../../../services/imageService');
+const { Op } = require('sequelize');
 
-// Helper: standard error response
-function apiError(res, status, code, message) {
-  return res.status(status).json({ error: { code, message } });
-}
+const upload = multer({
+  dest: path.join(__dirname, '../../../uploads/'),
+  limits: { fileSize: 50 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    const allowed = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/tiff'];
+    if (allowed.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Invalid file type'));
+    }
+  },
+});
 
-// Helper: build pagination meta
-function paginationMeta(page, limit, total) {
-  return {
-    page,
-    limit,
-    total,
-    totalPages: Math.ceil(total / limit),
-    hasNext: page * limit < total,
-    hasPrev: page > 1,
-  };
-}
-
-// GET /api/v1/images — list images (paginated)
+// GET /api/v1/images — list paginated images
 router.get('/', async (req, res, next) => {
   try {
     const page = Math.max(1, parseInt(req.query.page) || 1);
@@ -35,20 +30,29 @@ router.get('/', async (req, res, next) => {
 
     const where = {};
     if (req.query.search) {
-      where.originalName = { [Op.like]: `%${req.query.search}%` };
+      where[Op.or] = [
+        { originalName: { [Op.like]: `%${req.query.search}%` } },
+        { description: { [Op.like]: `%${req.query.search}%` } },
+      ];
     }
 
     const { count, rows } = await Image.findAndCountAll({
       where,
-      include: [{ model: Tag, as: 'tags', through: { attributes: [] } }],
+      include: [{ model: Tag, through: { attributes: [] }, attributes: ['id', 'name', 'slug'] }],
+      order: [['createdAt', 'DESC']],
       limit,
       offset,
-      order: [['createdAt', 'DESC']],
+      distinct: true,
     });
 
-    return res.json({
+    res.json({
       data: rows,
-      pagination: paginationMeta(page, limit, count),
+      pagination: {
+        total: count,
+        page,
+        limit,
+        pages: Math.ceil(count / limit),
+      },
     });
   } catch (err) {
     next(err);
@@ -59,40 +63,17 @@ router.get('/', async (req, res, next) => {
 router.post('/', upload.single('image'), async (req, res, next) => {
   try {
     if (!req.file) {
-      return apiError(res, 400, 'MISSING_FILE', 'No image file provided.');
+      return res.status(400).json({
+        error: { code: 'MISSING_FILE', message: 'No image file provided' },
+      });
     }
 
-    const imageData = {
-      filename: req.file.filename,
-      originalName: req.file.originalname,
-      mimeType: req.file.mimetype,
-      fileSize: req.file.size,
-      filePath: req.file.path,
-      title: req.body.title || req.file.originalname,
-      description: req.body.description || null,
-    };
-
-    const image = await Image.create(imageData);
-
-    // Handle tags
-    if (req.body.tags) {
-      const tagNames = Array.isArray(req.body.tags)
-        ? req.body.tags
-        : req.body.tags.split(',').map((t) => t.trim()).filter(Boolean);
-
-      const tagInstances = await Promise.all(
-        tagNames.map((name) =>
-          Tag.findOrCreate({ where: { name: name.toLowerCase() } }).then(([t]) => t)
-        )
-      );
-      await image.setTags(tagInstances);
-    }
-
-    const result = await Image.findByPk(image.id, {
-      include: [{ model: Tag, as: 'tags', through: { attributes: [] } }],
+    const image = await imageService.processUpload(req.file, {
+      description: req.body.description || '',
+      tags: req.body.tags ? req.body.tags.split(',').map((t) => t.trim()) : [],
     });
 
-    return res.status(201).json({ data: result });
+    res.status(201).json({ data: image });
   } catch (err) {
     next(err);
   }
@@ -102,14 +83,16 @@ router.post('/', upload.single('image'), async (req, res, next) => {
 router.get('/:id', async (req, res, next) => {
   try {
     const image = await Image.findByPk(req.params.id, {
-      include: [{ model: Tag, as: 'tags', through: { attributes: [] } }],
+      include: [{ model: Tag, through: { attributes: [] }, attributes: ['id', 'name', 'slug'] }],
     });
 
     if (!image) {
-      return apiError(res, 404, 'NOT_FOUND', `Image with id '${req.params.id}' not found.`);
+      return res.status(404).json({
+        error: { code: 'NOT_FOUND', message: 'Image not found' },
+      });
     }
 
-    return res.json({ data: image });
+    res.json({ data: image });
   } catch (err) {
     next(err);
   }
@@ -121,10 +104,12 @@ router.patch('/:id', async (req, res, next) => {
     const image = await Image.findByPk(req.params.id);
 
     if (!image) {
-      return apiError(res, 404, 'NOT_FOUND', `Image with id '${req.params.id}' not found.`);
+      return res.status(404).json({
+        error: { code: 'NOT_FOUND', message: 'Image not found' },
+      });
     }
 
-    const allowedFields = ['title', 'description', 'rating'];
+    const allowedFields = ['description', 'title', 'rating'];
     const updates = {};
     for (const field of allowedFields) {
       if (req.body[field] !== undefined) {
@@ -134,25 +119,26 @@ router.patch('/:id', async (req, res, next) => {
 
     await image.update(updates);
 
-    // Handle tags update
+    // Handle tags if provided
     if (req.body.tags !== undefined) {
       const tagNames = Array.isArray(req.body.tags)
         ? req.body.tags
-        : req.body.tags.split(',').map((t) => t.trim()).filter(Boolean);
+        : req.body.tags.split(',').map((t) => t.trim());
 
       const tagInstances = await Promise.all(
         tagNames.map((name) =>
-          Tag.findOrCreate({ where: { name: name.toLowerCase() } }).then(([t]) => t)
+          Tag.findOrCreate({ where: { name }, defaults: { name, slug: name.toLowerCase().replace(/\s+/g, '-') } })
         )
       );
-      await image.setTags(tagInstances);
+
+      await image.setTags(tagInstances.map(([tag]) => tag));
     }
 
-    const result = await Image.findByPk(image.id, {
-      include: [{ model: Tag, as: 'tags', through: { attributes: [] } }],
+    const updated = await Image.findByPk(image.id, {
+      include: [{ model: Tag, through: { attributes: [] }, attributes: ['id', 'name', 'slug'] }],
     });
 
-    return res.json({ data: result });
+    res.json({ data: updated });
   } catch (err) {
     next(err);
   }
@@ -164,19 +150,14 @@ router.delete('/:id', async (req, res, next) => {
     const image = await Image.findByPk(req.params.id);
 
     if (!image) {
-      return apiError(res, 404, 'NOT_FOUND', `Image with id '${req.params.id}' not found.`);
+      return res.status(404).json({
+        error: { code: 'NOT_FOUND', message: 'Image not found' },
+      });
     }
 
-    // Try to delete the file
-    try {
-      await fs.unlink(image.filePath);
-    } catch (fileErr) {
-      console.warn('Could not delete image file:', fileErr.message);
-    }
+    await imageService.deleteImage(image.id);
 
-    await image.destroy();
-
-    return res.status(204).send();
+    res.status(204).send();
   } catch (err) {
     next(err);
   }

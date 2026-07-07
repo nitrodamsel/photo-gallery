@@ -2,9 +2,9 @@
 
 const express = require('express');
 const router = express.Router();
-const { Image, Tag, ApiKey, sequelize } = require('../models');
-const { fn, col, literal } = require('sequelize');
+const { Image, Tag, ImageTag, ApiKey, sequelize } = require('../models');
 const cacheService = require('../services/cacheService');
+const { Op } = require('sequelize');
 
 // Simple basic-auth middleware for admin routes
 function adminAuth(req, res, next) {
@@ -14,11 +14,14 @@ function adminAuth(req, res, next) {
   const authHeader = req.headers['authorization'];
   if (!authHeader || !authHeader.startsWith('Basic ')) {
     res.set('WWW-Authenticate', 'Basic realm="Admin Area"');
-    return res.status(401).send('Authentication required.');
+    return res.status(401).render('error', {
+      title: 'Unauthorized',
+      message: 'Admin access required',
+      error: { status: 401 },
+    });
   }
 
-  const base64Credentials = authHeader.slice(6);
-  const credentials = Buffer.from(base64Credentials, 'base64').toString('utf8');
+  const credentials = Buffer.from(authHeader.slice(6), 'base64').toString('utf8');
   const [user, pass] = credentials.split(':');
 
   if (user === adminUser && pass === adminPass) {
@@ -26,103 +29,101 @@ function adminAuth(req, res, next) {
   }
 
   res.set('WWW-Authenticate', 'Basic realm="Admin Area"');
-  return res.status(401).send('Invalid credentials.');
+  return res.status(401).render('error', {
+    title: 'Unauthorized',
+    message: 'Invalid credentials',
+    error: { status: 401 },
+  });
 }
 
-// Helper: get aggregate stats
-async function getStats() {
-  // Total images
+// Helper to gather aggregate stats
+async function gatherStats() {
   const totalImages = await Image.count();
-
-  // Total storage (sum of fileSize)
-  const storageResult = await Image.findOne({
-    attributes: [[fn('SUM', col('fileSize')), 'totalBytes']],
-    raw: true,
-  });
-  const totalStorageBytes = parseInt(storageResult?.totalBytes || 0, 10);
-
-  // Total tags
   const totalTags = await Tag.count();
-
-  // Total API keys
   const totalApiKeys = await ApiKey.count();
 
+  // Total storage in bytes
+  const storageResult = await Image.findOne({
+    attributes: [[sequelize.fn('SUM', sequelize.col('fileSize')), 'totalBytes']],
+    raw: true,
+  });
+  const totalStorageBytes = parseInt(storageResult?.totalBytes || 0);
+
   // Images per month (last 12 months)
-  const imagesPerMonth = await Image.findAll({
+  const twelveMonthsAgo = new Date();
+  twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 12);
+
+  const uploadsPerMonth = await Image.findAll({
     attributes: [
-      [fn('strftime', '%Y-%m', col('createdAt')), 'month'],
-      [fn('COUNT', col('id')), 'count'],
+      [sequelize.fn('strftime', '%Y-%m', sequelize.col('createdAt')), 'month'],
+      [sequelize.fn('COUNT', sequelize.col('id')), 'count'],
     ],
-    group: [literal("strftime('%Y-%m', createdAt)")],
-    order: [[literal("strftime('%Y-%m', createdAt)"), 'ASC']],
-    limit: 12,
+    where: { createdAt: { [Op.gte]: twelveMonthsAgo } },
+    group: [sequelize.fn('strftime', '%Y-%m', sequelize.col('createdAt'))],
+    order: [[sequelize.fn('strftime', '%Y-%m', sequelize.col('createdAt')), 'ASC']],
     raw: true,
   });
 
-  // Top 10 tags by image count
+  // Top 10 tags
   const topTags = await Tag.findAll({
     attributes: [
       'id',
       'name',
-      [fn('COUNT', col('images.id')), 'imageCount'],
+      'slug',
+      [sequelize.fn('COUNT', sequelize.col('ImageTags.imageId')), 'imageCount'],
     ],
-    include: [
-      {
-        model: Image,
-        as: 'images',
-        attributes: [],
-        through: { attributes: [] },
-      },
-    ],
+    include: [{ model: ImageTag, attributes: [], required: false }],
     group: ['Tag.id'],
-    order: [[literal('imageCount'), 'DESC']],
+    order: [[sequelize.literal('imageCount'), 'DESC']],
     limit: 10,
+    subQuery: false,
   });
 
   // Camera make distribution
-  let cameraMakes = [];
-  try {
-    cameraMakes = await Image.findAll({
-      attributes: [
-        ['exifCameraMake', 'make'],
-        [fn('COUNT', col('id')), 'count'],
-      ],
-      where: {
-        exifCameraMake: { [require('sequelize').Op.not]: null },
-      },
-      group: ['exifCameraMake'],
-      order: [[literal('count'), 'DESC']],
-      limit: 10,
-      raw: true,
-    });
-  } catch (e) {
-    // exifCameraMake column may not exist yet
-    cameraMakes = [];
-  }
+  const cameraMakes = await Image.findAll({
+    attributes: [
+      'cameraMake',
+      [sequelize.fn('COUNT', sequelize.col('id')), 'count'],
+    ],
+    where: { cameraMake: { [Op.ne]: null } },
+    group: ['cameraMake'],
+    order: [[sequelize.literal('count'), 'DESC']],
+    limit: 10,
+    raw: true,
+  });
 
   // Recent uploads
   const recentUploads = await Image.findAll({
+    attributes: ['id', 'originalName', 'fileSize', 'mimeType', 'createdAt'],
     order: [['createdAt', 'DESC']],
-    limit: 5,
-    include: [{ model: Tag, as: 'tags', through: { attributes: [] } }],
+    limit: 10,
   });
 
   return {
     totalImages,
-    totalStorageBytes,
     totalTags,
     totalApiKeys,
-    imagesPerMonth,
+    totalStorageBytes,
+    uploadsPerMonth,
     topTags,
     cameraMakes,
     recentUploads,
   };
 }
 
-// GET /admin — render admin dashboard
+// GET /admin — render dashboard
 router.get('/', adminAuth, async (req, res, next) => {
   try {
-    const stats = await getStats();
+    const stats = await gatherStats();
+
+    // Format storage
+    const formatBytes = (bytes) => {
+      if (bytes < 1024) return `${bytes} B`;
+      if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+      if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+      return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+    };
+
     res.render('admin/dashboard', {
       title: 'Admin Dashboard',
       stats,
@@ -136,18 +137,18 @@ router.get('/', adminAuth, async (req, res, next) => {
 // GET /admin/stats — JSON stats endpoint
 router.get('/stats', adminAuth, async (req, res, next) => {
   try {
-    const stats = await getStats();
+    const stats = await gatherStats();
     res.json({ data: stats });
   } catch (err) {
     next(err);
   }
 });
 
-// POST /admin/cache/flush — flush the cache
+// POST /admin/cache/flush — flush cache
 router.post('/cache/flush', adminAuth, async (req, res, next) => {
   try {
     await cacheService.flush();
-    res.json({ success: true, message: 'Cache flushed successfully.' });
+    res.json({ success: true, message: 'Cache flushed successfully' });
   } catch (err) {
     next(err);
   }
@@ -158,19 +159,9 @@ router.get('/jobs', adminAuth, (req, res) => {
   res.json({
     data: {
       jobs: [],
-      message: 'Background job queue coming in Phase 10.',
+      message: 'Background job support coming in Phase 10',
     },
   });
 });
-
-// Helper: format bytes to human readable
-function formatBytes(bytes, decimals = 2) {
-  if (!bytes || bytes === 0) return '0 Bytes';
-  const k = 1024;
-  const dm = decimals < 0 ? 0 : decimals;
-  const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
-}
 
 module.exports = router;

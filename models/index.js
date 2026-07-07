@@ -1,48 +1,32 @@
 'use strict';
 
-const fs = require('fs');
-const path = require('path');
-const Sequelize = require('sequelize');
-const basename = path.basename(__filename);
+const { Sequelize } = require('sequelize');
 const config = require('../config');
 
-const sequelize = new Sequelize(
-  config.database.database,
-  config.database.username,
-  config.database.password,
-  {
-    host: config.database.host,
-    dialect: config.database.dialect,
-    storage: config.database.storage,
-    logging: config.database.logging,
-  }
-);
+const sequelize = new Sequelize(config.database);
 
-const db = {};
+const Image = require('./Image')(sequelize);
+const Tag = require('./Tag')(sequelize);
+const ImageTag = require('./ImageTag')(sequelize);
+const ThumbnailCache = require('./ThumbnailCache')(sequelize);
+const ApiKey = require('./ApiKey')(sequelize);
 
-// Load all model files
-fs.readdirSync(__dirname)
-  .filter((file) => {
-    return (
-      file.indexOf('.') !== 0 &&
-      file !== basename &&
-      file.slice(-3) === '.js' &&
-      file.indexOf('.test.js') === -1
-    );
-  })
-  .forEach((file) => {
-    const model = require(path.join(__dirname, file))(sequelize, Sequelize.DataTypes);
-    db[model.name] = model;
-  });
+// Associations
+Image.belongsToMany(Tag, { through: ImageTag, foreignKey: 'imageId', otherKey: 'tagId' });
+Tag.belongsToMany(Image, { through: ImageTag, foreignKey: 'tagId', otherKey: 'imageId' });
+Image.hasMany(ImageTag, { foreignKey: 'imageId' });
+ImageTag.belongsTo(Image, { foreignKey: 'imageId' });
+ImageTag.belongsTo(Tag, { foreignKey: 'tagId' });
+Tag.hasMany(ImageTag, { foreignKey: 'tagId' });
+Image.hasMany(ThumbnailCache, { foreignKey: 'imageId', as: 'thumbnails' });
+ThumbnailCache.belongsTo(Image, { foreignKey: 'imageId' });
 
-// Run associations
-Object.keys(db).forEach((modelName) => {
-  if (db[modelName].associate) {
-    db[modelName].associate(db);
-  }
-});
-
-db.sequelize = sequelize;
-db.Sequelize = Sequelize;
-
-module.exports = db;
+module.exports = {
+  sequelize,
+  Sequelize,
+  Image,
+  Tag,
+  ImageTag,
+  ThumbnailCache,
+  ApiKey,
+};

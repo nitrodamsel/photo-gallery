@@ -12,9 +12,13 @@ const apiRateLimiter = rateLimit({
     res.status(429).json({
       error: {
         code: 'RATE_LIMIT_EXCEEDED',
-        message: 'Too many requests. Limit: 100 requests per minute.',
+        message: 'Too many requests. Please slow down and try again in a minute.',
       },
     });
+  },
+  skip: (req) => {
+    // Skip rate limiting for docs
+    return req.originalUrl.startsWith('/api/docs');
   },
 });
 

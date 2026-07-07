@@ -4,548 +4,277 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title><%= title %> — Gallery</title>
-  <link rel="stylesheet" href="/css/main.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <style>
-    :root {
-      --primary: #2c3e50;
-      --accent: #3498db;
-      --success: #27ae60;
-      --warning: #f39c12;
-      --danger: #e74c3c;
-      --light-bg: #f5f7fa;
-      --card-bg: #ffffff;
-      --text: #2c3e50;
-      --text-muted: #7f8c8d;
-      --border: #e1e8ed;
-      --radius: 12px;
-      --shadow: 0 2px 12px rgba(0,0,0,0.08);
+    .stat-card {
+      text-align: center;
+      padding: 1.5rem;
     }
-
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: var(--light-bg);
-      color: var(--text);
-      min-height: 100vh;
+    .stat-number {
+      font-size: 2.5rem;
+      font-weight: bold;
+      color: #3273dc;
     }
-
-    .admin-header {
-      background: var(--primary);
-      color: white;
-      padding: 1rem 2rem;
+    .stat-label {
+      font-size: 0.9rem;
+      color: #7a7a7a;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .section-title {
+      font-size: 1.2rem;
+      font-weight: 600;
+      margin-bottom: 1rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 2px solid #ededed;
+    }
+    .tag-bar {
+      background: #3273dc;
+      height: 12px;
+      border-radius: 6px;
+      display: inline-block;
+      min-width: 4px;
+    }
+    .admin-nav {
+      background: #363636;
+      padding: 0.75rem 1.5rem;
       display: flex;
       align-items: center;
       justify-content: space-between;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
     }
-
-    .admin-header h1 {
-      font-size: 1.4rem;
-      font-weight: 600;
-      letter-spacing: 0.5px;
-    }
-
-    .admin-header nav a {
-      color: rgba(255,255,255,0.8);
-      text-decoration: none;
-      margin-left: 1.5rem;
-      font-size: 0.9rem;
-      transition: color 0.2s;
-    }
-
-    .admin-header nav a:hover { color: white; }
-
-    .admin-main {
-      max-width: 1400px;
-      margin: 0 auto;
-      padding: 2rem;
-    }
-
-    .section-title {
-      font-size: 1.1rem;
-      font-weight: 600;
-      color: var(--text-muted);
-      text-transform: uppercase;
-      letter-spacing: 1px;
-      margin-bottom: 1rem;
-    }
-
-    /* Stat Cards */
-    .stats-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 1.5rem;
-      margin-bottom: 2.5rem;
-    }
-
-    .stat-card {
-      background: var(--card-bg);
-      border-radius: var(--radius);
-      padding: 1.5rem;
-      box-shadow: var(--shadow);
-      display: flex;
-      flex-direction: column;
-      gap: 0.5rem;
-      border-left: 4px solid var(--accent);
-      transition: transform 0.2s, box-shadow 0.2s;
-    }
-
-    .stat-card:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 6px 20px rgba(0,0,0,0.12);
-    }
-
-    .stat-card:nth-child(1) { border-left-color: var(--accent); }
-    .stat-card:nth-child(2) { border-left-color: var(--success); }
-    .stat-card:nth-child(3) { border-left-color: var(--warning); }
-    .stat-card:nth-child(4) { border-left-color: var(--danger); }
-
-    .stat-card .stat-label {
-      font-size: 0.8rem;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      color: var(--text-muted);
-    }
-
-    .stat-card .stat-value {
-      font-size: 2rem;
-      font-weight: 700;
-      color: var(--text);
-      line-height: 1;
-    }
-
-    .stat-card .stat-sub {
-      font-size: 0.8rem;
-      color: var(--text-muted);
-    }
-
-    /* Charts Row */
-    .charts-row {
-      display: grid;
-      grid-template-columns: 2fr 1fr;
-      gap: 1.5rem;
-      margin-bottom: 2.5rem;
-    }
-
-    .chart-card {
-      background: var(--card-bg);
-      border-radius: var(--radius);
-      padding: 1.5rem;
-      box-shadow: var(--shadow);
-    }
-
-    .chart-card h3 {
-      font-size: 1rem;
-      font-weight: 600;
-      margin-bottom: 1.2rem;
-      color: var(--text);
-    }
-
-    .chart-container {
-      position: relative;
-      height: 280px;
-    }
-
-    /* Tables Row */
-    .tables-row {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 1.5rem;
-      margin-bottom: 2.5rem;
-    }
-
-    .table-card {
-      background: var(--card-bg);
-      border-radius: var(--radius);
-      padding: 1.5rem;
-      box-shadow: var(--shadow);
-    }
-
-    .table-card h3 {
-      font-size: 1rem;
-      font-weight: 600;
-      margin-bottom: 1rem;
-      color: var(--text);
-    }
-
-    .data-table {
-      width: 100%;
-      border-collapse: collapse;
-    }
-
-    .data-table th {
-      text-align: left;
-      font-size: 0.75rem;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      color: var(--text-muted);
-      padding: 0.5rem 0.75rem;
-      border-bottom: 2px solid var(--border);
-    }
-
-    .data-table td {
-      padding: 0.6rem 0.75rem;
-      font-size: 0.875rem;
-      border-bottom: 1px solid var(--border);
-    }
-
-    .data-table tr:last-child td { border-bottom: none; }
-    .data-table tr:hover td { background: var(--light-bg); }
-
-    .tag-badge {
-      display: inline-block;
-      background: var(--accent);
+    .admin-nav .brand {
       color: white;
-      font-size: 0.7rem;
-      font-weight: 600;
-      padding: 0.2em 0.6em;
-      border-radius: 99px;
+      font-weight: bold;
+      font-size: 1.1rem;
     }
-
-    .bar-fill {
-      display: inline-block;
-      height: 8px;
-      background: var(--accent);
-      border-radius: 4px;
-      opacity: 0.7;
-    }
-
-    /* Recent Uploads */
-    .recent-uploads {
-      background: var(--card-bg);
-      border-radius: var(--radius);
-      padding: 1.5rem;
-      box-shadow: var(--shadow);
-      margin-bottom: 2.5rem;
-    }
-
-    .recent-uploads h3 {
-      font-size: 1rem;
-      font-weight: 600;
-      margin-bottom: 1rem;
-    }
-
-    .upload-list {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-      gap: 1rem;
-    }
-
-    .upload-item {
-      border-radius: 8px;
-      overflow: hidden;
-      border: 1px solid var(--border);
-      transition: transform 0.2s;
-    }
-
-    .upload-item:hover { transform: scale(1.02); }
-
-    .upload-item img {
-      width: 100%;
-      height: 100px;
-      object-fit: cover;
-      display: block;
-    }
-
-    .upload-item .upload-info {
-      padding: 0.5rem;
-    }
-
-    .upload-item .upload-name {
-      font-size: 0.75rem;
-      font-weight: 500;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    .upload-item .upload-date {
-      font-size: 0.7rem;
-      color: var(--text-muted);
-    }
-
-    /* Actions */
-    .actions-row {
-      display: flex;
-      gap: 1rem;
-      margin-bottom: 2rem;
-    }
-
-    .btn {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.4rem;
-      padding: 0.6rem 1.2rem;
-      border-radius: 8px;
-      font-size: 0.875rem;
-      font-weight: 500;
-      cursor: pointer;
-      border: none;
+    .admin-nav a {
+      color: #ccc;
+      margin-left: 1rem;
       text-decoration: none;
-      transition: background 0.2s, transform 0.1s;
     }
-
-    .btn:active { transform: scale(0.98); }
-
-    .btn-primary { background: var(--accent); color: white; }
-    .btn-primary:hover { background: #2980b9; }
-
-    .btn-danger { background: var(--danger); color: white; }
-    .btn-danger:hover { background: #c0392b; }
-
-    .btn-secondary { background: var(--border); color: var(--text); }
-    .btn-secondary:hover { background: #d1dce5; }
-
-    .alert {
-      padding: 0.75rem 1rem;
-      border-radius: 8px;
-      font-size: 0.875rem;
-      margin-bottom: 1rem;
-      display: none;
-    }
-    .alert.show { display: block; }
-    .alert-success { background: #d5f5e3; color: #1e8449; border: 1px solid #a9dfbf; }
-    .alert-error { background: #fadbd8; color: #922b21; border: 1px solid #f1948a; }
-
-    @media (max-width: 900px) {
-      .charts-row { grid-template-columns: 1fr; }
-      .tables-row { grid-template-columns: 1fr; }
-    }
+    .admin-nav a:hover { color: white; }
+    .file-size-cell { white-space: nowrap; }
   </style>
 </head>
 <body>
-
-<header class="admin-header">
-  <h1>⚙️ Admin Dashboard</h1>
-  <nav>
-    <a href="/">← Gallery</a>
-    <a href="/admin/stats">Stats JSON</a>
-    <a href="/api/docs/ui" target="_blank">API Docs</a>
-  </nav>
-</header>
-
-<main class="admin-main">
-
-  <div id="alert" class="alert"></div>
-
-  <!-- Stat Cards -->
-  <p class="section-title">Overview</p>
-  <div class="stats-grid">
-    <div class="stat-card">
-      <div class="stat-label">Total Images</div>
-      <div class="stat-value"><%= stats.totalImages.toLocaleString() %></div>
-      <div class="stat-sub">Uploaded files</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-label">Storage Used</div>
-      <div class="stat-value"><%= formatBytes(stats.totalStorageBytes) %></div>
-      <div class="stat-sub"><%= stats.totalStorageBytes.toLocaleString() %> bytes</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-label">Total Tags</div>
-      <div class="stat-value"><%= stats.totalTags.toLocaleString() %></div>
-      <div class="stat-sub">Unique tags</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-label">API Keys</div>
-      <div class="stat-value"><%= stats.totalApiKeys.toLocaleString() %></div>
-      <div class="stat-sub">Active keys</div>
+  <div class="admin-nav">
+    <span class="brand">🖼 Gallery Admin</span>
+    <div>
+      <a href="/">← Back to Gallery</a>
+      <a href="/api/docs/ui" target="_blank">API Docs</a>
     </div>
   </div>
 
-  <!-- Actions -->
-  <p class="section-title">Actions</p>
-  <div class="actions-row">
-    <button class="btn btn-danger" onclick="flushCache()">🗑️ Flush Cache</button>
-    <a href="/upload" class="btn btn-primary">📤 Upload Images</a>
-    <a href="/api/docs/ui" class="btn btn-secondary" target="_blank">📖 API Docs</a>
-  </div>
+  <section class="section">
+    <div class="container is-fluid">
+      <h1 class="title">Dashboard</h1>
+      <p class="subtitle">System overview and usage statistics</p>
 
-  <!-- Charts -->
-  <p class="section-title">Analytics</p>
-  <div class="charts-row">
-    <div class="chart-card">
-      <h3>📅 Uploads Per Month</h3>
-      <div class="chart-container">
-        <canvas id="uploadsChart"></canvas>
-      </div>
-    </div>
-    <div class="chart-card">
-      <h3>📷 Camera Makes</h3>
-      <div class="chart-container">
-        <canvas id="cameraChart"></canvas>
-      </div>
-    </div>
-  </div>
-
-  <!-- Tables -->
-  <div class="tables-row">
-    <div class="table-card">
-      <h3>🏷️ Top 10 Tags</h3>
-      <% if (stats.topTags && stats.topTags.length > 0) { %>
-        <%
-          const maxCount = Math.max(...stats.topTags.map(t => parseInt(t.dataValues?.imageCount || t.get?.('imageCount') || 0)));
-        %>
-        <table class="data-table">
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>Tag</th>
-              <th>Images</th>
-              <th>Bar</th>
-            </tr>
-          </thead>
-          <tbody>
-            <% stats.topTags.forEach((tag, i) => {
-              const count = parseInt(tag.dataValues?.imageCount || tag.get?.('imageCount') || 0);
-              const pct = maxCount > 0 ? Math.round((count / maxCount) * 100) : 0;
-            %>
-            <tr>
-              <td><%= i + 1 %></td>
-              <td><span class="tag-badge"><%= tag.name %></span></td>
-              <td><%= count %></td>
-              <td><span class="bar-fill" style="width:<%= pct %>px;max-width:80px;"></span></td>
-            </tr>
-            <% }) %>
-          </tbody>
-        </table>
-      <% } else { %>
-        <p style="color:var(--text-muted);font-size:0.875rem;">No tags yet.</p>
-      <% } %>
-    </div>
-
-    <div class="table-card">
-      <h3>📊 Storage Summary</h3>
-      <table class="data-table">
-        <tbody>
-          <tr>
-            <td>Total Images</td>
-            <td><strong><%= stats.totalImages %></strong></td>
-          </tr>
-          <tr>
-            <td>Total Storage</td>
-            <td><strong><%= formatBytes(stats.totalStorageBytes) %></strong></td>
-          </tr>
-          <tr>
-            <td>Avg Image Size</td>
-            <td><strong><%= stats.totalImages > 0 ? formatBytes(Math.round(stats.totalStorageBytes / stats.totalImages)) : '—' %></strong></td>
-          </tr>
-          <tr>
-            <td>Total Tags</td>
-            <td><strong><%= stats.totalTags %></strong></td>
-          </tr>
-          <tr>
-            <td>API Keys</td>
-            <td><strong><%= stats.totalApiKeys %></strong></td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-  </div>
-
-  <!-- Recent Uploads -->
-  <% if (stats.recentUploads && stats.recentUploads.length > 0) { %>
-  <div class="recent-uploads">
-    <h3>🕐 Recent Uploads</h3>
-    <div class="upload-list">
-      <% stats.recentUploads.forEach(img => { %>
-      <div class="upload-item">
-        <a href="/image/<%= img.id %>">
-          <img src="/thumbnails/<%= img.filename %>?w=160&h=100" alt="<%= img.title || img.originalName %>"
-               onerror="this.src='/uploads/<%= img.filename %>'" loading="lazy" />
-        </a>
-        <div class="upload-info">
-          <div class="upload-name" title="<%= img.title || img.originalName %>">
-            <%= img.title || img.originalName %>
+      <!-- Stat Cards -->
+      <div class="columns is-multiline">
+        <div class="column is-3">
+          <div class="box stat-card">
+            <div class="stat-number"><%= stats.totalImages.toLocaleString() %></div>
+            <div class="stat-label">Total Images</div>
           </div>
-          <div class="upload-date">
-            <%= new Date(img.createdAt).toLocaleDateString() %>
+        </div>
+        <div class="column is-3">
+          <div class="box stat-card">
+            <div class="stat-number"><%= formatBytes(stats.totalStorageBytes) %></div>
+            <div class="stat-label">Storage Used</div>
+          </div>
+        </div>
+        <div class="column is-3">
+          <div class="box stat-card">
+            <div class="stat-number"><%= stats.totalTags.toLocaleString() %></div>
+            <div class="stat-label">Total Tags</div>
+          </div>
+        </div>
+        <div class="column is-3">
+          <div class="box stat-card">
+            <div class="stat-number"><%= stats.totalApiKeys.toLocaleString() %></div>
+            <div class="stat-label">API Keys</div>
           </div>
         </div>
       </div>
-      <% }) %>
+
+      <!-- Charts Row -->
+      <div class="columns">
+        <!-- Uploads per Month Chart -->
+        <div class="column is-8">
+          <div class="box">
+            <p class="section-title">Uploads per Month</p>
+            <canvas id="uploadsChart" height="120"></canvas>
+          </div>
+        </div>
+
+        <!-- Camera Makes -->
+        <div class="column is-4">
+          <div class="box">
+            <p class="section-title">Camera Makes</p>
+            <% if (stats.cameraMakes.length === 0) { %>
+              <p class="has-text-grey">No EXIF camera data available.</p>
+            <% } else { %>
+              <% stats.cameraMakes.forEach(function(cm) { %>
+                <div class="mb-2">
+                  <div style="display:flex;justify-content:space-between;margin-bottom:2px;">
+                    <span class="is-size-7"><%= cm.cameraMake || 'Unknown' %></span>
+                    <span class="is-size-7 has-text-grey"><%= cm.count %></span>
+                  </div>
+                  <div style="background:#ededed;border-radius:6px;overflow:hidden;">
+                    <div class="tag-bar" style="width:<%= Math.round((cm.count / stats.totalImages) * 100) %>%;"></div>
+                  </div>
+                </div>
+              <% }); %>
+            <% } %>
+          </div>
+        </div>
+      </div>
+
+      <!-- Bottom Row -->
+      <div class="columns">
+        <!-- Top Tags -->
+        <div class="column is-6">
+          <div class="box">
+            <p class="section-title">Top 10 Tags</p>
+            <% if (stats.topTags.length === 0) { %>
+              <p class="has-text-grey">No tags yet.</p>
+            <% } else { %>
+              <table class="table is-fullwidth is-striped is-hoverable is-size-7">
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>Tag</th>
+                    <th>Images</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <% stats.topTags.forEach(function(tag, i) { %>
+                    <tr>
+                      <td><%= i + 1 %></td>
+                      <td>
+                        <a href="/tags/<%= tag.slug %>">
+                          <span class="tag is-info is-light"><%= tag.name %></span>
+                        </a>
+                      </td>
+                      <td><%= tag.get ? tag.get('imageCount') : tag.imageCount %></td>
+                    </tr>
+                  <% }); %>
+                </tbody>
+              </table>
+            <% } %>
+          </div>
+        </div>
+
+        <!-- Recent Uploads -->
+        <div class="column is-6">
+          <div class="box">
+            <p class="section-title">Recent Uploads</p>
+            <% if (stats.recentUploads.length === 0) { %>
+              <p class="has-text-grey">No uploads yet.</p>
+            <% } else { %>
+              <table class="table is-fullwidth is-striped is-hoverable is-size-7">
+                <thead>
+                  <tr>
+                    <th>File</th>
+                    <th>Size</th>
+                    <th>Date</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <% stats.recentUploads.forEach(function(img) { %>
+                    <tr>
+                      <td>
+                        <a href="/images/<%= img.id %>">
+                          <%= img.originalName ? img.originalName.substring(0, 30) : img.id %>
+                        </a>
+                      </td>
+                      <td class="file-size-cell"><%= formatBytes(img.fileSize || 0) %></td>
+                      <td><%= new Date(img.createdAt).toLocaleDateString() %></td>
+                    </tr>
+                  <% }); %>
+                </tbody>
+              </table>
+            <% } %>
+          </div>
+        </div>
+      </div>
+
+      <!-- Admin Actions -->
+      <div class="box">
+        <p class="section-title">Admin Actions</p>
+        <div class="buttons">
+          <button class="button is-warning" id="flushCacheBtn">
+            🗑 Flush Cache
+          </button>
+          <a href="/api/docs/ui" target="_blank" class="button is-info is-light">
+            📖 API Documentation
+          </a>
+          <a href="/api/docs" target="_blank" class="button is-light">
+            📄 OpenAPI Spec (YAML)
+          </a>
+        </div>
+        <div id="actionMessage"></div>
+      </div>
+
     </div>
-  </div>
-  <% } %>
+  </section>
 
-</main>
+  <script>
+    // Uploads per Month Chart
+    const uploadsData = <%- JSON.stringify(stats.uploadsPerMonth) %>;
 
-<script>
-  // Uploads per month chart
-  const uploadsData = <%- JSON.stringify(stats.imagesPerMonth) %>;
-  const cameraData = <%- JSON.stringify(stats.cameraMakes) %>;
+    const labels = uploadsData.map(d => d.month);
+    const counts = uploadsData.map(d => parseInt(d.count));
 
-  // Bar chart: uploads per month
-  const uploadsCtx = document.getElementById('uploadsChart').getContext('2d');
-  new Chart(uploadsCtx, {
-    type: 'bar',
-    data: {
-      labels: uploadsData.map(d => d.month || d.MONTH),
-      datasets: [{
-        label: 'Uploads',
-        data: uploadsData.map(d => parseInt(d.count || d.COUNT || 0)),
-        backgroundColor: 'rgba(52, 152, 219, 0.7)',
-        borderColor: 'rgba(52, 152, 219, 1)',
-        borderWidth: 1,
-        borderRadius: 4,
-      }]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: { legend: { display: false } },
-      scales: {
-        y: { beginAtZero: true, ticks: { stepSize: 1 } },
-        x: { grid: { display: false } }
+    const ctx = document.getElementById('uploadsChart').getContext('2d');
+    new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: labels.length > 0 ? labels : ['No data'],
+        datasets: [{
+          label: 'Uploads',
+          data: counts.length > 0 ? counts : [0],
+          backgroundColor: 'rgba(50, 115, 220, 0.7)',
+          borderColor: 'rgba(50, 115, 220, 1)',
+          borderWidth: 1,
+          borderRadius: 4,
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: { display: false },
+        },
+        scales: {
+          y: {
+            beginAtZero: true,
+            ticks: { stepSize: 1, precision: 0 }
+          }
+        }
       }
-    }
-  });
+    });
 
-  // Doughnut chart: camera makes
-  const cameraCtx = document.getElementById('cameraChart').getContext('2d');
-  const cameraColors = [
-    '#3498db','#e74c3c','#2ecc71','#f39c12','#9b59b6',
-    '#1abc9c','#e67e22','#34495e','#e91e63','#00bcd4'
-  ];
-  new Chart(cameraCtx, {
-    type: 'doughnut',
-    data: {
-      labels: cameraData.length > 0 ? cameraData.map(d => d.make || 'Unknown') : ['No data'],
-      datasets: [{
-        data: cameraData.length > 0 ? cameraData.map(d => parseInt(d.count || 0)) : [1],
-        backgroundColor: cameraColors,
-        borderWidth: 2,
-        borderColor: '#fff',
-      }]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        legend: { position: 'bottom', labels: { font: { size: 11 } } }
+    // Flush cache action
+    document.getElementById('flushCacheBtn').addEventListener('click', async () => {
+      const btn = document.getElementById('flushCacheBtn');
+      const msg = document.getElementById('actionMessage');
+      btn.classList.add('is-loading');
+      try {
+        const res = await fetch('/admin/cache/flush', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+        });
+        const data = await res.json();
+        msg.innerHTML = '<p class="has-text-success mt-2">✓ ' + (data.message || 'Cache flushed') + '</p>';
+      } catch (e) {
+        msg.innerHTML = '<p class="has-text-danger mt-2">✗ Failed to flush cache</p>';
+      } finally {
+        btn.classList.remove('is-loading');
+        setTimeout(() => { msg.innerHTML = ''; }, 4000);
       }
-    }
-  });
-
-  // Flush cache
-  async function flushCache() {
-    const alertEl = document.getElementById('alert');
-    try {
-      const res = await fetch('/admin/cache/flush', { method: 'POST' });
-      const data = await res.json();
-      alertEl.textContent = data.message || 'Cache flushed!';
-      alertEl.className = 'alert alert-success show';
-    } catch (err) {
-      alertEl.textContent = 'Failed to flush cache: ' + err.message;
-      alertEl.className = 'alert alert-error show';
-    }
-    setTimeout(() => alertEl.classList.remove('show'), 3000);
-  }
-</script>
-
+    });
+  </script>
 </body>
 </html>

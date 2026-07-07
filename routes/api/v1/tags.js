@@ -2,27 +2,53 @@
 
 const express = require('express');
 const router = express.Router();
-const { Tag, Image, ImageTag } = require('../../../models');
+const { Tag, ImageTag, sequelize } = require('../../../models');
 const { Op } = require('sequelize');
 
-// Helper: standard error response
-function apiError(res, status, code, message) {
-  return res.status(status).json({ error: { code, message } });
-}
-
-// GET /api/v1/tags — list all tags
+// GET /api/v1/tags — list all tags with image counts
 router.get('/', async (req, res, next) => {
   try {
-    const tags = await Tag.findAll({
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const limit = Math.min(200, Math.max(1, parseInt(req.query.limit) || 50));
+    const offset = (page - 1) * limit;
+
+    const where = {};
+    if (req.query.search) {
+      where.name = { [Op.like]: `%${req.query.search}%` };
+    }
+
+    const { count, rows } = await Tag.findAndCountAll({
+      where,
       attributes: [
         'id',
         'name',
+        'slug',
         'createdAt',
+        [sequelize.fn('COUNT', sequelize.col('ImageTags.imageId')), 'imageCount'],
       ],
-      order: [['name', 'ASC']],
+      include: [
+        {
+          model: ImageTag,
+          attributes: [],
+          required: false,
+        },
+      ],
+      group: ['Tag.id'],
+      order: [[sequelize.literal('imageCount'), 'DESC']],
+      limit,
+      offset,
+      subQuery: false,
     });
 
-    return res.json({ data: tags });
+    res.json({
+      data: rows,
+      pagination: {
+        total: count.length || count,
+        page,
+        limit,
+        pages: Math.ceil((count.length || count) / limit),
+      },
+    });
   } catch (err) {
     next(err);
   }
@@ -32,39 +58,48 @@ router.get('/', async (req, res, next) => {
 router.post('/', async (req, res, next) => {
   try {
     const { name } = req.body;
+
     if (!name || !name.trim()) {
-      return apiError(res, 400, 'VALIDATION_ERROR', 'Tag name is required.');
+      return res.status(400).json({
+        error: { code: 'VALIDATION_ERROR', message: 'Tag name is required' },
+      });
     }
 
+    const slug = name.trim().toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+
     const [tag, created] = await Tag.findOrCreate({
-      where: { name: name.trim().toLowerCase() },
+      where: { name: name.trim() },
+      defaults: { name: name.trim(), slug },
     });
 
-    return res.status(created ? 201 : 200).json({ data: tag });
+    res.status(created ? 201 : 200).json({ data: tag });
   } catch (err) {
     next(err);
   }
 });
 
-// GET /api/v1/tags/:id — get single tag with image count
+// GET /api/v1/tags/:id — get single tag
 router.get('/:id', async (req, res, next) => {
   try {
     const tag = await Tag.findByPk(req.params.id, {
-      include: [
-        {
-          model: Image,
-          as: 'images',
-          through: { attributes: [] },
-          attributes: ['id', 'title', 'filename', 'createdAt'],
-        },
+      attributes: [
+        'id',
+        'name',
+        'slug',
+        'createdAt',
+        [sequelize.fn('COUNT', sequelize.col('ImageTags.imageId')), 'imageCount'],
       ],
+      include: [{ model: ImageTag, attributes: [], required: false }],
+      group: ['Tag.id'],
     });
 
     if (!tag) {
-      return apiError(res, 404, 'NOT_FOUND', `Tag with id '${req.params.id}' not found.`);
+      return res.status(404).json({
+        error: { code: 'NOT_FOUND', message: 'Tag not found' },
+      });
     }
 
-    return res.json({ data: tag });
+    res.json({ data: tag });
   } catch (err) {
     next(err);
   }
@@ -76,25 +111,22 @@ router.patch('/:id', async (req, res, next) => {
     const tag = await Tag.findByPk(req.params.id);
 
     if (!tag) {
-      return apiError(res, 404, 'NOT_FOUND', `Tag with id '${req.params.id}' not found.`);
+      return res.status(404).json({
+        error: { code: 'NOT_FOUND', message: 'Tag not found' },
+      });
     }
 
     const { name } = req.body;
     if (!name || !name.trim()) {
-      return apiError(res, 400, 'VALIDATION_ERROR', 'Tag name is required.');
+      return res.status(400).json({
+        error: { code: 'VALIDATION_ERROR', message: 'Tag name is required' },
+      });
     }
 
-    // Check for duplicate
-    const existing = await Tag.findOne({
-      where: { name: name.trim().toLowerCase(), id: { [Op.ne]: tag.id } },
-    });
-    if (existing) {
-      return apiError(res, 409, 'CONFLICT', `Tag with name '${name.trim().toLowerCase()}' already exists.`);
-    }
+    const slug = name.trim().toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+    await tag.update({ name: name.trim(), slug });
 
-    await tag.update({ name: name.trim().toLowerCase() });
-
-    return res.json({ data: tag });
+    res.json({ data: tag });
   } catch (err) {
     next(err);
   }
@@ -106,12 +138,13 @@ router.delete('/:id', async (req, res, next) => {
     const tag = await Tag.findByPk(req.params.id);
 
     if (!tag) {
-      return apiError(res, 404, 'NOT_FOUND', `Tag with id '${req.params.id}' not found.`);
+      return res.status(404).json({
+        error: { code: 'NOT_FOUND', message: 'Tag not found' },
+      });
     }
 
     await tag.destroy();
-
-    return res.status(204).send();
+    res.status(204).send();
   } catch (err) {
     next(err);
   }
