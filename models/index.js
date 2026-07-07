@@ -1,32 +1,30 @@
-const { Sequelize } = require('sequelize');
-const config = require('../config');
+'use strict';
 
-const sequelize = new Sequelize(config.database);
-
-// Import models
+const { sequelize } = require('../config/database');
 const Image = require('./Image')(sequelize);
 const Tag = require('./Tag')(sequelize);
 const ImageTag = require('./ImageTag')(sequelize);
 const ThumbnailCache = require('./ThumbnailCache')(sequelize);
+const ApiKey = require('./ApiKey')(sequelize);
 
-// Associations
+// Set up associations
 Image.belongsToMany(Tag, {
   through: ImageTag,
-  foreignKey: 'image_id',
-  otherKey: 'tag_id',
+  foreignKey: 'imageId',
+  otherKey: 'tagId',
   as: 'tags',
 });
 
 Tag.belongsToMany(Image, {
   through: ImageTag,
-  foreignKey: 'tag_id',
-  otherKey: 'image_id',
+  foreignKey: 'tagId',
+  otherKey: 'imageId',
   as: 'images',
 });
 
 Image.hasMany(ThumbnailCache, {
   foreignKey: 'imageId',
-  as: 'thumbnails',
+  as: 'thumbnailCaches',
 });
 
 ThumbnailCache.belongsTo(Image, {
@@ -36,9 +34,9 @@ ThumbnailCache.belongsTo(Image, {
 
 module.exports = {
   sequelize,
-  Sequelize,
   Image,
   Tag,
   ImageTag,
   ThumbnailCache,
+  ApiKey,
 };

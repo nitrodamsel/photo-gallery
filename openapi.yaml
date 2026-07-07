@@ -1,0 +1,831 @@
+openapi: 3.1.0
+info:
+  title: Photo Gallery API
+  version: 1.0.0
+  description: |
+    REST API for the Photo Gallery application.
+    
+    ## Authentication
+    All API endpoints require an API key passed as a Bearer token in the `Authorization` header:
+    ```
+    Authorization: Bearer <your_api_key>
+    ```
+    
+    Generate API keys using the CLI:
+    ```bash
+    node scripts/generate-api-key.js --label "My App"
+    ```
+    
+  contact:
+    name: API Support
+  license:
+    name: MIT
+
+servers:
+  - url: /api/v1
+    description: API v1
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: API Key
+      description: API key generated via the CLI tool
+
+  schemas:
+    Error:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: object
+          required:
+            - code
+            - message
+          properties:
+            code:
+              type: string
+              description: Machine-readable error code
+              example: NOT_FOUND
+            message:
+              type: string
+              description: Human-readable error message
+              example: Image not found
+
+    Pagination:
+      type: object
+      properties:
+        page:
+          type: integer
+          minimum: 1
+          example: 1
+        limit:
+          type: integer
+          minimum: 1
+          maximum: 100
+          example: 20
+        total:
+          type: integer
+          example: 150
+        totalPages:
+          type: integer
+          example: 8
+        hasNext:
+          type: boolean
+          example: true
+        hasPrev:
+          type: boolean
+          example: false
+
+    Tag:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        name:
+          type: string
+          example: Landscape
+        slug:
+          type: string
+          example: landscape
+        imageCount:
+          type: integer
+          example: 42
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    Image:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        filename:
+          type: string
+          example: 1720000000000-photo.jpg
+        originalName:
+          type: string
+          example: vacation-photo.jpg
+        mimeType:
+          type: string
+          example: image/jpeg
+        fileSize:
+          type: integer
+          description: File size in bytes
+          example: 2048576
+        width:
+          type: integer
+          example: 4032
+        height:
+          type: integer
+          example: 3024
+        title:
+          type: string
+          nullable: true
+          example: Sunset at the beach
+        description:
+          type: string
+          nullable: true
+          example: A beautiful sunset photo taken in Hawaii
+        cameraMake:
+          type: string
+          nullable: true
+          example: Apple
+        cameraModel:
+          type: string
+          nullable: true
+          example: iPhone 14 Pro
+        takenAt:
+          type: string
+          format: date-time
+          nullable: true
+        latitude:
+          type: number
+          format: double
+          nullable: true
+          example: 21.3069
+        longitude:
+          type: number
+          format: double
+          nullable: true
+          example: -157.8583
+        tags:
+          type: array
+          items:
+            $ref: '#/components/schemas/Tag'
+        urls:
+          type: object
+          properties:
+            original:
+              type: string
+              example: /uploads/1720000000000-photo.jpg
+            thumbnail:
+              type: string
+              example: /thumbnails/1?size=300
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    ImageList:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Image'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+
+    TagList:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Tag'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+
+    SearchQuery:
+      type: object
+      properties:
+        q:
+          type: string
+          nullable: true
+        tags:
+          type: string
+          nullable: true
+        cameraMake:
+          type: string
+          nullable: true
+        cameraModel:
+          type: string
+          nullable: true
+        dateFrom:
+          type: string
+          nullable: true
+        dateTo:
+          type: string
+          nullable: true
+        sortBy:
+          type: string
+        sortDir:
+          type: string
+          enum: [ASC, DESC]
+
+    SearchResult:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Image'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+        query:
+          $ref: '#/components/schemas/SearchQuery'
+
+    Facets:
+      type: object
+      properties:
+        data:
+          type: object
+          properties:
+            cameraMakes:
+              type: array
+              items:
+                type: object
+                properties:
+                  value:
+                    type: string
+                  count:
+                    type: integer
+            cameraModels:
+              type: array
+              items:
+                type: object
+                properties:
+                  value:
+                    type: string
+                  count:
+                    type: integer
+            tags:
+              type: array
+              items:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                  name:
+                    type: string
+                  slug:
+                    type: string
+                  count:
+                    type: integer
+            dateRange:
+              type: object
+              nullable: true
+              properties:
+                earliest:
+                  type: string
+                  format: date-time
+                latest:
+                  type: string
+                  format: date-time
+
+security:
+  - BearerAuth: []
+
+paths:
+  /images:
+    get:
+      summary: List images
+      description: Returns a paginated list of all images
+      operationId: listImages
+      tags:
+        - Images
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+          description: Page number
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+          description: Items per page
+        - name: search
+          in: query
+          schema:
+            type: string
+          description: Search in title, description, and filename
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImageList'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    post:
+      summary: Upload an image
+      description: Upload a new image via multipart form data
+      operationId: uploadImage
+      tags:
+        - Images
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - image
+              properties:
+                image:
+                  type: string
+                  format: binary
+                  description: Image file (JPEG, PNG, GIF, WebP)
+                title:
+                  type: string
+                description:
+                  type: string
+                tags:
+                  type: string
+                  description: Comma-separated tag names
+      responses:
+        '201':
+          description: Image uploaded successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Image'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /images/{id}:
+    get:
+      summary: Get image by ID
+      operationId: getImage
+      tags:
+        - Images
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: Image ID
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Image'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Image not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    patch:
+      summary: Update image metadata
+      operationId: updateImage
+      tags:
+        - Images
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: Image ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                  nullable: true
+                description:
+                  type: string
+                  nullable: true
+      responses:
+        '200':
+          description: Image updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Image'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Image not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    delete:
+      summary: Delete an image
+      operationId: deleteImage
+      tags:
+        - Images
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: Image ID
+      responses:
+        '204':
+          description: Image deleted successfully
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Image not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /tags:
+    get:
+      summary: List tags
+      description: Returns a paginated list of all tags
+      operationId: listTags
+      tags:
+        - Tags
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+        - name: search
+          in: query
+          schema:
+            type: string
+          description: Search in tag names
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TagList'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    post:
+      summary: Create a tag
+      operationId: createTag
+      tags:
+        - Tags
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+              properties:
+                name:
+                  type: string
+                  example: Landscape
+      responses:
+        '201':
+          description: Tag created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Tag'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Tag already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /tags/{id}:
+    get:
+      summary: Get tag by ID
+      operationId: getTag
+      tags:
+        - Tags
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Tag'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Tag not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    patch:
+      summary: Rename a tag
+      operationId: updateTag
+      tags:
+        - Tags
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+              properties:
+                name:
+                  type: string
+      responses:
+        '200':
+          description: Tag updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Tag'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Tag not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Tag name conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    delete:
+      summary: Delete a tag
+      operationId: deleteTag
+      tags:
+        - Tags
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '204':
+          description: Tag deleted successfully
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Tag not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /search:
+    get:
+      summary: Search images
+      description: Search images with multiple filter options
+      operationId: searchImages
+      tags:
+        - Search
+      parameters:
+        - name: q
+          in: query
+          schema:
+            type: string
+          description: Full-text search query
+        - name: tags
+          in: query
+          schema:
+            type: string
+          description: Comma-separated tag slugs to filter by
+          example: landscape,sunset
+        - name: cameraMake
+          in: query
+          schema:
+            type: string
+          description: Filter by camera manufacturer
+          example: Apple
+        - name: cameraModel
+          in: query
+          schema:
+            type: string
+          description: Filter by camera model
+          example: iPhone 14 Pro
+        - name: dateFrom
+          in: query
+          schema:
+            type: string
+            format: date
+          description: Filter images taken on or after this date
+        - name: dateTo
+          in: query
+          schema:
+            type: string
+            format: date
+          description: Filter images taken on or before this date
+        - name: minWidth
+          in: query
+          schema:
+            type: integer
+          description: Minimum image width in pixels
+        - name: maxWidth
+          in: query
+          schema:
+            type: integer
+          description: Maximum image width in pixels
+        - name: minHeight
+          in: query
+          schema:
+            type: integer
+          description: Minimum image height in pixels
+        - name: maxHeight
+          in: query
+          schema:
+            type: integer
+          description: Maximum image height in pixels
+        - name: sortBy
+          in: query
+          schema:
+            type: string
+            enum: [createdAt, updatedAt, takenAt, fileSize, title, originalName]
+            default: createdAt
+        - name: sortDir
+          in: query
+          schema:
+            type: string
+            enum: [ASC, DESC]
+            default: DESC
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        '200':
+          description: Search results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SearchResult'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /search/facets:
+    get:
+      summary: Get search facets
+      description: Returns aggregated facet data for building filter UI
+      operationId: getSearchFacets
+      tags:
+        - Search
+      responses:
+        '200':
+          description: Facet data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Facets'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
