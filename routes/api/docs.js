@@ -6,63 +6,60 @@ const path = require('path');
 const fs = require('fs');
 const yaml = require('js-yaml');
 
-// Try to load swagger-ui-express
 let swaggerUi;
+let swaggerUiAvailable = false;
+
 try {
   swaggerUi = require('swagger-ui-express');
+  swaggerUiAvailable = true;
 } catch (e) {
-  console.warn('swagger-ui-express not installed. Swagger UI will not be available.');
+  console.warn('swagger-ui-express not installed; /api/docs/ui will not be available');
 }
 
-// Load OpenAPI spec
+// Load the OpenAPI spec
 const specPath = path.join(__dirname, '../../openapi.yaml');
 
-let swaggerDocument;
-try {
-  const specContent = fs.readFileSync(specPath, 'utf8');
-  swaggerDocument = yaml.load(specContent);
-} catch (e) {
-  console.warn('Could not load openapi.yaml:', e.message);
-  swaggerDocument = { openapi: '3.1.0', info: { title: 'API', version: '1.0.0' }, paths: {} };
+function loadSpec() {
+  try {
+    const raw = fs.readFileSync(specPath, 'utf8');
+    return yaml.load(raw);
+  } catch (e) {
+    console.error('Failed to load openapi.yaml:', e.message);
+    return null;
+  }
 }
 
-// Serve raw OpenAPI spec as JSON
+// Serve the raw OpenAPI YAML/JSON
 router.get('/', (req, res) => {
-  res.json(swaggerDocument);
-});
-
-// Serve raw OpenAPI spec as YAML
-router.get('/openapi.yaml', (req, res) => {
-  res.setHeader('Content-Type', 'application/yaml');
+  const accept = req.headers['accept'] || '';
+  if (accept.includes('application/json')) {
+    const spec = loadSpec();
+    if (!spec) return res.status(500).json({ error: 'Could not load OpenAPI spec' });
+    return res.json(spec);
+  }
+  // Default: serve YAML
   try {
-    res.send(fs.readFileSync(specPath, 'utf8'));
+    const raw = fs.readFileSync(specPath, 'utf8');
+    res.set('Content-Type', 'text/yaml');
+    return res.send(raw);
   } catch (e) {
-    res.status(500).json({ error: 'Could not load OpenAPI spec' });
+    return res.status(500).json({ error: 'Could not load OpenAPI spec' });
   }
 });
 
-// Serve Swagger UI
-if (swaggerUi) {
-  router.use('/ui', swaggerUi.serve);
-  router.get('/ui', swaggerUi.setup(swaggerDocument, {
-    customSiteTitle: 'Photo Gallery API Docs',
-    customCss: '.swagger-ui .topbar { display: none }',
-    swaggerOptions: {
-      persistAuthorization: true,
-      displayRequestDuration: true,
-    },
-  }));
+// Swagger UI
+if (swaggerUiAvailable) {
+  const spec = loadSpec();
+  if (spec) {
+    router.use('/ui', swaggerUi.serve);
+    router.get('/ui', swaggerUi.setup(spec, {
+      customSiteTitle: 'Photo Gallery API Docs',
+      customCss: '.swagger-ui .topbar { background-color: #2d3748; }',
+    }));
+  }
 } else {
   router.get('/ui', (req, res) => {
-    res.status(503).send(`
-      <html>
-        <body>
-          <h1>Swagger UI Not Available</h1>
-          <p>swagger-ui-express is not installed. Run: npm install swagger-ui-express</p>
-          <p><a href="/api/docs">View raw API spec (JSON)</a></p>
-        </body>
-      </html>
-    `);
+    res.status(503).send('Swagger UI not available. Install swagger-ui-express.');
   });
 }
 

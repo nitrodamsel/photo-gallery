@@ -17,24 +17,19 @@ module.exports = {
       label: {
         type: Sequelize.STRING,
         allowNull: false,
-        defaultValue: 'Unnamed Key',
       },
       lastUsedAt: {
         type: Sequelize.DATE,
         allowNull: true,
         defaultValue: null,
+        field: 'last_used_at',
       },
       createdAt: {
         type: Sequelize.DATE,
         allowNull: false,
         defaultValue: Sequelize.literal('CURRENT_TIMESTAMP'),
+        field: 'created_at',
       },
-    });
-
-    // Index on key for fast lookups
-    await queryInterface.addIndex('api_keys', ['key'], {
-      unique: true,
-      name: 'api_keys_key_unique',
     });
   },
 

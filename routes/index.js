@@ -3,16 +3,35 @@
 const express = require('express');
 const router = express.Router();
 
-// Mount API docs (no auth required)
-router.use('/api/docs', require('./api/docs'));
+const galleryRouter = require('./gallery');
+const uploadRouter = require('./upload');
+const searchRouter = require('./search');
+const tagsRouter = require('./tags');
+const imageApiRouter = require('./imageApi');
+const imageTagsRouter = require('./imageTags');
+const thumbnailRouter = require('./thumbnails');
+const adminRouter = require('./admin');
+const apiV1Router = require('./api/v1/index');
+const apiDocsRouter = require('./api/docs');
 
-// Mount API v1 routes (auth + rate-limit applied inside)
-router.use('/api/v1', require('./api/v1/index'));
+// Gallery & UI routes
+router.use('/', galleryRouter);
+router.use('/upload', uploadRouter);
+router.use('/search', searchRouter);
+router.use('/tags', tagsRouter);
 
-// Mount admin routes
-router.use('/admin', require('./admin'));
+// Image API (non-versioned internal)
+router.use('/images', imageApiRouter);
+router.use('/images', imageTagsRouter);
+router.use('/thumbnails', thumbnailRouter);
 
-// Mount other routes
-router.use('/', require('./gallery'));
+// Admin
+router.use('/admin', adminRouter);
+
+// REST API v1
+router.use('/api/v1', apiV1Router);
+
+// API Docs (no auth)
+router.use('/api/docs', apiDocsRouter);
 
 module.exports = router;

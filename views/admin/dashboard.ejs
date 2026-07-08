@@ -1,351 +1,490 @@
-<%- include('../layouts/base', { title: title, body: `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title><%= title %> — Photo Gallery</title>
+  <link rel="stylesheet" href="/css/main.css" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --bg: #f7fafc;
+      --card-bg: #fff;
+      --text: #2d3748;
+      --muted: #718096;
+      --primary: #4299e1;
+      --danger: #e53e3e;
+      --success: #38a169;
+      --border: #e2e8f0;
+    }
 
-<div class="container-fluid py-4">
-  <!-- Header -->
-  <div class="d-flex justify-content-between align-items-center mb-4">
-    <div>
-      <h1 class="h3 mb-0">
-        <i class="bi bi-speedometer2 me-2 text-primary"></i>Admin Dashboard
-      </h1>
-      <p class="text-muted mb-0 mt-1">System overview and statistics</p>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    .admin-header {
+      background: #2d3748;
+      color: #fff;
+      padding: 1rem 2rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .admin-header h1 { font-size: 1.25rem; font-weight: 600; }
+    .admin-header a { color: #90cdf4; text-decoration: none; font-size: 0.875rem; }
+    .admin-header a:hover { color: #fff; }
+
+    .admin-main {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 2rem 1rem;
+    }
+
+    .section-title {
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 1rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 2px solid var(--border);
+    }
+
+    /* Stat Cards */
+    .stat-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1.25rem;
+      margin-bottom: 2rem;
+    }
+
+    .stat-card {
+      background: var(--card-bg);
+      border-radius: 0.75rem;
+      padding: 1.5rem;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      border-left: 4px solid var(--primary);
+    }
+
+    .stat-card.green { border-left-color: var(--success); }
+    .stat-card.red { border-left-color: var(--danger); }
+    .stat-card.purple { border-left-color: #805ad5; }
+
+    .stat-label {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--muted);
+      margin-bottom: 0.5rem;
+    }
+
+    .stat-value {
+      font-size: 2rem;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .stat-sub {
+      font-size: 0.8rem;
+      color: var(--muted);
+      margin-top: 0.25rem;
+    }
+
+    /* Charts & Tables Grid */
+    .content-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.5rem;
+      margin-bottom: 2rem;
+    }
+
+    @media (max-width: 768px) {
+      .content-grid { grid-template-columns: 1fr; }
+    }
+
+    .card {
+      background: var(--card-bg);
+      border-radius: 0.75rem;
+      padding: 1.5rem;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+
+    .card-title {
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 1rem;
+    }
+
+    .chart-wrapper {
+      position: relative;
+      height: 260px;
+    }
+
+    /* Tag Table */
+    .tag-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.875rem;
+    }
+
+    .tag-table th {
+      text-align: left;
+      padding: 0.5rem 0.75rem;
+      background: var(--bg);
+      color: var(--muted);
+      font-weight: 600;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .tag-table td {
+      padding: 0.5rem 0.75rem;
+      border-bottom: 1px solid var(--border);
+      color: var(--text);
+    }
+
+    .tag-table tr:last-child td { border-bottom: none; }
+
+    .tag-badge {
+      display: inline-block;
+      background: #ebf8ff;
+      color: #2b6cb0;
+      border-radius: 9999px;
+      padding: 0.1rem 0.6rem;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+
+    .progress-bar-wrap {
+      background: var(--border);
+      border-radius: 9999px;
+      height: 6px;
+      overflow: hidden;
+      margin-top: 4px;
+    }
+
+    .progress-bar {
+      background: var(--primary);
+      height: 100%;
+      border-radius: 9999px;
+    }
+
+    /* Recent Uploads */
+    .uploads-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.85rem;
+    }
+
+    .uploads-table th {
+      text-align: left;
+      padding: 0.5rem 0.75rem;
+      background: var(--bg);
+      color: var(--muted);
+      font-weight: 600;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+    }
+
+    .uploads-table td {
+      padding: 0.5rem 0.75rem;
+      border-bottom: 1px solid var(--border);
+      vertical-align: middle;
+    }
+
+    .uploads-table tr:last-child td { border-bottom: none; }
+
+    .thumb-mini {
+      width: 40px;
+      height: 40px;
+      object-fit: cover;
+      border-radius: 4px;
+      display: block;
+    }
+
+    .mime-badge {
+      font-size: 0.7rem;
+      background: #f0fff4;
+      color: #276749;
+      border-radius: 4px;
+      padding: 0.15rem 0.4rem;
+      font-weight: 600;
+    }
+
+    /* Actions */
+    .action-bar {
+      display: flex;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+      margin-bottom: 2rem;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.6rem 1.2rem;
+      border-radius: 0.5rem;
+      font-size: 0.875rem;
+      font-weight: 600;
+      border: none;
+      cursor: pointer;
+      text-decoration: none;
+      transition: opacity 0.15s;
+    }
+
+    .btn:hover { opacity: 0.85; }
+    .btn-primary { background: var(--primary); color: #fff; }
+    .btn-danger { background: var(--danger); color: #fff; }
+    .btn-light { background: var(--card-bg); color: var(--text); border: 1px solid var(--border); }
+
+    .alert {
+      padding: 0.75rem 1rem;
+      border-radius: 0.5rem;
+      margin-bottom: 1rem;
+      font-size: 0.875rem;
+    }
+
+    .alert-success { background: #f0fff4; color: #276749; border: 1px solid #c6f6d5; }
+    .alert-error { background: #fff5f5; color: #c53030; border: 1px solid #fed7d7; }
+
+    #flush-msg { display: none; }
+  </style>
+</head>
+<body>
+
+<header class="admin-header">
+  <h1>📊 Admin Dashboard</h1>
+  <div style="display:flex;gap:1.5rem;align-items:center;">
+    <a href="/">← Gallery</a>
+    <a href="/api/docs/ui" target="_blank">API Docs ↗</a>
+  </div>
+</header>
+
+<main class="admin-main">
+
+  <!-- Flash messages -->
+  <div id="flush-msg" class="alert alert-success">✓ Cache flushed successfully.</div>
+
+  <!-- Stat Cards -->
+  <div class="stat-grid">
+    <div class="stat-card">
+      <div class="stat-label">Total Images</div>
+      <div class="stat-value"><%= stats.totalImages.toLocaleString() %></div>
     </div>
-    <div class="d-flex gap-2">
-      <button class="btn btn-outline-warning" onclick="flushCache()">
-        <i class="bi bi-arrow-clockwise me-1"></i>Flush Cache
-      </button>
-      <a href="/api/docs/ui" target="_blank" class="btn btn-outline-info">
-        <i class="bi bi-book me-1"></i>API Docs
-      </a>
+    <div class="stat-card green">
+      <div class="stat-label">Storage Used</div>
+      <div class="stat-value"><%= stats.totalStorageFormatted %></div>
+      <div class="stat-sub"><%= stats.totalStorage.toLocaleString() %> bytes</div>
+    </div>
+    <div class="stat-card purple">
+      <div class="stat-label">Total Tags</div>
+      <div class="stat-value"><%= stats.totalTags.toLocaleString() %></div>
+    </div>
+    <div class="stat-card red">
+      <div class="stat-label">API Keys</div>
+      <div class="stat-value"><%= stats.totalApiKeys.toLocaleString() %></div>
     </div>
   </div>
 
-  <!-- Stat Cards -->
-  <div class="row g-4 mb-4">
-    <div class="col-sm-6 col-xl-3">
-      <div class="card border-0 shadow-sm h-100">
-        <div class="card-body">
-          <div class="d-flex align-items-center">
-            <div class="flex-shrink-0 me-3">
-              <div class="bg-primary bg-opacity-10 rounded-3 p-3">
-                <i class="bi bi-images fs-4 text-primary"></i>
-              </div>
-            </div>
-            <div>
-              <div class="h4 mb-0 fw-bold">${stats.totalImages.toLocaleString()}</div>
-              <div class="text-muted small">Total Images</div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div class="col-sm-6 col-xl-3">
-      <div class="card border-0 shadow-sm h-100">
-        <div class="card-body">
-          <div class="d-flex align-items-center">
-            <div class="flex-shrink-0 me-3">
-              <div class="bg-success bg-opacity-10 rounded-3 p-3">
-                <i class="bi bi-hdd fs-4 text-success"></i>
-              </div>
-            </div>
-            <div>
-              <div class="h4 mb-0 fw-bold">${formatBytes(stats.totalStorage)}</div>
-              <div class="text-muted small">Storage Used</div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div class="col-sm-6 col-xl-3">
-      <div class="card border-0 shadow-sm h-100">
-        <div class="card-body">
-          <div class="d-flex align-items-center">
-            <div class="flex-shrink-0 me-3">
-              <div class="bg-info bg-opacity-10 rounded-3 p-3">
-                <i class="bi bi-tags fs-4 text-info"></i>
-              </div>
-            </div>
-            <div>
-              <div class="h4 mb-0 fw-bold">${stats.totalTags.toLocaleString()}</div>
-              <div class="text-muted small">Total Tags</div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div class="col-sm-6 col-xl-3">
-      <div class="card border-0 shadow-sm h-100">
-        <div class="card-body">
-          <div class="d-flex align-items-center">
-            <div class="flex-shrink-0 me-3">
-              <div class="bg-warning bg-opacity-10 rounded-3 p-3">
-                <i class="bi bi-key fs-4 text-warning"></i>
-              </div>
-            </div>
-            <div>
-              <div class="h4 mb-0 fw-bold">${stats.totalApiKeys.toLocaleString()}</div>
-              <div class="text-muted small">API Keys</div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
+  <!-- Action Bar -->
+  <div class="action-bar">
+    <button class="btn btn-danger" onclick="flushCache()">🗑️ Flush Cache</button>
+    <a href="/upload" class="btn btn-primary">⬆ Upload Images</a>
+    <a href="/api/docs/ui" target="_blank" class="btn btn-light">📄 API Docs</a>
+    <a href="/admin/stats" target="_blank" class="btn btn-light">📊 Raw Stats JSON</a>
   </div>
 
   <!-- Charts Row -->
-  <div class="row g-4 mb-4">
+  <div class="content-grid">
     <!-- Uploads Per Month Chart -->
-    <div class="col-lg-8">
-      <div class="card border-0 shadow-sm h-100">
-        <div class="card-header bg-transparent border-0 pt-4 px-4">
-          <h5 class="card-title mb-0">
-            <i class="bi bi-bar-chart me-2 text-primary"></i>Uploads Per Month
-          </h5>
-          <p class="text-muted small mb-0">Last 12 months</p>
-        </div>
-        <div class="card-body px-4 pb-4">
-          <canvas id="uploadsChart" height="250"></canvas>
-        </div>
+    <div class="card">
+      <div class="card-title">Uploads per Month (Last 12 Months)</div>
+      <div class="chart-wrapper">
+        <canvas id="uploadsChart"></canvas>
       </div>
     </div>
 
-    <!-- Camera Makes -->
-    <div class="col-lg-4">
-      <div class="card border-0 shadow-sm h-100">
-        <div class="card-header bg-transparent border-0 pt-4 px-4">
-          <h5 class="card-title mb-0">
-            <i class="bi bi-camera me-2 text-success"></i>Camera Makes
-          </h5>
-        </div>
-        <div class="card-body px-4 pb-4">
-          ${cameraMakeStats.length > 0 ? `
-          <canvas id="cameraMakeChart" height="220"></canvas>
-          ` : `
-          <div class="text-center text-muted py-5">
-            <i class="bi bi-camera fs-1 opacity-25 d-block mb-2"></i>
-            <small>No camera EXIF data available</small>
-          </div>
-          `}
-        </div>
+    <!-- Camera Make Distribution -->
+    <div class="card">
+      <div class="card-title">Camera Make Distribution</div>
+      <div class="chart-wrapper">
+        <canvas id="cameraChart"></canvas>
       </div>
     </div>
   </div>
 
-  <!-- Bottom Row -->
-  <div class="row g-4">
+  <!-- Tags & Recent Uploads Row -->
+  <div class="content-grid">
     <!-- Top Tags -->
-    <div class="col-lg-6">
-      <div class="card border-0 shadow-sm">
-        <div class="card-header bg-transparent border-0 pt-4 px-4">
-          <h5 class="card-title mb-0">
-            <i class="bi bi-tags me-2 text-info"></i>Top Tags
-          </h5>
-        </div>
-        <div class="card-body p-0">
-          ${topTags.length > 0 ? `
-          <div class="table-responsive">
-            <table class="table table-hover mb-0">
-              <thead>
-                <tr>
-                  <th class="px-4 border-0 text-muted small fw-semibold">#</th>
-                  <th class="border-0 text-muted small fw-semibold">Tag</th>
-                  <th class="border-0 text-muted small fw-semibold text-end pe-4">Images</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${topTags.map((tag, idx) => `
-                <tr>
-                  <td class="px-4 text-muted">${idx + 1}</td>
-                  <td>
-                    <a href="/tags/${tag.id}" class="text-decoration-none">
-                      <span class="badge bg-secondary-subtle text-secondary rounded-pill px-3 py-1">${tag.name}</span>
-                    </a>
-                  </td>
-                  <td class="text-end pe-4">
-                    <span class="fw-semibold">${parseInt(tag.imageCount).toLocaleString()}</span>
-                  </td>
-                </tr>
-                `).join('')}
-              </tbody>
-            </table>
-          </div>
-          ` : `
-          <div class="text-center text-muted py-5">
-            <i class="bi bi-tags fs-1 opacity-25 d-block mb-2"></i>
-            <small>No tags yet</small>
-          </div>
-          `}
-        </div>
-      </div>
+    <div class="card">
+      <div class="card-title">Top 10 Tags</div>
+      <% if (stats.topTags && stats.topTags.length > 0) { %>
+        <%
+          const maxTagCount = stats.topTags[0]?.imageCount || 1;
+        %>
+        <table class="tag-table">
+          <thead>
+            <tr>
+              <th>Tag</th>
+              <th>Images</th>
+              <th style="width:40%">Distribution</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% stats.topTags.forEach(tag => { %>
+              <tr>
+                <td><span class="tag-badge">#<%= tag.name %></span></td>
+                <td><%= tag.imageCount %></td>
+                <td>
+                  <div class="progress-bar-wrap">
+                    <div class="progress-bar" style="width: <%= Math.round((tag.imageCount / maxTagCount) * 100) %>%"></div>
+                  </div>
+                </td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      <% } else { %>
+        <p style="color:var(--muted);font-size:0.875rem;">No tags found.</p>
+      <% } %>
     </div>
 
     <!-- Recent Uploads -->
-    <div class="col-lg-6">
-      <div class="card border-0 shadow-sm">
-        <div class="card-header bg-transparent border-0 pt-4 px-4">
-          <h5 class="card-title mb-0">
-            <i class="bi bi-clock-history me-2 text-warning"></i>Recent Uploads
-          </h5>
-        </div>
-        <div class="card-body p-0">
-          ${recentImages.length > 0 ? `
-          <div class="table-responsive">
-            <table class="table table-hover mb-0">
-              <thead>
-                <tr>
-                  <th class="px-4 border-0 text-muted small fw-semibold">File</th>
-                  <th class="border-0 text-muted small fw-semibold">Size</th>
-                  <th class="border-0 text-muted small fw-semibold text-end pe-4">Date</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${recentImages.map((img) => `
-                <tr>
-                  <td class="px-4">
-                    <a href="/images/${img.id}" class="text-decoration-none text-truncate d-inline-block" style="max-width: 200px;">
-                      <i class="bi bi-image me-1 text-muted"></i>${img.originalName || 'Untitled'}
-                    </a>
-                  </td>
-                  <td class="text-muted small">${formatBytesSmall(img.fileSize)}</td>
-                  <td class="text-end pe-4 text-muted small">${new Date(img.createdAt).toLocaleDateString()}</td>
-                </tr>
-                `).join('')}
-              </tbody>
-            </table>
-          </div>
-          ` : `
-          <div class="text-center text-muted py-5">
-            <i class="bi bi-images fs-1 opacity-25 d-block mb-2"></i>
-            <small>No images uploaded yet</small>
-          </div>
-          `}
-        </div>
-      </div>
+    <div class="card">
+      <div class="card-title">Recent Uploads</div>
+      <% if (stats.recentUploads && stats.recentUploads.length > 0) { %>
+        <table class="uploads-table">
+          <thead>
+            <tr>
+              <th>Preview</th>
+              <th>File</th>
+              <th>Size</th>
+              <th>Date</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% stats.recentUploads.forEach(img => { %>
+              <tr>
+                <td>
+                  <img
+                    src="/thumbnails/<%= img.filename %>?w=40&h=40&fit=cover"
+                    alt=""
+                    class="thumb-mini"
+                    onerror="this.style.display='none'"
+                  />
+                </td>
+                <td>
+                  <a href="/images/<%= img.id %>" style="color:var(--primary);text-decoration:none;">
+                    <%= (img.title || img.originalName || '').substring(0, 30) %><%= (img.title || img.originalName || '').length > 30 ? '…' : '' %>
+                  </a>
+                  <div><span class="mime-badge"><%= img.mimeType %></span></div>
+                </td>
+                <td><%= formatBytes(img.fileSize) %></td>
+                <td style="white-space:nowrap;color:var(--muted);font-size:0.8rem;">
+                  <%= new Date(img.createdAt).toLocaleDateString() %>
+                </td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      <% } else { %>
+        <p style="color:var(--muted);font-size:0.875rem;">No uploads yet.</p>
+      <% } %>
     </div>
   </div>
-</div>
 
-<!-- Alert toast -->
-<div class="toast-container position-fixed bottom-0 end-0 p-3" id="toastContainer"></div>
+</main>
 
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>
-  // Helper: format bytes
+  // Helper
   function formatBytes(bytes) {
-    if (!bytes) return '0 B';
-    const units = ['B', 'KB', 'MB', 'GB', 'TB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(1024));
-    return (bytes / Math.pow(1024, i)).toFixed(2) + ' ' + units[i];
-  }
-
-  function formatBytesSmall(bytes) {
-    if (!bytes) return '—';
-    const units = ['B', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(1024));
-    return (bytes / Math.pow(1024, i)).toFixed(1) + ' ' + units[i];
-  }
-
-  // Show toast notification
-  function showToast(message, type = 'success') {
-    const id = 'toast-' + Date.now();
-    const toast = document.createElement('div');
-    toast.className = 'toast align-items-center text-bg-' + type + ' border-0 show';
-    toast.id = id;
-    toast.setAttribute('role', 'alert');
-    toast.innerHTML = '<div class="d-flex"><div class="toast-body">' + message + '</div><button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button></div>';
-    document.getElementById('toastContainer').appendChild(toast);
-    setTimeout(() => toast.remove(), 4000);
-  }
-
-  // Flush cache
-  async function flushCache() {
-    try {
-      const resp = await fetch('/admin/cache/flush', { method: 'POST' });
-      const data = await resp.json();
-      if (resp.ok) {
-        showToast(data.message || 'Cache flushed!', 'success');
-      } else {
-        showToast('Failed to flush cache', 'danger');
-      }
-    } catch (e) {
-      showToast('Error: ' + e.message, 'danger');
-    }
+    if (!bytes || bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
   }
 
   // Uploads per month chart
-  const uploadsData = <%- JSON.stringify(uploadsPerMonth) %>;
-
-  if (uploadsData.length > 0) {
-    const ctx = document.getElementById('uploadsChart').getContext('2d');
-    new Chart(ctx, {
-      type: 'bar',
-      data: {
-        labels: uploadsData.map(d => d.month),
-        datasets: [{
-          label: 'Uploads',
-          data: uploadsData.map(d => d.count),
-          backgroundColor: 'rgba(13, 110, 253, 0.7)',
-          borderColor: 'rgba(13, 110, 253, 1)',
-          borderWidth: 1,
-          borderRadius: 4,
-        }]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          legend: { display: false },
-          tooltip: {
-            callbacks: {
-              label: ctx => ctx.parsed.y + ' image' + (ctx.parsed.y !== 1 ? 's' : '')
-            }
-          }
-        },
-        scales: {
-          y: {
-            beginAtZero: true,
-            ticks: { precision: 0 },
-            grid: { color: 'rgba(0,0,0,0.05)' }
-          },
-          x: {
-            grid: { display: false }
-          }
-        }
+  const uploadsData = <%- JSON.stringify(stats.uploadsPerMonth) %>;
+  const uploadCtx = document.getElementById('uploadsChart').getContext('2d');
+  new Chart(uploadCtx, {
+    type: 'bar',
+    data: {
+      labels: uploadsData.map(d => d.month),
+      datasets: [{
+        label: 'Uploads',
+        data: uploadsData.map(d => d.count),
+        backgroundColor: 'rgba(66, 153, 225, 0.7)',
+        borderColor: 'rgba(66, 153, 225, 1)',
+        borderWidth: 1,
+        borderRadius: 4,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        y: { beginAtZero: true, ticks: { precision: 0 } }
       }
-    });
-  } else {
-    document.getElementById('uploadsChart').parentElement.innerHTML = '<div class="text-center text-muted py-5"><i class="bi bi-bar-chart fs-1 opacity-25 d-block mb-2"></i><small>No upload data available</small></div>';
-  }
+    }
+  });
 
   // Camera make chart
-  const cameraMakes = <%- JSON.stringify(cameraMakeStats) %>;
-  if (cameraMakes.length > 0 && document.getElementById('cameraMakeChart')) {
-    const ctx2 = document.getElementById('cameraMakeChart').getContext('2d');
-    const colors = ['#0d6efd','#198754','#0dcaf0','#ffc107','#dc3545','#6f42c1','#fd7e14','#20c997','#6c757d','#d63384'];
-    new Chart(ctx2, {
-      type: 'doughnut',
-      data: {
-        labels: cameraMakes.map(c => c.cameraMake || 'Unknown'),
-        datasets: [{
-          data: cameraMakes.map(c => parseInt(c.count)),
-          backgroundColor: colors.slice(0, cameraMakes.length),
-          borderWidth: 2,
-          borderColor: '#fff'
-        }]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          legend: {
-            position: 'bottom',
-            labels: { font: { size: 11 }, boxWidth: 12 }
-          }
+  const cameraData = <%- JSON.stringify(stats.cameraMakes) %>;
+  const cameraCtx = document.getElementById('cameraChart').getContext('2d');
+  new Chart(cameraCtx, {
+    type: 'doughnut',
+    data: {
+      labels: cameraData.length ? cameraData.map(d => d.make) : ['No EXIF data'],
+      datasets: [{
+        data: cameraData.length ? cameraData.map(d => d.count) : [1],
+        backgroundColor: [
+          '#4299e1','#48bb78','#ed8936','#9f7aea','#f56565',
+          '#38b2ac','#ed64a6','#ecc94b','#667eea','#fc8181'
+        ],
+        borderWidth: 2,
+        borderColor: '#fff',
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          position: 'right',
+          labels: { font: { size: 11 }, boxWidth: 14 }
         }
       }
-    });
+    }
+  });
+
+  // Flush cache
+  async function flushCache() {
+    if (!confirm('Flush the thumbnail cache? This will regenerate thumbnails on next request.')) return;
+    try {
+      const res = await fetch('/admin/cache/flush', { method: 'POST' });
+      const data = await res.json();
+      const msg = document.getElementById('flush-msg');
+      msg.textContent = data.message || 'Cache flushed.';
+      msg.style.display = 'block';
+      setTimeout(() => { msg.style.display = 'none'; }, 3000);
+    } catch (e) {
+      alert('Failed to flush cache: ' + e.message);
+    }
   }
 </script>
-` }) %>
+
+</body>
+</html>

@@ -2,159 +2,140 @@
 
 const express = require('express');
 const router = express.Router();
-const searchService = require('../../../services/searchService');
 const { Image, Tag, sequelize } = require('../../../models');
-const { Op, fn, col, literal } = require('sequelize');
+const { Op } = require('sequelize');
+const searchService = require('../../../services/searchService');
+
+function apiError(res, status, code, message) {
+  return res.status(status).json({ error: { code, message } });
+}
+
+function getPagination(query) {
+  const page = Math.max(1, parseInt(query.page) || 1);
+  const limit = Math.min(100, Math.max(1, parseInt(query.limit) || 20));
+  const offset = (page - 1) * limit;
+  return { page, limit, offset };
+}
 
 /**
  * GET /api/v1/search
- * Full-text search with filter support
+ * Full-text search with filters
  */
 router.get('/', async (req, res, next) => {
   try {
-    const page = Math.max(1, parseInt(req.query.page) || 1);
-    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
-    const offset = (page - 1) * limit;
-
-    const filters = {
-      q: req.query.q || '',
-      tags: req.query.tags ? req.query.tags.split(',').map((t) => t.trim()).filter(Boolean) : [],
-      cameraMake: req.query.cameraMake || null,
-      cameraModel: req.query.cameraModel || null,
-      dateFrom: req.query.dateFrom || null,
-      dateTo: req.query.dateTo || null,
-      sortBy: req.query.sortBy || 'createdAt',
-      sortDir: req.query.sortDir === 'asc' ? 'ASC' : 'DESC',
-    };
+    const { page, limit, offset } = getPagination(req.query);
+    const { q, tag, dateFrom, dateTo, mimeType, sort = 'createdAt', order = 'DESC' } = req.query;
 
     const where = {};
+    const tagFilter = [];
 
-    // Full-text search
-    if (filters.q) {
+    if (q) {
       where[Op.or] = [
-        { originalName: { [Op.iLike]: `%${filters.q}%` } },
-        { description: { [Op.iLike]: `%${filters.q}%` } },
-        { title: { [Op.iLike]: `%${filters.q}%` } },
+        { originalName: { [Op.iLike]: `%${q}%` } },
+        { title: { [Op.iLike]: `%${q}%` } },
+        { description: { [Op.iLike]: `%${q}%` } },
       ];
     }
 
-    // Camera filters
-    if (filters.cameraMake) {
-      where.cameraMake = { [Op.iLike]: `%${filters.cameraMake}%` };
-    }
-    if (filters.cameraModel) {
-      where.cameraModel = { [Op.iLike]: `%${filters.cameraModel}%` };
+    if (mimeType) {
+      where.mimeType = { [Op.iLike]: `${mimeType}%` };
     }
 
-    // Date range
-    if (filters.dateFrom || filters.dateTo) {
+    if (dateFrom || dateTo) {
       where.createdAt = {};
-      if (filters.dateFrom) where.createdAt[Op.gte] = new Date(filters.dateFrom);
-      if (filters.dateTo) where.createdAt[Op.lte] = new Date(filters.dateTo);
+      if (dateFrom) where.createdAt[Op.gte] = new Date(dateFrom);
+      if (dateTo) where.createdAt[Op.lte] = new Date(dateTo);
     }
 
-    // Tag filtering
     const include = [
       {
         model: Tag,
         as: 'tags',
         through: { attributes: [] },
-        ...(filters.tags.length > 0
-          ? {
-              where: { name: { [Op.in]: filters.tags } },
-              required: true,
-            }
-          : {}),
+        ...(tag ? { where: { name: tag } } : {}),
+        required: !!tag,
       },
     ];
+
+    const validSortFields = ['createdAt', 'fileSize', 'originalName', 'title'];
+    const sortField = validSortFields.includes(sort) ? sort : 'createdAt';
+    const sortOrder = order.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
 
     const { count, rows } = await Image.findAndCountAll({
       where,
       include,
+      order: [[sortField, sortOrder]],
       limit,
       offset,
-      order: [[filters.sortBy, filters.sortDir]],
       distinct: true,
     });
 
-    res.json({
+    return res.json({
       data: rows,
-      query: filters,
       pagination: {
         page,
         limit,
         total: count,
         totalPages: Math.ceil(count / limit),
-        hasNext: page * limit < count,
-        hasPrev: page > 1,
       },
+      query: { q, tag, dateFrom, dateTo, mimeType, sort: sortField, order: sortOrder },
     });
   } catch (err) {
-    next(err);
+    return next(err);
   }
 });
 
 /**
  * GET /api/v1/search/facets
- * Get search facets for filtering UI
+ * Return facet counts for filtering
  */
 router.get('/facets', async (req, res, next) => {
   try {
-    // Top tags
+    // Top tags by image count
     const topTags = await Tag.findAll({
+      include: [
+        {
+          model: Image,
+          as: 'images',
+          attributes: [],
+          through: { attributes: [] },
+        },
+      ],
       attributes: [
         'id',
         'name',
-        [
-          require('sequelize').literal(
-            '(SELECT COUNT(*) FROM image_tags WHERE image_tags."tagId" = "Tag"."id")'
-          ),
-          'imageCount',
-        ],
+        [Tag.sequelize.fn('COUNT', Tag.sequelize.col('images.id')), 'count'],
       ],
-      order: [[require('sequelize').literal('"imageCount"'), 'DESC']],
+      group: ['Tag.id'],
+      order: [[Tag.sequelize.literal('count'), 'DESC']],
       limit: 20,
     });
 
-    // Camera makes
-    const cameraMakes = await Image.findAll({
+    // MIME type distribution
+    const mimeTypes = await Image.findAll({
       attributes: [
-        'cameraMake',
-        [fn('COUNT', col('id')), 'count'],
+        'mimeType',
+        [Image.sequelize.fn('COUNT', Image.sequelize.col('id')), 'count'],
       ],
-      where: {
-        cameraMake: { [Op.ne]: null },
-      },
-      group: ['cameraMake'],
-      order: [[fn('COUNT', col('id')), 'DESC']],
-      limit: 20,
-      raw: true,
+      group: ['mimeType'],
+      order: [[Image.sequelize.literal('count'), 'DESC']],
     });
 
-    // Camera models
-    const cameraModels = await Image.findAll({
-      attributes: [
-        'cameraModel',
-        [fn('COUNT', col('id')), 'count'],
-      ],
-      where: {
-        cameraModel: { [Op.ne]: null },
-      },
-      group: ['cameraModel'],
-      order: [[fn('COUNT', col('id')), 'DESC']],
-      limit: 20,
-      raw: true,
-    });
-
-    res.json({
+    return res.json({
       data: {
-        tags: topTags,
-        cameraMakes,
-        cameraModels,
+        tags: topTags.map((t) => ({
+          id: t.id,
+          name: t.name,
+          count: parseInt(t.dataValues.count || 0),
+        })),
+        mimeTypes: mimeTypes.map((m) => ({
+          mimeType: m.mimeType,
+          count: parseInt(m.dataValues.count || 0),
+        })),
       },
     });
   } catch (err) {
-    next(err);
+    return next(err);
   }
 });
 

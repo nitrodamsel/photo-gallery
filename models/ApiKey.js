@@ -31,7 +31,6 @@ module.exports = (sequelize) => {
       label: {
         type: DataTypes.STRING,
         allowNull: false,
-        defaultValue: 'Unnamed Key',
       },
       lastUsedAt: {
         type: DataTypes.DATE,
@@ -43,7 +42,6 @@ module.exports = (sequelize) => {
       sequelize,
       modelName: 'ApiKey',
       tableName: 'api_keys',
-      timestamps: true,
       updatedAt: false,
     }
   );
