@@ -2,26 +2,41 @@
 
 const express = require('express');
 const router = express.Router();
-const multer = require('multer');
-const path = require('path');
-const { Image, Tag, ImageTag, sequelize } = require('../../../models');
+const { Image, Tag, ImageTag } = require('../../../models');
 const imageService = require('../../../services/imageService');
 const { Op } = require('sequelize');
+const multer = require('multer');
+const path = require('path');
+const crypto = require('crypto');
+
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, path.join(__dirname, '../../../uploads'));
+  },
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    const uniqueName = `${Date.now()}-${crypto.randomBytes(8).toString('hex')}${ext}`;
+    cb(null, uniqueName);
+  },
+});
 
 const upload = multer({
-  dest: path.join(__dirname, '../../../uploads/'),
+  storage,
   limits: { fileSize: 50 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
-    const allowed = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/tiff'];
-    if (allowed.includes(file.mimetype)) {
+    const allowed = /jpeg|jpg|png|gif|webp|tiff|bmp/i;
+    if (allowed.test(path.extname(file.originalname))) {
       cb(null, true);
     } else {
-      cb(new Error('Invalid file type'));
+      cb(new Error('Only image files are allowed'));
     }
   },
 });
 
-// GET /api/v1/images — list paginated images
+/**
+ * GET /api/v1/images
+ * List images with pagination and filtering
+ */
 router.get('/', async (req, res, next) => {
   try {
     const page = Math.max(1, parseInt(req.query.page) || 1);
@@ -32,26 +47,41 @@ router.get('/', async (req, res, next) => {
     if (req.query.search) {
       where[Op.or] = [
         { originalName: { [Op.like]: `%${req.query.search}%` } },
+        { title: { [Op.like]: `%${req.query.search}%` } },
         { description: { [Op.like]: `%${req.query.search}%` } },
       ];
     }
 
+    const order = [];
+    const sortField = req.query.sort || 'createdAt';
+    const sortDir = req.query.dir === 'asc' ? 'ASC' : 'DESC';
+    const allowedSort = ['createdAt', 'originalName', 'fileSize', 'title'];
+    if (allowedSort.includes(sortField)) {
+      order.push([sortField, sortDir]);
+    } else {
+      order.push(['createdAt', 'DESC']);
+    }
+
     const { count, rows } = await Image.findAndCountAll({
       where,
-      include: [{ model: Tag, through: { attributes: [] }, attributes: ['id', 'name', 'slug'] }],
-      order: [['createdAt', 'DESC']],
+      include: [{ model: Tag, as: 'tags', through: { attributes: [] } }],
       limit,
       offset,
+      order,
       distinct: true,
     });
+
+    const totalPages = Math.ceil(count / limit);
 
     res.json({
       data: rows,
       pagination: {
-        total: count,
         page,
         limit,
-        pages: Math.ceil(count / limit),
+        total: count,
+        totalPages,
+        hasNext: page < totalPages,
+        hasPrev: page > 1,
       },
     });
   } catch (err) {
@@ -59,19 +89,29 @@ router.get('/', async (req, res, next) => {
   }
 });
 
-// POST /api/v1/images — upload a new image
+/**
+ * POST /api/v1/images
+ * Upload a new image
+ */
 router.post('/', upload.single('image'), async (req, res, next) => {
   try {
     if (!req.file) {
       return res.status(400).json({
-        error: { code: 'MISSING_FILE', message: 'No image file provided' },
+        error: { code: 'NO_FILE', message: 'No image file provided' },
       });
     }
 
-    const image = await imageService.processUpload(req.file, {
-      description: req.body.description || '',
-      tags: req.body.tags ? req.body.tags.split(',').map((t) => t.trim()) : [],
-    });
+    const imageData = {
+      filename: req.file.filename,
+      originalName: req.file.originalname,
+      mimeType: req.file.mimetype,
+      fileSize: req.file.size,
+      path: req.file.path,
+      title: req.body.title || null,
+      description: req.body.description || null,
+    };
+
+    const image = await imageService.createImage(imageData, req.file);
 
     res.status(201).json({ data: image });
   } catch (err) {
@@ -79,11 +119,14 @@ router.post('/', upload.single('image'), async (req, res, next) => {
   }
 });
 
-// GET /api/v1/images/:id — get single image
+/**
+ * GET /api/v1/images/:id
+ * Get a single image by ID
+ */
 router.get('/:id', async (req, res, next) => {
   try {
     const image = await Image.findByPk(req.params.id, {
-      include: [{ model: Tag, through: { attributes: [] }, attributes: ['id', 'name', 'slug'] }],
+      include: [{ model: Tag, as: 'tags', through: { attributes: [] } }],
     });
 
     if (!image) {
@@ -98,7 +141,10 @@ router.get('/:id', async (req, res, next) => {
   }
 });
 
-// PATCH /api/v1/images/:id — update image metadata
+/**
+ * PATCH /api/v1/images/:id
+ * Update image metadata
+ */
 router.patch('/:id', async (req, res, next) => {
   try {
     const image = await Image.findByPk(req.params.id);
@@ -109,7 +155,7 @@ router.patch('/:id', async (req, res, next) => {
       });
     }
 
-    const allowedFields = ['description', 'title', 'rating'];
+    const allowedFields = ['title', 'description', 'isPublic'];
     const updates = {};
     for (const field of allowedFields) {
       if (req.body[field] !== undefined) {
@@ -120,22 +166,17 @@ router.patch('/:id', async (req, res, next) => {
     await image.update(updates);
 
     // Handle tags if provided
-    if (req.body.tags !== undefined) {
-      const tagNames = Array.isArray(req.body.tags)
-        ? req.body.tags
-        : req.body.tags.split(',').map((t) => t.trim());
-
+    if (Array.isArray(req.body.tags)) {
       const tagInstances = await Promise.all(
-        tagNames.map((name) =>
-          Tag.findOrCreate({ where: { name }, defaults: { name, slug: name.toLowerCase().replace(/\s+/g, '-') } })
+        req.body.tags.map((name) =>
+          Tag.findOrCreate({ where: { name: name.toLowerCase().trim() } }).then(([t]) => t)
         )
       );
-
-      await image.setTags(tagInstances.map(([tag]) => tag));
+      await image.setTags(tagInstances);
     }
 
     const updated = await Image.findByPk(image.id, {
-      include: [{ model: Tag, through: { attributes: [] }, attributes: ['id', 'name', 'slug'] }],
+      include: [{ model: Tag, as: 'tags', through: { attributes: [] } }],
     });
 
     res.json({ data: updated });
@@ -144,7 +185,10 @@ router.patch('/:id', async (req, res, next) => {
   }
 });
 
-// DELETE /api/v1/images/:id — delete image
+/**
+ * DELETE /api/v1/images/:id
+ * Delete an image
+ */
 router.delete('/:id', async (req, res, next) => {
   try {
     const image = await Image.findByPk(req.params.id);
@@ -155,7 +199,7 @@ router.delete('/:id', async (req, res, next) => {
       });
     }
 
-    await imageService.deleteImage(image.id);
+    await imageService.deleteImage(image);
 
     res.status(204).send();
   } catch (err) {

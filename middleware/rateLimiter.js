@@ -12,7 +12,7 @@ const apiRateLimiter = rateLimit({
     res.status(429).json({
       error: {
         code: 'RATE_LIMIT_EXCEEDED',
-        message: 'Too many requests. Please slow down and try again in a minute.',
+        message: 'Too many requests. Please retry after 1 minute.',
       },
     });
   },

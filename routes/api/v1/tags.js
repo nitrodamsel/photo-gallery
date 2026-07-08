@@ -2,10 +2,13 @@
 
 const express = require('express');
 const router = express.Router();
-const { Tag, ImageTag, sequelize } = require('../../../models');
+const { Tag, Image, ImageTag } = require('../../../models');
 const { Op } = require('sequelize');
 
-// GET /api/v1/tags — list all tags with image counts
+/**
+ * GET /api/v1/tags
+ * List all tags with optional search
+ */
 router.get('/', async (req, res, next) => {
   try {
     const page = Math.max(1, parseInt(req.query.page) || 1);
@@ -19,34 +22,22 @@ router.get('/', async (req, res, next) => {
 
     const { count, rows } = await Tag.findAndCountAll({
       where,
-      attributes: [
-        'id',
-        'name',
-        'slug',
-        'createdAt',
-        [sequelize.fn('COUNT', sequelize.col('ImageTags.imageId')), 'imageCount'],
-      ],
-      include: [
-        {
-          model: ImageTag,
-          attributes: [],
-          required: false,
-        },
-      ],
-      group: ['Tag.id'],
-      order: [[sequelize.literal('imageCount'), 'DESC']],
       limit,
       offset,
-      subQuery: false,
+      order: [['name', 'ASC']],
     });
+
+    const totalPages = Math.ceil(count / limit);
 
     res.json({
       data: rows,
       pagination: {
-        total: count.length || count,
         page,
         limit,
-        pages: Math.ceil((count.length || count) / limit),
+        total: count,
+        totalPages,
+        hasNext: page < totalPages,
+        hasPrev: page > 1,
       },
     });
   } catch (err) {
@@ -54,22 +45,23 @@ router.get('/', async (req, res, next) => {
   }
 });
 
-// POST /api/v1/tags — create a new tag
+/**
+ * POST /api/v1/tags
+ * Create a new tag
+ */
 router.post('/', async (req, res, next) => {
   try {
     const { name } = req.body;
-
     if (!name || !name.trim()) {
       return res.status(400).json({
         error: { code: 'VALIDATION_ERROR', message: 'Tag name is required' },
       });
     }
 
-    const slug = name.trim().toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
-
+    const normalizedName = name.toLowerCase().trim();
     const [tag, created] = await Tag.findOrCreate({
-      where: { name: name.trim() },
-      defaults: { name: name.trim(), slug },
+      where: { name: normalizedName },
+      defaults: { name: normalizedName },
     });
 
     res.status(created ? 201 : 200).json({ data: tag });
@@ -78,19 +70,21 @@ router.post('/', async (req, res, next) => {
   }
 });
 
-// GET /api/v1/tags/:id — get single tag
+/**
+ * GET /api/v1/tags/:id
+ * Get a single tag with image count
+ */
 router.get('/:id', async (req, res, next) => {
   try {
     const tag = await Tag.findByPk(req.params.id, {
-      attributes: [
-        'id',
-        'name',
-        'slug',
-        'createdAt',
-        [sequelize.fn('COUNT', sequelize.col('ImageTags.imageId')), 'imageCount'],
+      include: [
+        {
+          model: Image,
+          as: 'images',
+          through: { attributes: [] },
+          attributes: ['id'],
+        },
       ],
-      include: [{ model: ImageTag, attributes: [], required: false }],
-      group: ['Tag.id'],
     });
 
     if (!tag) {
@@ -99,13 +93,20 @@ router.get('/:id', async (req, res, next) => {
       });
     }
 
-    res.json({ data: tag });
+    const result = tag.toJSON();
+    result.imageCount = result.images ? result.images.length : 0;
+    delete result.images;
+
+    res.json({ data: result });
   } catch (err) {
     next(err);
   }
 });
 
-// PATCH /api/v1/tags/:id — rename a tag
+/**
+ * PATCH /api/v1/tags/:id
+ * Rename a tag
+ */
 router.patch('/:id', async (req, res, next) => {
   try {
     const tag = await Tag.findByPk(req.params.id);
@@ -123,8 +124,17 @@ router.patch('/:id', async (req, res, next) => {
       });
     }
 
-    const slug = name.trim().toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
-    await tag.update({ name: name.trim(), slug });
+    const normalizedName = name.toLowerCase().trim();
+
+    // Check for duplicate
+    const existing = await Tag.findOne({ where: { name: normalizedName } });
+    if (existing && existing.id !== tag.id) {
+      return res.status(409).json({
+        error: { code: 'CONFLICT', message: 'A tag with that name already exists' },
+      });
+    }
+
+    await tag.update({ name: normalizedName });
 
     res.json({ data: tag });
   } catch (err) {
@@ -132,7 +142,10 @@ router.patch('/:id', async (req, res, next) => {
   }
 });
 
-// DELETE /api/v1/tags/:id — delete a tag
+/**
+ * DELETE /api/v1/tags/:id
+ * Delete a tag
+ */
 router.delete('/:id', async (req, res, next) => {
   try {
     const tag = await Tag.findByPk(req.params.id);
@@ -144,6 +157,7 @@ router.delete('/:id', async (req, res, next) => {
     }
 
     await tag.destroy();
+
     res.status(204).send();
   } catch (err) {
     next(err);

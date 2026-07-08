@@ -4,7 +4,6 @@ const express = require('express');
 const router = express.Router();
 const apiKeyAuth = require('../../../middleware/auth');
 const rateLimiter = require('../../../middleware/rateLimiter');
-
 const imagesRouter = require('./images');
 const tagsRouter = require('./tags');
 const searchRouter = require('./search');
@@ -18,11 +17,15 @@ router.use('/images', imagesRouter);
 router.use('/tags', tagsRouter);
 router.use('/search', searchRouter);
 
-// API v1 info endpoint
+// API v1 root info
 router.get('/', (req, res) => {
   res.json({
-    version: 'v1',
-    endpoints: ['/api/v1/images', '/api/v1/tags', '/api/v1/search'],
+    version: '1.0.0',
+    endpoints: {
+      images: '/api/v1/images',
+      tags: '/api/v1/tags',
+      search: '/api/v1/search',
+    },
   });
 });
 

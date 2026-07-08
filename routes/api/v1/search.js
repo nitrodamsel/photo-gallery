@@ -3,89 +3,122 @@
 const express = require('express');
 const router = express.Router();
 const searchService = require('../../../services/searchService');
-const { Image, Tag, ImageTag, sequelize } = require('../../../models');
-const { Op } = require('sequelize');
+const { Image, Tag } = require('../../../models');
+const { Op, fn, col, literal } = require('sequelize');
 
-// GET /api/v1/search — full filter search
+/**
+ * GET /api/v1/search
+ * Full-text search with filters
+ */
 router.get('/', async (req, res, next) => {
   try {
-    const page = Math.max(1, parseInt(req.query.page) || 1);
-    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
+    const {
+      q,
+      tags,
+      dateFrom,
+      dateTo,
+      minSize,
+      maxSize,
+      cameraMake,
+      cameraModel,
+      sort = 'createdAt',
+      dir = 'desc',
+      page = 1,
+      limit = 20,
+    } = req.query;
 
-    const filters = {
-      query: req.query.q || req.query.query || '',
-      tags: req.query.tags ? req.query.tags.split(',').map((t) => t.trim()) : [],
-      cameraMake: req.query.cameraMake || null,
-      cameraModel: req.query.cameraModel || null,
-      dateFrom: req.query.dateFrom || null,
-      dateTo: req.query.dateTo || null,
-      minRating: req.query.minRating ? parseInt(req.query.minRating) : null,
-      sortBy: req.query.sortBy || 'createdAt',
-      sortOrder: req.query.sortOrder || 'DESC',
-      page,
-      limit,
+    const parsedPage = Math.max(1, parseInt(page) || 1);
+    const parsedLimit = Math.min(100, Math.max(1, parseInt(limit) || 20));
+
+    const searchParams = {
+      q,
+      tags: tags ? (Array.isArray(tags) ? tags : tags.split(',')) : undefined,
+      dateFrom,
+      dateTo,
+      minSize: minSize ? parseInt(minSize) : undefined,
+      maxSize: maxSize ? parseInt(maxSize) : undefined,
+      cameraMake,
+      cameraModel,
+      sort,
+      dir,
+      page: parsedPage,
+      limit: parsedLimit,
     };
 
-    const results = await searchService.search(filters);
+    const results = await searchService.search(searchParams);
 
     res.json({
       data: results.images,
       pagination: {
+        page: parsedPage,
+        limit: parsedLimit,
         total: results.total,
-        page,
-        limit,
-        pages: Math.ceil(results.total / limit),
+        totalPages: Math.ceil(results.total / parsedLimit),
+        hasNext: parsedPage < Math.ceil(results.total / parsedLimit),
+        hasPrev: parsedPage > 1,
       },
-      filters,
+      meta: {
+        query: q || null,
+      },
     });
   } catch (err) {
     next(err);
   }
 });
 
-// GET /api/v1/search/facets — get available filter facets
+/**
+ * GET /api/v1/search/facets
+ * Get search facets for filtering UI
+ */
 router.get('/facets', async (req, res, next) => {
   try {
-    // Get camera makes
-    const cameraMakes = await Image.findAll({
-      attributes: [
-        [sequelize.fn('DISTINCT', sequelize.col('cameraMake')), 'cameraMake'],
-        [sequelize.fn('COUNT', sequelize.col('id')), 'count'],
-      ],
-      where: { cameraMake: { [Op.ne]: null } },
-      group: ['cameraMake'],
-      order: [[sequelize.literal('count'), 'DESC']],
-      raw: true,
-    });
-
-    // Get top tags
+    // Top tags
     const topTags = await Tag.findAll({
       attributes: [
         'id',
         'name',
-        'slug',
-        [sequelize.fn('COUNT', sequelize.col('ImageTags.imageId')), 'imageCount'],
+        [fn('COUNT', col('images.id')), 'imageCount'],
       ],
-      include: [{ model: ImageTag, attributes: [], required: true }],
+      include: [
+        {
+          model: Image,
+          as: 'images',
+          attributes: [],
+          through: { attributes: [] },
+        },
+      ],
       group: ['Tag.id'],
-      order: [[sequelize.literal('imageCount'), 'DESC']],
-      limit: 50,
+      order: [[literal('imageCount'), 'DESC']],
+      limit: 20,
       subQuery: false,
     });
 
-    // Get date range
+    // Camera makes
+    const cameraMakes = await Image.findAll({
+      attributes: [
+        'cameraMake',
+        [fn('COUNT', col('id')), 'count'],
+      ],
+      where: { cameraMake: { [Op.not]: null } },
+      group: ['cameraMake'],
+      order: [[literal('count'), 'DESC']],
+      limit: 20,
+      raw: true,
+    });
+
+    // Date range
     const dateRange = await Image.findOne({
       attributes: [
-        [sequelize.fn('MIN', sequelize.col('createdAt')), 'earliest'],
-        [sequelize.fn('MAX', sequelize.col('createdAt')), 'latest'],
+        [fn('MIN', col('created_at')), 'earliest'],
+        [fn('MAX', col('created_at')), 'latest'],
       ],
       raw: true,
     });
 
     res.json({
       data: {
-        cameraMakes: cameraMakes.map((r) => ({ value: r.cameraMake, count: parseInt(r.count) })),
         tags: topTags,
+        cameraMakes: cameraMakes.filter((c) => c.cameraMake),
         dateRange: {
           earliest: dateRange?.earliest || null,
           latest: dateRange?.latest || null,

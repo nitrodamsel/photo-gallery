@@ -2,150 +2,85 @@
 
 const express = require('express');
 const router = express.Router();
-const { Image, Tag, ImageTag, ApiKey, sequelize } = require('../models');
+const { Image, Tag, ApiKey } = require('../models');
+const { Op, fn, col, literal } = require('sequelize');
 const cacheService = require('../services/cacheService');
-const { Op } = require('sequelize');
+const sequelize = require('../config/database');
 
-// Simple basic-auth middleware for admin routes
-function adminAuth(req, res, next) {
-  const adminUser = process.env.ADMIN_USER || 'admin';
-  const adminPass = process.env.ADMIN_PASS || 'admin';
+/**
+ * Simple basic-auth middleware for admin routes.
+ * Uses ADMIN_USER and ADMIN_PASS environment variables.
+ */
+function basicAuth(req, res, next) {
+  // Skip if no credentials configured (dev mode)
+  const adminUser = process.env.ADMIN_USER;
+  const adminPass = process.env.ADMIN_PASS;
 
-  const authHeader = req.headers['authorization'];
-  if (!authHeader || !authHeader.startsWith('Basic ')) {
-    res.set('WWW-Authenticate', 'Basic realm="Admin Area"');
-    return res.status(401).render('error', {
-      title: 'Unauthorized',
-      message: 'Admin access required',
-      error: { status: 401 },
-    });
-  }
-
-  const credentials = Buffer.from(authHeader.slice(6), 'base64').toString('utf8');
-  const [user, pass] = credentials.split(':');
-
-  if (user === adminUser && pass === adminPass) {
+  if (!adminUser || !adminPass) {
     return next();
   }
 
-  res.set('WWW-Authenticate', 'Basic realm="Admin Area"');
-  return res.status(401).render('error', {
-    title: 'Unauthorized',
-    message: 'Invalid credentials',
-    error: { status: 401 },
-  });
+  const authHeader = req.headers['authorization'];
+  if (!authHeader || !authHeader.startsWith('Basic ')) {
+    res.setHeader('WWW-Authenticate', 'Basic realm="Admin Area"');
+    return res.status(401).send('Authentication required');
+  }
+
+  const base64 = authHeader.slice(6);
+  const decoded = Buffer.from(base64, 'base64').toString('utf8');
+  const [user, pass] = decoded.split(':');
+
+  if (user !== adminUser || pass !== adminPass) {
+    res.setHeader('WWW-Authenticate', 'Basic realm="Admin Area"');
+    return res.status(401).send('Invalid credentials');
+  }
+
+  next();
 }
 
-// Helper to gather aggregate stats
-async function gatherStats() {
-  const totalImages = await Image.count();
-  const totalTags = await Tag.count();
-  const totalApiKeys = await ApiKey.count();
+router.use(basicAuth);
 
-  // Total storage in bytes
-  const storageResult = await Image.findOne({
-    attributes: [[sequelize.fn('SUM', sequelize.col('fileSize')), 'totalBytes']],
-    raw: true,
-  });
-  const totalStorageBytes = parseInt(storageResult?.totalBytes || 0);
-
-  // Images per month (last 12 months)
-  const twelveMonthsAgo = new Date();
-  twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 12);
-
-  const uploadsPerMonth = await Image.findAll({
-    attributes: [
-      [sequelize.fn('strftime', '%Y-%m', sequelize.col('createdAt')), 'month'],
-      [sequelize.fn('COUNT', sequelize.col('id')), 'count'],
-    ],
-    where: { createdAt: { [Op.gte]: twelveMonthsAgo } },
-    group: [sequelize.fn('strftime', '%Y-%m', sequelize.col('createdAt'))],
-    order: [[sequelize.fn('strftime', '%Y-%m', sequelize.col('createdAt')), 'ASC']],
-    raw: true,
-  });
-
-  // Top 10 tags
-  const topTags = await Tag.findAll({
-    attributes: [
-      'id',
-      'name',
-      'slug',
-      [sequelize.fn('COUNT', sequelize.col('ImageTags.imageId')), 'imageCount'],
-    ],
-    include: [{ model: ImageTag, attributes: [], required: false }],
-    group: ['Tag.id'],
-    order: [[sequelize.literal('imageCount'), 'DESC']],
-    limit: 10,
-    subQuery: false,
-  });
-
-  // Camera make distribution
-  const cameraMakes = await Image.findAll({
-    attributes: [
-      'cameraMake',
-      [sequelize.fn('COUNT', sequelize.col('id')), 'count'],
-    ],
-    where: { cameraMake: { [Op.ne]: null } },
-    group: ['cameraMake'],
-    order: [[sequelize.literal('count'), 'DESC']],
-    limit: 10,
-    raw: true,
-  });
-
-  // Recent uploads
-  const recentUploads = await Image.findAll({
-    attributes: ['id', 'originalName', 'fileSize', 'mimeType', 'createdAt'],
-    order: [['createdAt', 'DESC']],
-    limit: 10,
-  });
-
-  return {
-    totalImages,
-    totalTags,
-    totalApiKeys,
-    totalStorageBytes,
-    uploadsPerMonth,
-    topTags,
-    cameraMakes,
-    recentUploads,
-  };
-}
-
-// GET /admin — render dashboard
-router.get('/', adminAuth, async (req, res, next) => {
+/**
+ * GET /admin
+ * Admin dashboard page
+ */
+router.get('/', async (req, res, next) => {
   try {
-    const stats = await gatherStats();
-
-    // Format storage
-    const formatBytes = (bytes) => {
-      if (bytes < 1024) return `${bytes} B`;
-      if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-      if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-      return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
-    };
+    const stats = await getStats();
+    const recentImages = await Image.findAll({
+      order: [['createdAt', 'DESC']],
+      limit: 10,
+      include: [{ model: Tag, as: 'tags', through: { attributes: [] } }],
+    });
 
     res.render('admin/dashboard', {
       title: 'Admin Dashboard',
       stats,
-      formatBytes,
+      recentImages,
     });
   } catch (err) {
     next(err);
   }
 });
 
-// GET /admin/stats — JSON stats endpoint
-router.get('/stats', adminAuth, async (req, res, next) => {
+/**
+ * GET /admin/stats
+ * JSON stats endpoint
+ */
+router.get('/stats', async (req, res, next) => {
   try {
-    const stats = await gatherStats();
+    const stats = await getStats();
     res.json({ data: stats });
   } catch (err) {
     next(err);
   }
 });
 
-// POST /admin/cache/flush — flush cache
-router.post('/cache/flush', adminAuth, async (req, res, next) => {
+/**
+ * POST /admin/cache/flush
+ * Flush the thumbnail/query cache
+ */
+router.post('/cache/flush', async (req, res, next) => {
   try {
     await cacheService.flush();
     res.json({ success: true, message: 'Cache flushed successfully' });
@@ -154,14 +89,125 @@ router.post('/cache/flush', adminAuth, async (req, res, next) => {
   }
 });
 
-// GET /admin/jobs — placeholder for Phase 10 background jobs
-router.get('/jobs', adminAuth, (req, res) => {
+/**
+ * GET /admin/jobs
+ * Placeholder for Phase 10 background jobs
+ */
+router.get('/jobs', (req, res) => {
   res.json({
     data: {
       jobs: [],
-      message: 'Background job support coming in Phase 10',
+      message: 'Background job queue — coming in Phase 10',
     },
   });
 });
+
+/**
+ * Aggregate statistics helper
+ */
+async function getStats() {
+  const db = sequelize;
+
+  // Total images
+  const totalImages = await Image.count();
+
+  // Total storage bytes
+  const storageSumResult = await Image.findOne({
+    attributes: [[fn('SUM', col('file_size')), 'total']],
+    raw: true,
+  });
+  const totalStorageBytes = parseInt(storageSumResult?.total || 0);
+
+  // Total tags
+  const totalTags = await Tag.count();
+
+  // Total API keys
+  const totalApiKeys = await ApiKey.count();
+
+  // Images per month (last 12 months)
+  const twelveMonthsAgo = new Date();
+  twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 12);
+
+  let uploadsPerMonth = [];
+  try {
+    const monthlyData = await Image.findAll({
+      attributes: [
+        [fn('strftime', '%Y-%m', col('created_at')), 'month'],
+        [fn('COUNT', col('id')), 'count'],
+      ],
+      where: { createdAt: { [Op.gte]: twelveMonthsAgo } },
+      group: [literal("strftime('%Y-%m', created_at)")],
+      order: [[literal("strftime('%Y-%m', created_at)"), 'ASC']],
+      raw: true,
+    });
+    uploadsPerMonth = monthlyData;
+  } catch (err) {
+    // Fallback for PostgreSQL
+    try {
+      const monthlyData = await Image.findAll({
+        attributes: [
+          [fn('to_char', col('created_at'), 'YYYY-MM'), 'month'],
+          [fn('COUNT', col('id')), 'count'],
+        ],
+        where: { createdAt: { [Op.gte]: twelveMonthsAgo } },
+        group: [literal("to_char(created_at, 'YYYY-MM')")],
+        order: [[literal("to_char(created_at, 'YYYY-MM')"), 'ASC']],
+        raw: true,
+      });
+      uploadsPerMonth = monthlyData;
+    } catch (err2) {
+      console.warn('Could not fetch monthly stats:', err2.message);
+    }
+  }
+
+  // Top 10 tags by image count
+  const topTags = await Tag.findAll({
+    attributes: [
+      'id',
+      'name',
+      [fn('COUNT', col('images.id')), 'imageCount'],
+    ],
+    include: [
+      {
+        model: Image,
+        as: 'images',
+        attributes: [],
+        through: { attributes: [] },
+      },
+    ],
+    group: ['Tag.id'],
+    order: [[literal('imageCount'), 'DESC']],
+    limit: 10,
+    subQuery: false,
+  });
+
+  // Camera make distribution
+  const cameraMakes = await Image.findAll({
+    attributes: [
+      'cameraMake',
+      [fn('COUNT', col('id')), 'count'],
+    ],
+    where: { cameraMake: { [Op.not]: null } },
+    group: ['cameraMake'],
+    order: [[literal('count'), 'DESC']],
+    limit: 10,
+    raw: true,
+  });
+
+  return {
+    totalImages,
+    totalStorageBytes,
+    totalStorageMB: (totalStorageBytes / (1024 * 1024)).toFixed(2),
+    totalTags,
+    totalApiKeys,
+    uploadsPerMonth,
+    topTags: topTags.map((t) => ({
+      id: t.id,
+      name: t.name,
+      imageCount: parseInt(t.get('imageCount') || 0),
+    })),
+    cameraMakes: cameraMakes.filter((c) => c.cameraMake),
+  };
+}
 
 module.exports = router;

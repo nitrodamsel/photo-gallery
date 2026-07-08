@@ -1,280 +1,302 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title><%= title %> — Gallery</title>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css" />
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-  <style>
-    .stat-card {
-      text-align: center;
-      padding: 1.5rem;
-    }
-    .stat-number {
-      font-size: 2.5rem;
-      font-weight: bold;
-      color: #3273dc;
-    }
-    .stat-label {
-      font-size: 0.9rem;
-      color: #7a7a7a;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-    }
-    .section-title {
-      font-size: 1.2rem;
-      font-weight: 600;
-      margin-bottom: 1rem;
-      padding-bottom: 0.5rem;
-      border-bottom: 2px solid #ededed;
-    }
-    .tag-bar {
-      background: #3273dc;
-      height: 12px;
-      border-radius: 6px;
-      display: inline-block;
-      min-width: 4px;
-    }
-    .admin-nav {
-      background: #363636;
-      padding: 0.75rem 1.5rem;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-    .admin-nav .brand {
-      color: white;
-      font-weight: bold;
-      font-size: 1.1rem;
-    }
-    .admin-nav a {
-      color: #ccc;
-      margin-left: 1rem;
-      text-decoration: none;
-    }
-    .admin-nav a:hover { color: white; }
-    .file-size-cell { white-space: nowrap; }
-  </style>
-</head>
-<body>
-  <div class="admin-nav">
-    <span class="brand">🖼 Gallery Admin</span>
-    <div>
-      <a href="/">← Back to Gallery</a>
-      <a href="/api/docs/ui" target="_blank">API Docs</a>
+<%- include('../layouts/base', { title: title, body: `
+<div class="admin-dashboard">
+  <div class="hero is-dark is-small mb-5">
+    <div class="hero-body">
+      <div class="container">
+        <h1 class="title">
+          <span class="icon mr-2"><i class="fas fa-tachometer-alt"></i></span>
+          Admin Dashboard
+        </h1>
+        <p class="subtitle">System overview and management</p>
+      </div>
     </div>
   </div>
 
-  <section class="section">
+  <section class="section pt-0">
     <div class="container is-fluid">
-      <h1 class="title">Dashboard</h1>
-      <p class="subtitle">System overview and usage statistics</p>
 
       <!-- Stat Cards -->
-      <div class="columns is-multiline">
+      <div class="columns is-multiline mb-5">
         <div class="column is-3">
-          <div class="box stat-card">
-            <div class="stat-number"><%= stats.totalImages.toLocaleString() %></div>
-            <div class="stat-label">Total Images</div>
+          <div class="box has-text-centered stat-card">
+            <p class="heading">Total Images</p>
+            <p class="title is-2 has-text-primary">${stats.totalImages.toLocaleString()}</p>
+            <span class="icon is-large has-text-primary">
+              <i class="fas fa-images fa-2x"></i>
+            </span>
           </div>
         </div>
         <div class="column is-3">
-          <div class="box stat-card">
-            <div class="stat-number"><%= formatBytes(stats.totalStorageBytes) %></div>
-            <div class="stat-label">Storage Used</div>
+          <div class="box has-text-centered stat-card">
+            <p class="heading">Storage Used</p>
+            <p class="title is-2 has-text-info">${stats.totalStorageMB} MB</p>
+            <span class="icon is-large has-text-info">
+              <i class="fas fa-hdd fa-2x"></i>
+            </span>
           </div>
         </div>
         <div class="column is-3">
-          <div class="box stat-card">
-            <div class="stat-number"><%= stats.totalTags.toLocaleString() %></div>
-            <div class="stat-label">Total Tags</div>
+          <div class="box has-text-centered stat-card">
+            <p class="heading">Total Tags</p>
+            <p class="title is-2 has-text-success">${stats.totalTags.toLocaleString()}</p>
+            <span class="icon is-large has-text-success">
+              <i class="fas fa-tags fa-2x"></i>
+            </span>
           </div>
         </div>
         <div class="column is-3">
-          <div class="box stat-card">
-            <div class="stat-number"><%= stats.totalApiKeys.toLocaleString() %></div>
-            <div class="stat-label">API Keys</div>
+          <div class="box has-text-centered stat-card">
+            <p class="heading">API Keys</p>
+            <p class="title is-2 has-text-warning">${stats.totalApiKeys}</p>
+            <span class="icon is-large has-text-warning">
+              <i class="fas fa-key fa-2x"></i>
+            </span>
           </div>
         </div>
       </div>
 
       <!-- Charts Row -->
-      <div class="columns">
-        <!-- Uploads per Month Chart -->
+      <div class="columns mb-5">
         <div class="column is-8">
           <div class="box">
-            <p class="section-title">Uploads per Month</p>
-            <canvas id="uploadsChart" height="120"></canvas>
+            <h2 class="title is-5 mb-4">
+              <span class="icon mr-1"><i class="fas fa-chart-bar"></i></span>
+              Uploads Per Month
+            </h2>
+            <div style="position: relative; height: 280px;">
+              <canvas id="uploadsChart"></canvas>
+            </div>
           </div>
         </div>
-
-        <!-- Camera Makes -->
         <div class="column is-4">
           <div class="box">
-            <p class="section-title">Camera Makes</p>
-            <% if (stats.cameraMakes.length === 0) { %>
-              <p class="has-text-grey">No EXIF camera data available.</p>
-            <% } else { %>
-              <% stats.cameraMakes.forEach(function(cm) { %>
-                <div class="mb-2">
-                  <div style="display:flex;justify-content:space-between;margin-bottom:2px;">
-                    <span class="is-size-7"><%= cm.cameraMake || 'Unknown' %></span>
-                    <span class="is-size-7 has-text-grey"><%= cm.count %></span>
-                  </div>
-                  <div style="background:#ededed;border-radius:6px;overflow:hidden;">
-                    <div class="tag-bar" style="width:<%= Math.round((cm.count / stats.totalImages) * 100) %>%;"></div>
-                  </div>
-                </div>
-              <% }); %>
-            <% } %>
+            <h2 class="title is-5 mb-4">
+              <span class="icon mr-1"><i class="fas fa-camera"></i></span>
+              Camera Makes
+            </h2>
+            <div style="position: relative; height: 280px;">
+              <canvas id="cameraChart"></canvas>
+            </div>
           </div>
         </div>
       </div>
 
-      <!-- Bottom Row -->
-      <div class="columns">
-        <!-- Top Tags -->
+      <!-- Tables Row -->
+      <div class="columns mb-5">
         <div class="column is-6">
           <div class="box">
-            <p class="section-title">Top 10 Tags</p>
-            <% if (stats.topTags.length === 0) { %>
-              <p class="has-text-grey">No tags yet.</p>
+            <h2 class="title is-5 mb-4">
+              <span class="icon mr-1"><i class="fas fa-fire"></i></span>
+              Top 10 Tags
+            </h2>
+            <% if (stats.topTags && stats.topTags.length > 0) { %>
+            <table class="table is-fullwidth is-striped is-hoverable is-size-7">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Tag</th>
+                  <th class="has-text-right">Images</th>
+                </tr>
+              </thead>
+              <tbody>
+                <% stats.topTags.forEach((tag, i) => { %>
+                <tr>
+                  <td><span class="tag is-light">${i + 1}</span></td>
+                  <td>
+                    <a href="/tags/${tag.name}" class="has-text-primary">
+                      <span class="tag is-info is-light">${tag.name}</span>
+                    </a>
+                  </td>
+                  <td class="has-text-right">
+                    <strong>${tag.imageCount.toLocaleString()}</strong>
+                  </td>
+                </tr>
+                <% }) %>
+              </tbody>
+            </table>
             <% } else { %>
-              <table class="table is-fullwidth is-striped is-hoverable is-size-7">
-                <thead>
-                  <tr>
-                    <th>#</th>
-                    <th>Tag</th>
-                    <th>Images</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <% stats.topTags.forEach(function(tag, i) { %>
-                    <tr>
-                      <td><%= i + 1 %></td>
-                      <td>
-                        <a href="/tags/<%= tag.slug %>">
-                          <span class="tag is-info is-light"><%= tag.name %></span>
-                        </a>
-                      </td>
-                      <td><%= tag.get ? tag.get('imageCount') : tag.imageCount %></td>
-                    </tr>
-                  <% }); %>
-                </tbody>
-              </table>
+            <p class="has-text-grey has-text-centered py-4">No tags yet</p>
             <% } %>
           </div>
         </div>
 
-        <!-- Recent Uploads -->
         <div class="column is-6">
           <div class="box">
-            <p class="section-title">Recent Uploads</p>
-            <% if (stats.recentUploads.length === 0) { %>
-              <p class="has-text-grey">No uploads yet.</p>
+            <h2 class="title is-5 mb-4">
+              <span class="icon mr-1"><i class="fas fa-clock"></i></span>
+              Recent Uploads
+            </h2>
+            <% if (recentImages && recentImages.length > 0) { %>
+            <div class="recent-uploads-list">
+              <% recentImages.forEach(image => { %>
+              <div class="media mb-3">
+                <figure class="media-left">
+                  <p class="image is-48x48">
+                    <img src="/thumbnails/${image.filename}?size=64" 
+                         alt="${image.originalName || image.filename}"
+                         style="object-fit: cover; width: 48px; height: 48px; border-radius: 4px;"
+                         onerror="this.src='/images/placeholder.png'">
+                  </p>
+                </figure>
+                <div class="media-content">
+                  <p class="is-size-7">
+                    <a href="/gallery/${image.id}" class="has-text-weight-semibold">
+                      ${image.title || image.originalName || image.filename}
+                    </a>
+                  </p>
+                  <p class="is-size-7 has-text-grey">
+                    ${new Date(image.createdAt).toLocaleDateString()} · 
+                    ${image.fileSize ? (image.fileSize / 1024).toFixed(1) + ' KB' : 'N/A'}
+                  </p>
+                </div>
+              </div>
+              <% }) %>
+            </div>
             <% } else { %>
-              <table class="table is-fullwidth is-striped is-hoverable is-size-7">
-                <thead>
-                  <tr>
-                    <th>File</th>
-                    <th>Size</th>
-                    <th>Date</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <% stats.recentUploads.forEach(function(img) { %>
-                    <tr>
-                      <td>
-                        <a href="/images/<%= img.id %>">
-                          <%= img.originalName ? img.originalName.substring(0, 30) : img.id %>
-                        </a>
-                      </td>
-                      <td class="file-size-cell"><%= formatBytes(img.fileSize || 0) %></td>
-                      <td><%= new Date(img.createdAt).toLocaleDateString() %></td>
-                    </tr>
-                  <% }); %>
-                </tbody>
-              </table>
+            <p class="has-text-grey has-text-centered py-4">No images uploaded yet</p>
             <% } %>
           </div>
         </div>
       </div>
 
       <!-- Admin Actions -->
-      <div class="box">
-        <p class="section-title">Admin Actions</p>
+      <div class="box mb-5">
+        <h2 class="title is-5 mb-4">
+          <span class="icon mr-1"><i class="fas fa-tools"></i></span>
+          Admin Actions
+        </h2>
         <div class="buttons">
           <button class="button is-warning" id="flushCacheBtn">
-            🗑 Flush Cache
+            <span class="icon"><i class="fas fa-broom"></i></span>
+            <span>Flush Cache</span>
           </button>
           <a href="/api/docs/ui" target="_blank" class="button is-info is-light">
-            📖 API Documentation
+            <span class="icon"><i class="fas fa-book"></i></span>
+            <span>API Documentation</span>
           </a>
-          <a href="/api/docs" target="_blank" class="button is-light">
-            📄 OpenAPI Spec (YAML)
+          <a href="/upload" class="button is-primary is-light">
+            <span class="icon"><i class="fas fa-upload"></i></span>
+            <span>Upload Images</span>
           </a>
         </div>
-        <div id="actionMessage"></div>
+        <div id="cacheMessage" class="mt-3" style="display:none;"></div>
       </div>
 
     </div>
   </section>
+</div>
 
-  <script>
-    // Uploads per Month Chart
-    const uploadsData = <%- JSON.stringify(stats.uploadsPerMonth) %>;
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+(function() {
+  // Uploads Per Month Chart
+  const monthlyLabels = <%- JSON.stringify(stats.uploadsPerMonth.map(d => d.month)) %>;
+  const monthlyCounts = <%- JSON.stringify(stats.uploadsPerMonth.map(d => parseInt(d.count))) %>;
 
-    const labels = uploadsData.map(d => d.month);
-    const counts = uploadsData.map(d => parseInt(d.count));
-
-    const ctx = document.getElementById('uploadsChart').getContext('2d');
-    new Chart(ctx, {
+  if (document.getElementById('uploadsChart')) {
+    new Chart(document.getElementById('uploadsChart'), {
       type: 'bar',
       data: {
-        labels: labels.length > 0 ? labels : ['No data'],
+        labels: monthlyLabels.length ? monthlyLabels : ['No data'],
         datasets: [{
           label: 'Uploads',
-          data: counts.length > 0 ? counts : [0],
-          backgroundColor: 'rgba(50, 115, 220, 0.7)',
-          borderColor: 'rgba(50, 115, 220, 1)',
+          data: monthlyCounts.length ? monthlyCounts : [0],
+          backgroundColor: 'rgba(72, 199, 142, 0.7)',
+          borderColor: 'rgba(72, 199, 142, 1)',
           borderWidth: 1,
           borderRadius: 4,
-        }]
+        }],
       },
       options: {
         responsive: true,
+        maintainAspectRatio: false,
         plugins: {
           legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: ctx => ` ${ctx.raw} image${ctx.raw !== 1 ? 's' : ''}`,
+            },
+          },
         },
         scales: {
           y: {
             beginAtZero: true,
-            ticks: { stepSize: 1, precision: 0 }
-          }
-        }
-      }
+            ticks: { stepSize: 1 },
+          },
+        },
+      },
     });
+  }
 
-    // Flush cache action
-    document.getElementById('flushCacheBtn').addEventListener('click', async () => {
-      const btn = document.getElementById('flushCacheBtn');
-      const msg = document.getElementById('actionMessage');
-      btn.classList.add('is-loading');
+  // Camera Makes Chart
+  const cameraLabels = <%- JSON.stringify(stats.cameraMakes.map(c => c.cameraMake || 'Unknown')) %>;
+  const cameraCounts = <%- JSON.stringify(stats.cameraMakes.map(c => parseInt(c.count))) %>;
+
+  if (document.getElementById('cameraChart')) {
+    const colors = [
+      '#48c78e','#3e8ed0','#f14668','#ffe08a','#b86bff',
+      '#ff6e40','#00d1b2','#f38020','#485fc7','#7a7a7a',
+    ];
+    new Chart(document.getElementById('cameraChart'), {
+      type: 'doughnut',
+      data: {
+        labels: cameraLabels.length ? cameraLabels : ['No data'],
+        datasets: [{
+          data: cameraCounts.length ? cameraCounts : [1],
+          backgroundColor: colors,
+          hoverOffset: 8,
+        }],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            position: 'bottom',
+            labels: { font: { size: 11 }, padding: 8 },
+          },
+        },
+      },
+    });
+  }
+
+  // Flush Cache Button
+  const flushBtn = document.getElementById('flushCacheBtn');
+  const cacheMsg = document.getElementById('cacheMessage');
+  if (flushBtn) {
+    flushBtn.addEventListener('click', async () => {
+      flushBtn.classList.add('is-loading');
       try {
-        const res = await fetch('/admin/cache/flush', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-        });
+        const res = await fetch('/admin/cache/flush', { method: 'POST' });
         const data = await res.json();
-        msg.innerHTML = '<p class="has-text-success mt-2">✓ ' + (data.message || 'Cache flushed') + '</p>';
+        cacheMsg.style.display = 'block';
+        if (data.success) {
+          cacheMsg.innerHTML = '<div class="notification is-success is-light py-2 px-3"><i class="fas fa-check mr-2"></i>' + data.message + '</div>';
+        } else {
+          cacheMsg.innerHTML = '<div class="notification is-danger is-light py-2 px-3">Failed to flush cache</div>';
+        }
       } catch (e) {
-        msg.innerHTML = '<p class="has-text-danger mt-2">✗ Failed to flush cache</p>';
+        cacheMsg.style.display = 'block';
+        cacheMsg.innerHTML = '<div class="notification is-danger is-light py-2 px-3">Error: ' + e.message + '</div>';
       } finally {
-        btn.classList.remove('is-loading');
-        setTimeout(() => { msg.innerHTML = ''; }, 4000);
+        flushBtn.classList.remove('is-loading');
       }
     });
-  </script>
-</body>
-</html>
+  }
+})();
+</script>
+
+<style>
+.stat-card {
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+.stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+}
+.recent-uploads-list {
+  max-height: 360px;
+  overflow-y: auto;
+}
+</style>
+` }) %>

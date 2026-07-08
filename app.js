@@ -8,54 +8,45 @@ const errorHandler = require('./middleware/errorHandler');
 
 const app = express();
 
-// View engine setup
-app.set('views', path.join(__dirname, 'views'));
+// View engine
 app.set('view engine', 'ejs');
+app.set('views', path.join(__dirname, 'views'));
 
 // Middleware
 app.use(morgan('dev'));
 app.use(compression);
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Routes
-const indexRouter = require('./routes/index');
-const galleryRouter = require('./routes/gallery');
-const uploadRouter = require('./routes/upload');
-const searchRouter = require('./routes/search');
-const tagsRouter = require('./routes/tags');
-const imageApiRouter = require('./routes/imageApi');
-const imageTagsRouter = require('./routes/imageTags');
-const thumbnailsRouter = require('./routes/thumbnails');
-const adminRouter = require('./routes/admin');
-
-// API v1 routes
-const apiV1Router = require('./routes/api/v1/index');
-// API docs
-const apiDocsRouter = require('./routes/api/docs');
-
-app.use('/', indexRouter);
-app.use('/gallery', galleryRouter);
-app.use('/upload', uploadRouter);
-app.use('/search', searchRouter);
-app.use('/tags', tagsRouter);
-app.use('/images', imageApiRouter);
-app.use('/image-tags', imageTagsRouter);
-app.use('/thumbnails', thumbnailsRouter);
-app.use('/admin', adminRouter);
-
-// API routes
-app.use('/api/docs', apiDocsRouter);
-app.use('/api/v1', apiV1Router);
+const routes = require('./routes/index');
+app.use('/', routes);
 
 // 404 handler
-app.use((req, res) => {
-  res.status(404).render('404', { title: 'Page Not Found' });
+app.use((req, res, next) => {
+  if (req.path.startsWith('/api')) {
+    return res.status(404).json({
+      error: { code: 'NOT_FOUND', message: 'API endpoint not found' },
+    });
+  }
+  res.status(404).render('404', { title: '404 Not Found' });
 });
 
 // Error handler
-app.use(errorHandler);
+app.use((err, req, res, next) => {
+  // API error responses
+  if (req.path.startsWith('/api')) {
+    const status = err.status || 500;
+    return res.status(status).json({
+      error: {
+        code: err.code || 'INTERNAL_ERROR',
+        message: err.message || 'An internal error occurred',
+      },
+    });
+  }
+  // Web error responses
+  errorHandler(err, req, res, next);
+});
 
 module.exports = app;
