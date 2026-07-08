@@ -17,12 +17,14 @@ module.exports = {
       label: {
         type: Sequelize.STRING,
         allowNull: false,
+        defaultValue: 'Unnamed Key',
       },
-      last_used_at: {
+      lastUsedAt: {
         type: Sequelize.DATE,
         allowNull: true,
+        defaultValue: null,
       },
-      created_at: {
+      createdAt: {
         type: Sequelize.DATE,
         allowNull: false,
         defaultValue: Sequelize.NOW,
@@ -30,12 +32,12 @@ module.exports = {
     });
 
     await queryInterface.addIndex('api_keys', ['key'], {
-      name: 'api_keys_key_idx',
       unique: true,
+      name: 'api_keys_key_unique',
     });
   },
 
-  async down(queryInterface) {
+  async down(queryInterface, Sequelize) {
     await queryInterface.dropTable('api_keys');
   },
 };

@@ -3,18 +3,19 @@
 const { ApiKey } = require('../models');
 
 /**
- * API key authentication middleware.
- * Extracts Bearer token from Authorization header, validates against ApiKey model.
- * Only applies to /api routes.
+ * API Key authentication middleware.
+ * Extracts Bearer token from Authorization header,
+ * validates against ApiKey model, and attaches to req.apiKey.
+ * Only applies to routes starting with /api.
  */
 async function apiKeyAuth(req, res, next) {
-  // Skip auth for non-/api routes
-  if (!req.path.startsWith('/api') && !req.originalUrl.startsWith('/api')) {
+  // Only protect /api routes
+  if (!req.path.startsWith('/api')) {
     return next();
   }
 
-  // Skip auth for docs routes
-  if (req.originalUrl.startsWith('/api/docs')) {
+  // Skip auth for docs endpoints
+  if (req.path.startsWith('/api/docs')) {
     return next();
   }
 
@@ -34,13 +35,13 @@ async function apiKeyAuth(req, res, next) {
       return next(createAuthError('Invalid API key'));
     }
 
-    // Update lastUsedAt asynchronously (don't await to keep request fast)
-    apiKey.touch().catch((err) => console.error('Failed to touch API key:', err));
+    // Update lastUsedAt asynchronously (don't await to avoid blocking)
+    apiKey.touch().catch((err) => console.error('Failed to update lastUsedAt:', err));
 
     req.apiKey = apiKey;
-    return next();
+    next();
   } catch (err) {
-    return next(err);
+    next(err);
   }
 }
 

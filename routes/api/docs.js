@@ -4,43 +4,59 @@ const express = require('express');
 const router = express.Router();
 const path = require('path');
 const fs = require('fs');
-const yaml = require('js-yaml');
+const YAML = require('js-yaml');
 const swaggerUi = require('swagger-ui-express');
 
 let swaggerDocument;
-try {
-  const yamlPath = path.join(__dirname, '../../openapi.yaml');
-  const yamlContent = fs.readFileSync(yamlPath, 'utf8');
-  swaggerDocument = yaml.load(yamlContent);
-} catch (err) {
-  console.warn('Could not load openapi.yaml:', err.message);
-  swaggerDocument = {
-    openapi: '3.1.0',
-    info: { title: 'Image Gallery API', version: '1.0.0' },
-    paths: {},
-  };
+
+function loadSwaggerDoc() {
+  if (!swaggerDocument) {
+    const yamlPath = path.join(__dirname, '../../openapi.yaml');
+    const yamlContent = fs.readFileSync(yamlPath, 'utf8');
+    swaggerDocument = YAML.load(yamlContent);
+  }
+  return swaggerDocument;
 }
 
-// Serve raw OpenAPI JSON
+// Serve raw OpenAPI spec as JSON
 router.get('/', (req, res) => {
-  res.json(swaggerDocument);
+  try {
+    const doc = loadSwaggerDoc();
+    res.json(doc);
+  } catch (err) {
+    res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Failed to load API spec' } });
+  }
 });
 
-// Serve raw OpenAPI YAML
+// Serve raw OpenAPI spec as YAML
 router.get('/openapi.yaml', (req, res) => {
-  const yamlPath = path.join(__dirname, '../../openapi.yaml');
-  res.setHeader('Content-Type', 'text/yaml');
-  res.sendFile(yamlPath);
+  try {
+    const yamlPath = path.join(__dirname, '../../openapi.yaml');
+    res.setHeader('Content-Type', 'text/yaml');
+    res.sendFile(yamlPath);
+  } catch (err) {
+    res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Failed to load API spec' } });
+  }
 });
 
 // Serve Swagger UI
 router.use('/ui', swaggerUi.serve);
-router.get('/ui', swaggerUi.setup(swaggerDocument, {
-  customSiteTitle: 'Image Gallery API Docs',
-  customCss: '.swagger-ui .topbar { background-color: #1a1a2e; }',
-  swaggerOptions: {
-    persistAuthorization: true,
-  },
-}));
+router.get('/ui', (req, res, next) => {
+  try {
+    const doc = loadSwaggerDoc();
+    swaggerUi.setup(doc, {
+      customSiteTitle: 'Image Gallery API Docs',
+      customCss: '.swagger-ui .topbar { display: none }',
+      swaggerOptions: {
+        persistAuthorization: true,
+        displayRequestDuration: true,
+        docExpansion: 'list',
+        filter: true,
+      },
+    })(req, res, next);
+  } catch (err) {
+    next(err);
+  }
+});
 
 module.exports = router;

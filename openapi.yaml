@@ -4,26 +4,54 @@ info:
   description: |
     REST API for the Image Gallery application.
     
-    All `/api/v1/*` endpoints require API key authentication via the `Authorization: Bearer <key>` header.
+    ## Authentication
+    All API endpoints (except `/api/docs`) require an API key passed as a Bearer token in the `Authorization` header:
+    ```
+    Authorization: Bearer <your-api-key>
+    ```
     
-    Rate limit: 100 requests per minute per API key.
+    Generate an API key using the CLI:
+    ```bash
+    node scripts/generate-api-key.js --label "My App"
+    ```
+    
+    ## Rate Limiting
+    The API is rate-limited to **100 requests per minute** per API key.
+    Rate limit headers are included in all responses:
+    - `RateLimit-Limit`: Maximum requests per window
+    - `RateLimit-Remaining`: Remaining requests in current window
+    - `RateLimit-Reset`: Seconds until window resets
   version: 1.0.0
   contact:
     name: API Support
+    email: support@example.com
   license:
     name: MIT
 
 servers:
-  - url: /api/v1
-    description: API v1
+  - url: http://localhost:3000
+    description: Local development server
+  - url: https://api.example.com
+    description: Production server
+
+security:
+  - BearerAuth: []
+
+tags:
+  - name: Images
+    description: Image upload, retrieval, and management
+  - name: Tags
+    description: Tag management and association
+  - name: Search
+    description: Full-text and faceted search
 
 components:
   securitySchemes:
     BearerAuth:
       type: http
       scheme: bearer
-      bearerFormat: API Key
-      description: API key obtained via `node scripts/generate-api-key.js`
+      bearerFormat: hex
+      description: API key generated via `scripts/generate-api-key.js`
 
   schemas:
     Image:
@@ -31,164 +59,234 @@ components:
       properties:
         id:
           type: integer
-          description: Unique image ID
+          description: Unique image identifier
+          example: 42
         filename:
           type: string
           description: Stored filename on disk
+          example: "1720000000000-123456789.jpg"
         originalName:
           type: string
-          description: Original uploaded filename
-        mimeType:
-          type: string
-          example: image/jpeg
-        fileSize:
-          type: integer
-          description: File size in bytes
+          description: Original filename at upload time
+          example: "vacation-photo.jpg"
         title:
           type: string
           nullable: true
+          description: Human-readable title
+          example: "Sunset at the Beach"
         description:
           type: string
           nullable: true
+          description: Optional description
+          example: "A beautiful sunset captured in Malibu"
+        mimeType:
+          type: string
+          description: MIME type of the image
+          example: "image/jpeg"
+        fileSize:
+          type: integer
+          description: File size in bytes
+          example: 2048576
         width:
           type: integer
           nullable: true
+          description: Image width in pixels
+          example: 1920
         height:
           type: integer
           nullable: true
+          description: Image height in pixels
+          example: 1080
         cameraMake:
           type: string
           nullable: true
-          description: EXIF camera make
+          description: Camera manufacturer from EXIF
+          example: "Canon"
         cameraModel:
           type: string
           nullable: true
-          description: EXIF camera model
+          description: Camera model from EXIF
+          example: "EOS R5"
         takenAt:
           type: string
           format: date-time
           nullable: true
-          description: EXIF date/time original
+          description: Date/time photo was taken (from EXIF)
+          example: "2024-06-15T14:30:00.000Z"
         latitude:
           type: number
           format: double
           nullable: true
+          description: GPS latitude from EXIF
+          example: 34.0194
         longitude:
           type: number
           format: double
           nullable: true
+          description: GPS longitude from EXIF
+          example: -118.4912
         tags:
           type: array
           items:
             $ref: '#/components/schemas/Tag'
+          description: Associated tags
         createdAt:
           type: string
           format: date-time
+          example: "2024-01-15T10:30:00.000Z"
         updatedAt:
           type: string
           format: date-time
+          example: "2024-01-15T10:30:00.000Z"
+      required:
+        - id
+        - filename
+        - mimeType
+        - fileSize
+        - createdAt
+
+    ImageCreate:
+      type: object
+      properties:
+        title:
+          type: string
+          description: Optional title for the image
+          example: "My Photo"
+        description:
+          type: string
+          description: Optional description
+          example: "A great photo"
+      required: []
+
+    ImageUpdate:
+      type: object
+      properties:
+        title:
+          type: string
+          example: "Updated Title"
+        description:
+          type: string
+          example: "Updated description"
+        isPublic:
+          type: boolean
+          example: true
+        tags:
+          type: array
+          items:
+            type: string
+          description: Replace all tags with this list
+          example: ["nature", "landscape"]
 
     Tag:
       type: object
       properties:
         id:
           type: integer
+          description: Unique tag identifier
+          example: 7
         name:
           type: string
-          example: landscape
+          description: Tag name (lowercase)
+          example: "nature"
         createdAt:
           type: string
           format: date-time
+          example: "2024-01-10T08:00:00.000Z"
+      required:
+        - id
+        - name
+
+    TagCreate:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          description: Tag name
+          example: "nature"
+
+    TagUpdate:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          description: New tag name
+          example: "wildlife"
 
     Pagination:
       type: object
       properties:
         page:
           type: integer
+          description: Current page number
           example: 1
         limit:
           type: integer
+          description: Items per page
           example: 20
         total:
           type: integer
-          example: 100
+          description: Total number of items
+          example: 150
         totalPages:
           type: integer
-          example: 5
+          description: Total number of pages
+          example: 8
         hasNext:
           type: boolean
+          description: Whether there is a next page
+          example: true
         hasPrev:
           type: boolean
+          description: Whether there is a previous page
+          example: false
+      required:
+        - page
+        - limit
+        - total
+        - totalPages
 
     Error:
       type: object
       properties:
         error:
           type: object
-          required:
-            - code
-            - message
           properties:
             code:
               type: string
-              example: NOT_FOUND
+              description: Machine-readable error code
+              example: "NOT_FOUND"
             message:
               type: string
-              example: Image not found
-
-    ImageListResponse:
-      type: object
-      properties:
-        data:
-          type: array
-          items:
-            $ref: '#/components/schemas/Image'
-        pagination:
-          $ref: '#/components/schemas/Pagination'
-
-    ImageResponse:
-      type: object
-      properties:
-        data:
-          $ref: '#/components/schemas/Image'
-
-    TagListResponse:
-      type: object
-      properties:
-        data:
-          type: array
-          items:
-            $ref: '#/components/schemas/Tag'
-        pagination:
-          $ref: '#/components/schemas/Pagination'
-
-    TagResponse:
-      type: object
-      properties:
-        data:
-          $ref: '#/components/schemas/Tag'
+              description: Human-readable error message
+              example: "Image not found"
+          required:
+            - code
+            - message
+      required:
+        - error
 
     SearchFacets:
       type: object
       properties:
-        tags:
-          type: array
-          items:
-            allOf:
-              - $ref: '#/components/schemas/Tag'
-              - type: object
-                properties:
-                  imageCount:
-                    type: integer
-        cameraMakes:
+        mimeTypes:
           type: array
           items:
             type: object
             properties:
-              cameraMake:
+              mimeType:
                 type: string
+                example: "image/jpeg"
               count:
                 type: integer
+                example: 42
+        topTags:
+          type: array
+          items:
+            $ref: '#/components/schemas/Tag'
         dateRange:
           type: object
           properties:
@@ -200,75 +298,126 @@ components:
               type: string
               format: date-time
               nullable: true
+        sizeStats:
+          type: object
+          properties:
+            minSize:
+              type: integer
+              nullable: true
+            maxSize:
+              type: integer
+              nullable: true
+            avgSize:
+              type: number
+              nullable: true
 
-security:
-  - BearerAuth: []
+  parameters:
+    PageParam:
+      name: page
+      in: query
+      description: Page number (1-based)
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+    LimitParam:
+      name: limit
+      in: query
+      description: Items per page (max 100)
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+
+  responses:
+    Unauthorized:
+      description: Missing or invalid API key
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error:
+              code: UNAUTHORIZED
+              message: "Missing or invalid Authorization header"
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error:
+              code: NOT_FOUND
+              message: "Resource not found"
+    ValidationError:
+      description: Validation error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error:
+              code: VALIDATION_ERROR
+              message: "Tag name is required"
+    RateLimitExceeded:
+      description: Rate limit exceeded
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error:
+              code: RATE_LIMIT_EXCEEDED
+              message: "Too many requests, please try again later."
 
 paths:
-  /images:
+  /api/v1/images:
     get:
       summary: List images
-      description: Returns a paginated list of images, optionally filtered.
+      description: Returns a paginated list of images. Supports filtering by search term and MIME type.
       operationId: listImages
-      tags:
-        - Images
+      tags: [Images]
       parameters:
-        - name: page
-          in: query
-          schema:
-            type: integer
-            default: 1
-            minimum: 1
-        - name: limit
-          in: query
-          schema:
-            type: integer
-            default: 20
-            minimum: 1
-            maximum: 100
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LimitParam'
         - name: search
           in: query
-          description: Search in filename, title, and description
+          description: Search term for original filename
           schema:
             type: string
-        - name: sort
+          example: "vacation"
+        - name: mimeType
           in: query
+          description: Filter by MIME type
           schema:
             type: string
-            enum: [createdAt, originalName, fileSize, title]
-            default: createdAt
-        - name: dir
-          in: query
-          schema:
-            type: string
-            enum: [asc, desc]
-            default: desc
+          example: "image/jpeg"
       responses:
         '200':
           description: Paginated list of images
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ImageListResponse'
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Image'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
         '401':
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
+          $ref: '#/components/responses/Unauthorized'
         '429':
-          description: Rate limit exceeded
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
+          $ref: '#/components/responses/RateLimitExceeded'
 
     post:
       summary: Upload an image
-      description: Upload a new image file with optional metadata.
+      description: Upload a new image file. Accepts multipart/form-data.
       operationId: uploadImage
-      tags:
-        - Images
+      tags: [Images]
       requestBody:
         required: true
         content:
@@ -281,371 +430,381 @@ paths:
                 image:
                   type: string
                   format: binary
-                  description: Image file (JPEG, PNG, GIF, WebP, TIFF, BMP)
+                  description: Image file to upload
                 title:
                   type: string
+                  description: Optional title for the image
                 description:
                   type: string
+                  description: Optional description
       responses:
         '201':
           description: Image uploaded successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ImageResponse'
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Image'
         '400':
-          description: No file provided or invalid file type
+          description: Invalid or missing file
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
         '401':
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
 
-  /images/{id}:
+  /api/v1/images/{id}:
     parameters:
       - name: id
         in: path
         required: true
+        description: Image ID
         schema:
           type: integer
-        description: Image ID
+        example: 42
 
     get:
-      summary: Get image by ID
+      summary: Get an image
+      description: Returns a single image by ID with its associated tags.
       operationId: getImage
-      tags:
-        - Images
+      tags: [Images]
       responses:
         '200':
           description: Image details
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ImageResponse'
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Image'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
         '404':
-          description: Image not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
 
     patch:
-      summary: Update image metadata
+      summary: Update an image
+      description: Update image metadata and/or tags. Only provided fields are updated.
       operationId: updateImage
-      tags:
-        - Images
+      tags: [Images]
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              type: object
-              properties:
-                title:
-                  type: string
-                description:
-                  type: string
-                tags:
-                  type: array
-                  items:
-                    type: string
-                  description: Replace all tags with this list
+              $ref: '#/components/schemas/ImageUpdate'
       responses:
         '200':
           description: Updated image
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ImageResponse'
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Image'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
         '404':
-          description: Image not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
 
     delete:
-      summary: Delete image
+      summary: Delete an image
+      description: Permanently delete an image and its associated data.
       operationId: deleteImage
-      tags:
-        - Images
+      tags: [Images]
       responses:
         '204':
-          description: Image deleted
+          description: Image deleted successfully
+        '401':
+          $ref: '#/components/responses/Unauthorized'
         '404':
-          description: Image not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
 
-  /tags:
+  /api/v1/tags:
     get:
       summary: List tags
+      description: Returns a paginated list of all tags.
       operationId: listTags
-      tags:
-        - Tags
+      tags: [Tags]
       parameters:
-        - name: page
-          in: query
-          schema:
-            type: integer
-            default: 1
-        - name: limit
-          in: query
-          schema:
-            type: integer
-            default: 50
-            maximum: 200
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LimitParam'
         - name: search
           in: query
+          description: Filter tags by name
           schema:
             type: string
+          example: "nature"
       responses:
         '200':
           description: Paginated list of tags
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/TagListResponse'
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Tag'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
         '401':
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
 
     post:
       summary: Create a tag
+      description: Create a new tag. If the tag already exists, it is returned with a 200 status.
       operationId: createTag
-      tags:
-        - Tags
+      tags: [Tags]
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              type: object
-              required:
-                - name
-              properties:
-                name:
-                  type: string
-                  example: landscape
+              $ref: '#/components/schemas/TagCreate'
       responses:
         '201':
-          description: Tag created
+          description: Tag created successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/TagResponse'
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Tag'
         '200':
-          description: Tag already exists (returned existing tag)
+          description: Tag already exists
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/TagResponse'
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Tag'
         '400':
-          description: Validation error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
 
-  /tags/{id}:
+  /api/v1/tags/{id}:
     parameters:
       - name: id
         in: path
         required: true
+        description: Tag ID
         schema:
           type: integer
-        description: Tag ID
+        example: 7
 
     get:
-      summary: Get tag by ID
+      summary: Get a tag
+      description: Returns a single tag with up to 20 associated images.
       operationId: getTag
-      tags:
-        - Tags
+      tags: [Tags]
       responses:
         '200':
-          description: Tag details with image count
+          description: Tag details with associated images
           content:
             application/json:
               schema:
-                allOf:
-                  - $ref: '#/components/schemas/TagResponse'
-                  - type: object
-                    properties:
-                      data:
-                        type: object
+                type: object
+                properties:
+                  data:
+                    allOf:
+                      - $ref: '#/components/schemas/Tag'
+                      - type: object
                         properties:
-                          imageCount:
-                            type: integer
+                          images:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                id:
+                                  type: integer
+                                filename:
+                                  type: string
+                                title:
+                                  type: string
+                                  nullable: true
+                                createdAt:
+                                  type: string
+                                  format: date-time
+        '401':
+          $ref: '#/components/responses/Unauthorized'
         '404':
-          description: Tag not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
 
     patch:
       summary: Rename a tag
+      description: Update the name of an existing tag.
       operationId: updateTag
-      tags:
-        - Tags
+      tags: [Tags]
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              type: object
-              required:
-                - name
-              properties:
-                name:
-                  type: string
+              $ref: '#/components/schemas/TagUpdate'
       responses:
         '200':
-          description: Renamed tag
+          description: Updated tag
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/TagResponse'
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Tag'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
         '404':
-          description: Tag not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
+          $ref: '#/components/responses/NotFound'
         '409':
-          description: Tag name already exists
+          description: Tag name already in use
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
 
     delete:
       summary: Delete a tag
+      description: Delete a tag and remove all its image associations.
       operationId: deleteTag
-      tags:
-        - Tags
+      tags: [Tags]
       responses:
         '204':
-          description: Tag deleted
+          description: Tag deleted successfully
+        '401':
+          $ref: '#/components/responses/Unauthorized'
         '404':
-          description: Tag not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
 
-  /search:
+  /api/v1/search:
     get:
       summary: Search images
-      description: Full-text search with multiple filter options.
+      description: |
+        Full-text and faceted search for images.
+        Supports filtering by query string, MIME type, date range, file size, and tags.
       operationId: searchImages
-      tags:
-        - Search
+      tags: [Search]
       parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LimitParam'
         - name: q
           in: query
-          description: Search query
+          description: Search query (searches title, originalName, description)
           schema:
             type: string
+          example: "sunset"
+        - name: mimeType
+          in: query
+          description: Filter by MIME type
+          schema:
+            type: string
+          example: "image/jpeg"
         - name: tags
           in: query
-          description: Comma-separated tag names to filter by
+          description: Comma-separated list of tag names to filter by
           schema:
             type: string
-            example: landscape,nature
+          example: "nature,landscape"
         - name: dateFrom
           in: query
+          description: Filter images uploaded on or after this date (ISO 8601)
           schema:
             type: string
-            format: date
+            format: date-time
+          example: "2024-01-01T00:00:00Z"
         - name: dateTo
           in: query
+          description: Filter images uploaded on or before this date (ISO 8601)
           schema:
             type: string
-            format: date
+            format: date-time
+          example: "2024-12-31T23:59:59Z"
         - name: minSize
           in: query
           description: Minimum file size in bytes
           schema:
             type: integer
+          example: 1024
         - name: maxSize
           in: query
           description: Maximum file size in bytes
           schema:
             type: integer
-        - name: cameraMake
+          example: 10485760
+        - name: sortBy
           in: query
+          description: Field to sort by
           schema:
             type: string
-        - name: cameraModel
-          in: query
-          schema:
-            type: string
-        - name: sort
-          in: query
-          schema:
-            type: string
+            enum: [createdAt, title, fileSize, originalName]
             default: createdAt
-        - name: dir
+        - name: sortDir
           in: query
+          description: Sort direction
           schema:
             type: string
             enum: [asc, desc]
             default: desc
-        - name: page
-          in: query
-          schema:
-            type: integer
-            default: 1
-        - name: limit
-          in: query
-          schema:
-            type: integer
-            default: 20
-            maximum: 100
       responses:
         '200':
-          description: Search results
+          description: Search results with pagination
           content:
             application/json:
               schema:
-                allOf:
-                  - $ref: '#/components/schemas/ImageListResponse'
-                  - type: object
-                    properties:
-                      meta:
-                        type: object
-                        properties:
-                          query:
-                            type: string
-                            nullable: true
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Image'
+                  query:
+                    type: object
+                    description: Echo of the query parameters
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
         '401':
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
 
-  /search/facets:
+  /api/v1/search/facets:
     get:
       summary: Get search facets
-      description: Returns aggregated filter options for building search UI.
+      description: Returns aggregated facet data for building filter UIs (MIME types, top tags, date range, size statistics).
       operationId: getSearchFacets
-      tags:
-        - Search
+      tags: [Search]
       responses:
         '200':
-          description: Search facets
+          description: Aggregated facets
           content:
             application/json:
               schema:
@@ -654,16 +813,6 @@ paths:
                   data:
                     $ref: '#/components/schemas/SearchFacets'
         '401':
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-
-tags:
-  - name: Images
-    description: Image management endpoints
-  - name: Tags
-    description: Tag management endpoints
-  - name: Search
-    description: Search and discovery endpoints
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'

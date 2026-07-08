@@ -8,7 +8,7 @@ const imagesRouter = require('./images');
 const tagsRouter = require('./tags');
 const searchRouter = require('./search');
 
-// Apply auth and rate limiting to all v1 API routes
+// Apply auth and rate limiting to all v1 routes
 router.use(apiKeyAuth);
 router.use(rateLimiter);
 
@@ -17,7 +17,7 @@ router.use('/images', imagesRouter);
 router.use('/tags', tagsRouter);
 router.use('/search', searchRouter);
 
-// API v1 root info
+// API v1 info
 router.get('/', (req, res) => {
   res.json({
     version: '1.0.0',

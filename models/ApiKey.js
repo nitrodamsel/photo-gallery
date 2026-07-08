@@ -1,17 +1,17 @@
 'use strict';
 
-const { Model, DataTypes } = require('sequelize');
+const { DataTypes, Model } = require('sequelize');
 const crypto = require('crypto');
 
 module.exports = (sequelize) => {
   class ApiKey extends Model {
-    static associate(models) {
-      // No associations needed
-    }
-
     async touch() {
       this.lastUsedAt = new Date();
       await this.save({ fields: ['lastUsedAt'] });
+    }
+
+    static generateKey() {
+      return crypto.randomBytes(32).toString('hex');
     }
   }
 
@@ -24,25 +24,24 @@ module.exports = (sequelize) => {
       },
       key: {
         type: DataTypes.STRING(64),
-        unique: true,
         allowNull: false,
-        defaultValue: () => crypto.randomBytes(32).toString('hex'),
+        unique: true,
       },
       label: {
         type: DataTypes.STRING,
         allowNull: false,
+        defaultValue: 'Unnamed Key',
       },
       lastUsedAt: {
         type: DataTypes.DATE,
         allowNull: true,
-        field: 'last_used_at',
+        defaultValue: null,
       },
     },
     {
       sequelize,
       modelName: 'ApiKey',
       tableName: 'api_keys',
-      underscored: true,
       timestamps: true,
       updatedAt: false,
     }
