@@ -9,16 +9,17 @@ const sequelize = new Sequelize(
   config.database.password,
   {
     host: config.database.host,
+    port: config.database.port,
     dialect: config.database.dialect,
-    storage: config.database.storage,
     logging: config.database.logging,
+    pool: config.database.pool,
   }
 );
 
 const db = {};
 
-db.sequelize = sequelize;
 db.Sequelize = Sequelize;
+db.sequelize = sequelize;
 
 // Import models
 db.Image = require('./Image')(sequelize);

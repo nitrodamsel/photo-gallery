@@ -2,26 +2,31 @@
 
 const rateLimit = require('express-rate-limit');
 
+/**
+ * Rate limiter for API endpoints.
+ * Limits to 100 requests per minute per API key (or IP if no key).
+ */
 const apiRateLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minute
-  max: 100, // limit each key/IP to 100 requests per window
+  max: 100,
   standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
-  legacyHeaders: false,
+  legacyHeaders: false,  // Disable the `X-RateLimit-*` headers
   keyGenerator: (req) => {
     // Use API key ID if available, otherwise fall back to IP
     return req.apiKey?.id ?? req.ip;
   },
   handler: (req, res) => {
-    return res.status(429).json({
+    res.status(429).json({
       error: {
         code: 'RATE_LIMIT_EXCEEDED',
-        message: 'Too many requests, please try again later.',
+        message: 'Too many requests. Limit is 100 requests per minute.',
+        retryAfter: Math.ceil(req.rateLimit?.resetTime ? (req.rateLimit.resetTime - Date.now()) / 1000 : 60),
       },
     });
   },
   skip: (req) => {
-    // Skip rate limiting for non-API routes
-    return !req.path.startsWith('/api/');
+    // Skip rate limiting for docs
+    return req.path.startsWith('/api/docs');
   },
 });
 

@@ -13,10 +13,6 @@ module.exports = (sequelize) => {
       this.lastUsedAt = new Date();
       await this.save({ fields: ['lastUsedAt'] });
     }
-
-    static generateKey() {
-      return crypto.randomBytes(32).toString('hex');
-    }
   }
 
   ApiKey.init(
@@ -28,8 +24,9 @@ module.exports = (sequelize) => {
       },
       key: {
         type: DataTypes.STRING(64),
-        allowNull: false,
         unique: true,
+        allowNull: false,
+        defaultValue: () => crypto.randomBytes(32).toString('hex'),
       },
       label: {
         type: DataTypes.STRING,

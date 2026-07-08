@@ -11,8 +11,8 @@ module.exports = {
       },
       key: {
         type: Sequelize.STRING(64),
-        allowNull: false,
         unique: true,
+        allowNull: false,
       },
       label: {
         type: Sequelize.STRING,
@@ -23,18 +23,18 @@ module.exports = {
         type: Sequelize.DATE,
         allowNull: true,
         defaultValue: null,
-        field: 'lastUsedAt',
       },
       createdAt: {
         type: Sequelize.DATE,
         allowNull: false,
-        defaultValue: Sequelize.NOW,
+        defaultValue: Sequelize.literal('CURRENT_TIMESTAMP'),
       },
     });
 
+    // Index on key for fast lookups
     await queryInterface.addIndex('api_keys', ['key'], {
-      name: 'api_keys_key_unique',
       unique: true,
+      name: 'api_keys_key_unique',
     });
   },
 

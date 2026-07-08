@@ -1,30 +1,40 @@
+'use strict';
+
 /**
- * Central error handling middleware.
+ * Global error handler middleware.
+ * Formats errors as JSON for API routes, renders error page for web routes.
  */
 function errorHandler(err, req, res, next) {
-  console.error('Error:', err.message);
-  if (process.env.NODE_ENV === 'development') {
-    console.error(err.stack);
-  }
-
   const status = err.status || err.statusCode || 500;
-  const message = err.message || 'Internal Server Error';
+  const code = err.code || (status === 404 ? 'NOT_FOUND' : status === 401 ? 'UNAUTHORIZED' : 'INTERNAL_ERROR');
+  const message = err.message || 'An unexpected error occurred';
 
-  // Respond with JSON for API routes
-  if (req.path.startsWith('/api/') || req.headers['accept'] === 'application/json') {
-    return res.status(status).json({ error: message });
+  // Log server errors
+  if (status >= 500) {
+    console.error('[Error]', err);
   }
 
-  // Render error view for HTML routes
-  try {
-    return res.status(status).render('error', {
-      title: `Error ${status}`,
-      message,
-      status,
+  // JSON response for API routes
+  if (req.path.startsWith('/api/') || req.xhr || req.headers.accept?.includes('application/json')) {
+    return res.status(status).json({
+      error: {
+        code,
+        message,
+      },
     });
-  } catch (renderErr) {
-    return res.status(status).send(`<h1>Error ${status}</h1><p>${message}</p>`);
   }
+
+  // HTML response for web routes
+  if (status === 404) {
+    return res.status(404).render('404', { title: 'Page Not Found', message });
+  }
+
+  return res.status(status).render('error', {
+    title: 'Error',
+    status,
+    message,
+    stack: process.env.NODE_ENV === 'development' ? err.stack : null,
+  });
 }
 
 module.exports = errorHandler;

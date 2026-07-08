@@ -3,7 +3,14 @@
 
 /**
  * CLI script to generate a new API key.
- * Usage: node scripts/generate-api-key.js --label "My App"
+ *
+ * Usage:
+ *   node scripts/generate-api-key.js --label "My App"
+ *   node scripts/generate-api-key.js -l "My App"
+ *
+ * Options:
+ *   --label, -l   Label for the API key (default: "CLI Generated Key")
+ *   --help, -h    Show help
  */
 
 const path = require('path');
@@ -15,29 +22,61 @@ try {
   // dotenv not available, continue
 }
 
-const { ApiKey } = require('../models');
+const args = process.argv.slice(2);
 
-function parseArgs(args) {
-  const result = {};
-  for (let i = 0; i < args.length; i++) {
-    if (args[i] === '--label' && args[i + 1]) {
-      result.label = args[i + 1];
-      i++;
-    } else if (args[i].startsWith('--label=')) {
-      result.label = args[i].slice(8);
+// Parse arguments
+function parseArgs(argv) {
+  const result = { label: null, help: false };
+  for (let i = 0; i < argv.length; i++) {
+    if (argv[i] === '--help' || argv[i] === '-h') {
+      result.help = true;
+    } else if ((argv[i] === '--label' || argv[i] === '-l') && argv[i + 1]) {
+      result.label = argv[++i];
     }
   }
   return result;
 }
 
-async function main() {
-  const args = parseArgs(process.argv.slice(2));
+const options = parseArgs(args);
 
-  const label = args.label || 'Unnamed Key';
+if (options.help) {
+  console.log(`
+Generate a new API key for the Photo Gallery API.
+
+Usage:
+  node scripts/generate-api-key.js --label "My App"
+  node scripts/generate-api-key.js -l "My App"
+
+Options:
+  --label, -l   A descriptive label for the API key
+  --help, -h    Show this help message
+
+Example:
+  node scripts/generate-api-key.js --label "My Integration"
+  `);
+  process.exit(0);
+}
+
+const label = options.label || 'CLI Generated Key';
+
+async function main() {
+  let db;
+  try {
+    db = require('../models');
+    await db.sequelize.authenticate();
+    console.log('✓ Connected to database\n');
+  } catch (err) {
+    console.error('✗ Failed to connect to database:', err.message);
+    console.error('\nMake sure your database is running and .env is configured correctly.');
+    process.exit(1);
+  }
 
   try {
-    // Generate a unique key
-    const key = ApiKey.generateKey();
+    const { ApiKey } = db;
+    const crypto = require('crypto');
+
+    // Generate a secure random key
+    const key = crypto.randomBytes(32).toString('hex');
 
     // Create the API key record
     const apiKey = await ApiKey.create({
@@ -45,32 +84,36 @@ async function main() {
       label,
     });
 
+    console.log('═══════════════════════════════════════════════════════════════');
+    console.log('  ✓ API Key Generated Successfully');
+    console.log('═══════════════════════════════════════════════════════════════');
     console.log('');
-    console.log('✅ API Key created successfully!');
+    console.log('  ID:        ' + apiKey.id);
+    console.log('  Label:     ' + apiKey.label);
+    console.log('  Created:   ' + apiKey.createdAt.toISOString());
     console.log('');
-    console.log('  ID:      ' + apiKey.id);
-    console.log('  Label:   ' + apiKey.label);
-    console.log('  Created: ' + apiKey.createdAt.toISOString());
+    console.log('  API Key:');
     console.log('');
-    console.log('  API Key: ' + key);
+    console.log('  ' + key);
     console.log('');
-    console.log('⚠️  IMPORTANT: Store this key securely! It will not be shown again.');
+    console.log('═══════════════════════════════════════════════════════════════');
     console.log('');
-    console.log('Usage example:');
-    console.log('  curl -H "Authorization: Bearer ' + key + '" http://localhost:3000/api/v1/images');
+    console.log('  ⚠️  IMPORTANT: Store this key securely.');
+    console.log('  It will NOT be shown again.');
     console.log('');
+    console.log('  Use it in API requests:');
+    console.log('  Authorization: Bearer ' + key);
+    console.log('');
+    console.log('═══════════════════════════════════════════════════════════════');
 
+    await db.sequelize.close();
     process.exit(0);
   } catch (err) {
-    console.error('');
-    console.error('❌ Failed to create API key:', err.message);
-    console.error('');
-
-    if (err.message && err.message.includes('no such table')) {
-      console.error('💡 Tip: Run migrations first: node scripts/migrate.js');
-      console.error('');
+    console.error('✗ Failed to create API key:', err.message);
+    if (err.errors) {
+      err.errors.forEach((e) => console.error('  -', e.message));
     }
-
+    await db.sequelize.close();
     process.exit(1);
   }
 }
