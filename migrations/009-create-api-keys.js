@@ -23,6 +23,7 @@ module.exports = {
         type: Sequelize.DATE,
         allowNull: true,
         defaultValue: null,
+        field: 'lastUsedAt',
       },
       createdAt: {
         type: Sequelize.DATE,
@@ -32,12 +33,12 @@ module.exports = {
     });
 
     await queryInterface.addIndex('api_keys', ['key'], {
-      unique: true,
       name: 'api_keys_key_unique',
+      unique: true,
     });
   },
 
-  async down(queryInterface, Sequelize) {
+  async down(queryInterface) {
     await queryInterface.dropTable('api_keys');
   },
 };

@@ -4,12 +4,10 @@ const express = require('express');
 const router = express.Router();
 const { Tag, Image, ImageTag } = require('../../../models');
 const { Op } = require('sequelize');
+const slugify = require('slugify');
 
-/**
- * GET /api/v1/tags
- * List all tags
- */
-router.get('/', async (req, res, next) => {
+// GET /api/v1/tags - List all tags
+router.get('/', async (req, res) => {
   try {
     const page = Math.max(1, parseInt(req.query.page) || 1);
     const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 50));
@@ -17,7 +15,7 @@ router.get('/', async (req, res, next) => {
 
     const where = {};
     if (req.query.search) {
-      where.name = { [Op.iLike]: `%${req.query.search}%` };
+      where.name = { [Op.like]: `%${req.query.search}%` };
     }
 
     const { count, rows } = await Tag.findAndCountAll({
@@ -27,136 +25,137 @@ router.get('/', async (req, res, next) => {
       order: [['name', 'ASC']],
     });
 
-    res.json({
+    return res.json({
       data: rows,
       pagination: {
         page,
         limit,
         total: count,
         totalPages: Math.ceil(count / limit),
-        hasNext: page < Math.ceil(count / limit),
-        hasPrev: page > 1,
+        hasNextPage: page < Math.ceil(count / limit),
+        hasPrevPage: page > 1,
       },
     });
   } catch (err) {
-    next(err);
+    console.error('GET /api/v1/tags error:', err);
+    return res.status(500).json({
+      error: { code: 'INTERNAL_ERROR', message: 'Failed to fetch tags.' },
+    });
   }
 });
 
-/**
- * POST /api/v1/tags
- * Create a new tag
- */
-router.post('/', async (req, res, next) => {
+// POST /api/v1/tags - Create a new tag
+router.post('/', async (req, res) => {
   try {
     const { name } = req.body;
 
-    if (!name || !name.trim()) {
+    if (!name || typeof name !== 'string' || !name.trim()) {
       return res.status(400).json({
-        error: { code: 'VALIDATION_ERROR', message: 'Tag name is required' },
+        error: { code: 'VALIDATION_ERROR', message: 'Tag name is required.' },
       });
     }
 
-    const [tag, created] = await Tag.findOrCreate({
-      where: { name: name.toLowerCase().trim() },
-      defaults: { name: name.toLowerCase().trim() },
-    });
+    const trimmedName = name.trim();
+    const slug = slugify(trimmedName, { lower: true, strict: true });
 
-    res.status(created ? 201 : 200).json({ data: tag });
-  } catch (err) {
-    next(err);
-  }
-});
-
-/**
- * GET /api/v1/tags/:id
- * Get a single tag by ID
- */
-router.get('/:id', async (req, res, next) => {
-  try {
-    const tag = await Tag.findByPk(req.params.id, {
-      include: [
-        {
-          model: Image,
-          as: 'images',
-          through: { attributes: [] },
-          attributes: ['id', 'filename', 'title', 'createdAt'],
-          limit: 20,
-        },
-      ],
-    });
-
-    if (!tag) {
-      return res.status(404).json({
-        error: { code: 'NOT_FOUND', message: 'Tag not found' },
-      });
-    }
-
-    res.json({ data: tag });
-  } catch (err) {
-    next(err);
-  }
-});
-
-/**
- * PATCH /api/v1/tags/:id
- * Rename a tag
- */
-router.patch('/:id', async (req, res, next) => {
-  try {
-    const tag = await Tag.findByPk(req.params.id);
-
-    if (!tag) {
-      return res.status(404).json({
-        error: { code: 'NOT_FOUND', message: 'Tag not found' },
-      });
-    }
-
-    const { name } = req.body;
-    if (!name || !name.trim()) {
-      return res.status(400).json({
-        error: { code: 'VALIDATION_ERROR', message: 'Tag name is required' },
-      });
-    }
-
-    const existingTag = await Tag.findOne({
-      where: { name: name.toLowerCase().trim() },
-    });
-
-    if (existingTag && existingTag.id !== tag.id) {
+    const existing = await Tag.findOne({ where: { slug } });
+    if (existing) {
       return res.status(409).json({
-        error: { code: 'CONFLICT', message: 'A tag with that name already exists' },
+        error: { code: 'CONFLICT', message: 'A tag with this name already exists.' },
       });
     }
 
-    await tag.update({ name: name.toLowerCase().trim() });
+    const tag = await Tag.create({ name: trimmedName, slug });
 
-    res.json({ data: tag });
+    return res.status(201).json({ data: tag });
   } catch (err) {
-    next(err);
+    console.error('POST /api/v1/tags error:', err);
+    return res.status(500).json({
+      error: { code: 'INTERNAL_ERROR', message: 'Failed to create tag.' },
+    });
   }
 });
 
-/**
- * DELETE /api/v1/tags/:id
- * Delete a tag
- */
-router.delete('/:id', async (req, res, next) => {
+// GET /api/v1/tags/:id - Get a single tag
+router.get('/:id', async (req, res) => {
   try {
     const tag = await Tag.findByPk(req.params.id);
 
     if (!tag) {
       return res.status(404).json({
-        error: { code: 'NOT_FOUND', message: 'Tag not found' },
+        error: { code: 'NOT_FOUND', message: 'Tag not found.' },
       });
     }
 
-    await ImageTag.destroy({ where: { tagId: tag.id } });
+    return res.json({ data: tag });
+  } catch (err) {
+    console.error('GET /api/v1/tags/:id error:', err);
+    return res.status(500).json({
+      error: { code: 'INTERNAL_ERROR', message: 'Failed to fetch tag.' },
+    });
+  }
+});
+
+// PATCH /api/v1/tags/:id - Rename a tag
+router.patch('/:id', async (req, res) => {
+  try {
+    const tag = await Tag.findByPk(req.params.id);
+
+    if (!tag) {
+      return res.status(404).json({
+        error: { code: 'NOT_FOUND', message: 'Tag not found.' },
+      });
+    }
+
+    const { name } = req.body;
+    if (!name || typeof name !== 'string' || !name.trim()) {
+      return res.status(400).json({
+        error: { code: 'VALIDATION_ERROR', message: 'Tag name is required.' },
+      });
+    }
+
+    const trimmedName = name.trim();
+    const slug = slugify(trimmedName, { lower: true, strict: true });
+
+    const existing = await Tag.findOne({
+      where: { slug, id: { [Op.ne]: tag.id } },
+    });
+    if (existing) {
+      return res.status(409).json({
+        error: { code: 'CONFLICT', message: 'A tag with this name already exists.' },
+      });
+    }
+
+    await tag.update({ name: trimmedName, slug });
+
+    return res.json({ data: tag });
+  } catch (err) {
+    console.error('PATCH /api/v1/tags/:id error:', err);
+    return res.status(500).json({
+      error: { code: 'INTERNAL_ERROR', message: 'Failed to update tag.' },
+    });
+  }
+});
+
+// DELETE /api/v1/tags/:id - Delete a tag
+router.delete('/:id', async (req, res) => {
+  try {
+    const tag = await Tag.findByPk(req.params.id);
+
+    if (!tag) {
+      return res.status(404).json({
+        error: { code: 'NOT_FOUND', message: 'Tag not found.' },
+      });
+    }
+
     await tag.destroy();
 
-    res.status(204).send();
+    return res.json({ data: { message: 'Tag deleted successfully.' } });
   } catch (err) {
-    next(err);
+    console.error('DELETE /api/v1/tags/:id error:', err);
+    return res.status(500).json({
+      error: { code: 'INTERNAL_ERROR', message: 'Failed to delete tag.' },
+    });
   }
 });
 

@@ -2,40 +2,15 @@
 
 const express = require('express');
 const router = express.Router();
-const multer = require('multer');
 const path = require('path');
+const fs = require('fs').promises;
 const { Image, Tag, ImageTag } = require('../../../models');
-const imageService = require('../../../services/imageService');
 const { Op, fn, col, literal } = require('sequelize');
+const uploadMiddleware = require('../../../middleware/upload');
+const imageService = require('../../../services/imageService');
 
-// Multer config for API uploads
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, path.join(__dirname, '../../../uploads'));
-  },
-  filename: (req, file, cb) => {
-    const unique = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
-    cb(null, `${unique}${path.extname(file.originalname)}`);
-  },
-});
-
-const upload = multer({
-  storage,
-  limits: { fileSize: 50 * 1024 * 1024 },
-  fileFilter: (req, file, cb) => {
-    const allowed = /jpeg|jpg|png|gif|webp|tiff|bmp/;
-    const ext = allowed.test(path.extname(file.originalname).toLowerCase());
-    const mime = allowed.test(file.mimetype);
-    if (ext && mime) return cb(null, true);
-    cb(new Error('Only image files are allowed'));
-  },
-});
-
-/**
- * GET /api/v1/images
- * List images with pagination and filtering
- */
-router.get('/', async (req, res, next) => {
+// GET /api/v1/images - List images with pagination
+router.get('/', async (req, res) => {
   try {
     const page = Math.max(1, parseInt(req.query.page) || 1);
     const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
@@ -44,7 +19,7 @@ router.get('/', async (req, res, next) => {
     const where = {};
 
     if (req.query.search) {
-      where.originalName = { [Op.iLike]: `%${req.query.search}%` };
+      where.originalName = { [Op.like]: `%${req.query.search}%` };
     }
 
     if (req.query.mimeType) {
@@ -53,152 +28,167 @@ router.get('/', async (req, res, next) => {
 
     const { count, rows } = await Image.findAndCountAll({
       where,
-      include: [{ model: Tag, as: 'tags', through: { attributes: [] } }],
+      include: [
+        {
+          model: Tag,
+          through: { attributes: [] },
+          attributes: ['id', 'name', 'slug'],
+        },
+      ],
       limit,
       offset,
       order: [['createdAt', 'DESC']],
       distinct: true,
     });
 
-    res.json({
+    return res.json({
       data: rows,
       pagination: {
         page,
         limit,
         total: count,
         totalPages: Math.ceil(count / limit),
-        hasNext: page < Math.ceil(count / limit),
-        hasPrev: page > 1,
+        hasNextPage: page < Math.ceil(count / limit),
+        hasPrevPage: page > 1,
       },
     });
   } catch (err) {
-    next(err);
+    console.error('GET /api/v1/images error:', err);
+    return res.status(500).json({
+      error: { code: 'INTERNAL_ERROR', message: 'Failed to fetch images.' },
+    });
   }
 });
 
-/**
- * POST /api/v1/images
- * Upload a new image
- */
-router.post('/', upload.single('image'), async (req, res, next) => {
+// POST /api/v1/images - Upload a new image
+router.post('/', uploadMiddleware.single('image'), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({
-        error: { code: 'MISSING_FILE', message: 'No image file provided' },
+        error: { code: 'VALIDATION_ERROR', message: 'No image file provided.' },
       });
     }
 
-    const imageData = {
-      filename: req.file.filename,
-      originalName: req.file.originalname,
-      mimeType: req.file.mimetype,
-      fileSize: req.file.size,
-      filePath: req.file.path,
-      title: req.body.title || req.file.originalname,
-      description: req.body.description || null,
-    };
-
-    let image;
-    try {
-      image = await imageService.processAndSaveImage(imageData, req.file.path);
-    } catch (serviceErr) {
-      // Fallback: save directly if service method signature differs
-      image = await Image.create(imageData);
-    }
-
-    res.status(201).json({ data: image });
+    const imageData = await imageService.processUpload(req.file, req.body);
+    return res.status(201).json({ data: imageData });
   } catch (err) {
-    next(err);
+    console.error('POST /api/v1/images error:', err);
+    return res.status(500).json({
+      error: { code: 'INTERNAL_ERROR', message: 'Failed to upload image.' },
+    });
   }
 });
 
-/**
- * GET /api/v1/images/:id
- * Get a single image by ID
- */
-router.get('/:id', async (req, res, next) => {
+// GET /api/v1/images/:id - Get single image
+router.get('/:id', async (req, res) => {
   try {
     const image = await Image.findByPk(req.params.id, {
-      include: [{ model: Tag, as: 'tags', through: { attributes: [] } }],
+      include: [
+        {
+          model: Tag,
+          through: { attributes: [] },
+          attributes: ['id', 'name', 'slug'],
+        },
+      ],
     });
 
     if (!image) {
       return res.status(404).json({
-        error: { code: 'NOT_FOUND', message: 'Image not found' },
+        error: { code: 'NOT_FOUND', message: 'Image not found.' },
       });
     }
 
-    res.json({ data: image });
+    return res.json({ data: image });
   } catch (err) {
-    next(err);
+    console.error('GET /api/v1/images/:id error:', err);
+    return res.status(500).json({
+      error: { code: 'INTERNAL_ERROR', message: 'Failed to fetch image.' },
+    });
   }
 });
 
-/**
- * PATCH /api/v1/images/:id
- * Update image metadata
- */
-router.patch('/:id', async (req, res, next) => {
+// PATCH /api/v1/images/:id - Update image metadata
+router.patch('/:id', async (req, res) => {
   try {
     const image = await Image.findByPk(req.params.id);
 
     if (!image) {
       return res.status(404).json({
-        error: { code: 'NOT_FOUND', message: 'Image not found' },
+        error: { code: 'NOT_FOUND', message: 'Image not found.' },
       });
     }
 
-    const allowedFields = ['title', 'description', 'isPublic'];
-    const updates = {};
-    allowedFields.forEach((field) => {
-      if (req.body[field] !== undefined) {
-        updates[field] = req.body[field];
-      }
-    });
+    const allowedFields = ['title', 'description', 'altText', 'tags'];
+    const updateData = {};
 
-    await image.update(updates);
+    for (const field of allowedFields) {
+      if (req.body[field] !== undefined) {
+        updateData[field] = req.body[field];
+      }
+    }
+
+    // Handle tags separately
+    let tagIds = null;
+    if (updateData.tags !== undefined) {
+      tagIds = updateData.tags;
+      delete updateData.tags;
+    }
+
+    await image.update(updateData);
 
     // Update tags if provided
-    if (req.body.tags && Array.isArray(req.body.tags)) {
-      const tagInstances = await Promise.all(
-        req.body.tags.map((name) =>
-          Tag.findOrCreate({ where: { name: name.toLowerCase().trim() } }).then(([t]) => t)
-        )
-      );
-      await image.setTags(tagInstances);
+    if (tagIds !== null && Array.isArray(tagIds)) {
+      const tags = await Tag.findAll({ where: { id: tagIds } });
+      await image.setTags(tags);
     }
 
-    await image.reload({ include: [{ model: Tag, as: 'tags', through: { attributes: [] } }] });
+    await image.reload({
+      include: [
+        {
+          model: Tag,
+          through: { attributes: [] },
+          attributes: ['id', 'name', 'slug'],
+        },
+      ],
+    });
 
-    res.json({ data: image });
+    return res.json({ data: image });
   } catch (err) {
-    next(err);
+    console.error('PATCH /api/v1/images/:id error:', err);
+    return res.status(500).json({
+      error: { code: 'INTERNAL_ERROR', message: 'Failed to update image.' },
+    });
   }
 });
 
-/**
- * DELETE /api/v1/images/:id
- * Delete an image
- */
-router.delete('/:id', async (req, res, next) => {
+// DELETE /api/v1/images/:id - Delete image
+router.delete('/:id', async (req, res) => {
   try {
     const image = await Image.findByPk(req.params.id);
 
     if (!image) {
       return res.status(404).json({
-        error: { code: 'NOT_FOUND', message: 'Image not found' },
+        error: { code: 'NOT_FOUND', message: 'Image not found.' },
       });
     }
 
-    try {
-      await imageService.deleteImage(image.id);
-    } catch (serviceErr) {
-      await image.destroy();
+    // Delete physical file
+    if (image.filePath) {
+      try {
+        await fs.unlink(image.filePath);
+      } catch (fileErr) {
+        console.warn('Could not delete image file:', fileErr.message);
+      }
     }
 
-    res.status(204).send();
+    await image.destroy();
+
+    return res.json({ data: { message: 'Image deleted successfully.' } });
   } catch (err) {
-    next(err);
+    console.error('DELETE /api/v1/images/:id error:', err);
+    return res.status(500).json({
+      error: { code: 'INTERNAL_ERROR', message: 'Failed to delete image.' },
+    });
   }
 });
 

@@ -9,36 +9,29 @@ const sequelize = new Sequelize(
   config.database.password,
   {
     host: config.database.host,
-    port: config.database.port,
     dialect: config.database.dialect,
+    storage: config.database.storage,
     logging: config.database.logging,
-    pool: config.database.pool,
   }
 );
 
-const Image = require('./Image')(sequelize);
-const Tag = require('./Tag')(sequelize);
-const ImageTag = require('./ImageTag')(sequelize);
-const ThumbnailCache = require('./ThumbnailCache')(sequelize);
-const ApiKey = require('./ApiKey')(sequelize);
+const db = {};
 
-// Associations
-Image.belongsToMany(Tag, { through: ImageTag, foreignKey: 'imageId', as: 'tags' });
-Tag.belongsToMany(Image, { through: ImageTag, foreignKey: 'tagId', as: 'images' });
-Image.hasMany(ImageTag, { foreignKey: 'imageId' });
-ImageTag.belongsTo(Image, { foreignKey: 'imageId' });
-Tag.hasMany(ImageTag, { foreignKey: 'tagId' });
-ImageTag.belongsTo(Tag, { foreignKey: 'tagId' });
+db.sequelize = sequelize;
+db.Sequelize = Sequelize;
 
-Image.hasMany(ThumbnailCache, { foreignKey: 'imageId', as: 'thumbnails' });
-ThumbnailCache.belongsTo(Image, { foreignKey: 'imageId' });
+// Import models
+db.Image = require('./Image')(sequelize);
+db.Tag = require('./Tag')(sequelize);
+db.ImageTag = require('./ImageTag')(sequelize);
+db.ThumbnailCache = require('./ThumbnailCache')(sequelize);
+db.ApiKey = require('./ApiKey')(sequelize);
 
-module.exports = {
-  sequelize,
-  Sequelize,
-  Image,
-  Tag,
-  ImageTag,
-  ThumbnailCache,
-  ApiKey,
-};
+// Run associations
+Object.values(db).forEach((model) => {
+  if (model && typeof model.associate === 'function') {
+    model.associate(db);
+  }
+});
+
+module.exports = db;

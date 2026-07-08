@@ -1,10 +1,14 @@
 'use strict';
 
-const { DataTypes, Model } = require('sequelize');
+const { Model, DataTypes } = require('sequelize');
 const crypto = require('crypto');
 
 module.exports = (sequelize) => {
   class ApiKey extends Model {
+    static associate(models) {
+      // No associations needed for now
+    }
+
     async touch() {
       this.lastUsedAt = new Date();
       await this.save({ fields: ['lastUsedAt'] });
